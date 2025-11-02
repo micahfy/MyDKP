@@ -1,0 +1,13 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=file:./prod.db
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=your_secure_password
+      - SESSION_SECRET=your_session_secret
+    volumes:
+      - ./data:/app/prisma
