@@ -40,7 +40,7 @@ export function ImportDialog({ teamId, onSuccess }: ImportDialogProps) {
         toast.success(
           `导入成功！成功: ${data.imported}，失败: ${data.failed}`
         );
-        setPlayerData(');
+        setPlayerData('');
         onSuccess();
       } else {
         toast.error(data.error || '导入失败');
