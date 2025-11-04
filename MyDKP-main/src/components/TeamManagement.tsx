@@ -120,7 +120,7 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="例如: 荣耀公会"
+                placeholder="例如: 乌龟公会"
                 required
               />
             </div>
@@ -130,7 +130,7 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
               <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="例如: 主力团队，专注黑翼之巢和安其拉"
+                placeholder="例如: 主力团队，专注开荒"
                 rows={3}
               />
             </div>
@@ -142,7 +142,7 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
 
           <div className="bg-gray-50 p-4 rounded-lg">
             <p className="text-sm text-gray-600">
-              💡 提示：每个团队的DKP数据完全独立，方便管理多个Raid团队。
+              💡 提示：每个团队的DKP数据完全独立。
             </p>
           </div>
         </div>

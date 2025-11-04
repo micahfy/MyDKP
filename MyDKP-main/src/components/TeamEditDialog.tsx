@@ -83,7 +83,7 @@ export function TeamEditDialog({ team, open, onOpenChange, onSuccess }: TeamEdit
               id="teamName"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="例如: 荣耀公会"
+              placeholder="例如: 乌龟公会"
               required
             />
           </div>
@@ -94,7 +94,7 @@ export function TeamEditDialog({ team, open, onOpenChange, onSuccess }: TeamEdit
               id="teamDescription"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="例如: 主力团队，专注黑翼之巢和安其拉"
+              placeholder="例如: 主力团队，专注开荒"
               rows={3}
             />
           </div>
