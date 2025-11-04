@@ -6,18 +6,28 @@ export interface SessionData {
   username?: string;
 }
 
+const sessionOptions = {
+  password: process.env.SESSION_SECRET!,
+  cookieName: 'wow-dkp-session',
+  cookieOptions: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+  },
+};
+
 export async function getSession(): Promise<IronSession<SessionData>> {
-  return getIronSession<SessionData>(cookies(), {
-    password: process.env.SESSION_SECRET!,
-    cookieName: 'wow-dkp-session',
-    cookieOptions: {
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-    },
-  });
+  const cookieStore = await cookies();
+  return getIronSession<SessionData>(cookieStore, sessionOptions);
 }
 
 export async function isAdmin(): Promise<boolean> {
-  const session = await getSession();
-  return session.isAdmin === true;
+  try {
+    const session = await getSession();
+    return session.isAdmin === true;
+  } catch (error) {
+    console.error('Session check error:', error);
+    return false;
+  }
 }

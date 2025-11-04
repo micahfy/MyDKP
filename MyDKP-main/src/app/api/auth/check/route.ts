@@ -4,8 +4,12 @@ import { getSession } from '@/lib/auth';
 export async function GET() {
   try {
     const session = await getSession();
-    return NextResponse.json({ isAdmin: session.isAdmin === true });
+    return NextResponse.json({ 
+      isAdmin: session.isAdmin === true,
+      username: session.username || null 
+    });
   } catch (error) {
-    return NextResponse.json({ isAdmin: false });
+    console.error('Auth check error:', error);
+    return NextResponse.json({ isAdmin: false, username: null });
   }
 }

@@ -3,14 +3,19 @@ import { prisma } from '@/lib/prisma';
 import { isAdmin, getSession } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
-  if (!(await isAdmin())) {
-    return NextResponse.json({ error: '权限不足' }, { status: 403 });
-  }
-
   try {
+    const adminStatus = await isAdmin();
+    
+    if (!adminStatus) {
+      return NextResponse.json({ error: '权限不足，请先登录管理员账号' }, { status: 403 });
+    }
+
     const session = await getSession();
-    const { playerId, teamId, type, change, reason, item, boss } =
-      await request.json();
+    const { playerId, teamId, type, change, reason, item, boss } = await request.json();
+
+    if (!playerId || !teamId || change === undefined) {
+      return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
+    }
 
     const player = await prisma.player.findUnique({ where: { id: playerId } });
     if (!player) {
@@ -46,6 +51,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error('DKP operation error:', error);
     return NextResponse.json({ error: 'DKP变动失败' }, { status: 500 });
   }
 }
