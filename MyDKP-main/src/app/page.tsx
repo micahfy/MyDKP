@@ -82,17 +82,17 @@ export default function Home() {
         
         {teams.length === 0 ? (
           <div className="text-center py-20">
-            <div className="text-gray-500 text-lg mb-4">
+            <div className="text-gray-400 text-lg mb-4">
               {isAdmin ? '暂无团队，请先创建一个团队' : '暂无团队数据'}
             </div>
             {isAdmin && (
-              <div className="text-sm text-gray-400">
+              <div className="text-sm text-gray-500">
                 请在上方管理面板的"团队管理"标签中创建团队
               </div>
             )}
           </div>
         ) : (
-          <PlayerTable teamId={selectedTeam} />
+          <PlayerTable teamId={selectedTeam} isAdmin={isAdmin} />
         )}
       </main>
 
