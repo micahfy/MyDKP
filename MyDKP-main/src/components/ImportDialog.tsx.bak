@@ -7,17 +7,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { Upload, FileText } from 'lucide-react';
 import { toast } from 'sonner';
-import { getClassColor } from '@/lib/utils';
 
 interface ImportDialogProps {
   teamId: string;
   onSuccess: () => void;
 }
-
-const WOW_CLASSES = [
-  '战士', '圣骑士', '猎人', '盗贼', '牧师',
-  '萨满祭司', '法师', '术士', '德鲁伊'
-];
 
 export function ImportDialog({ teamId, onSuccess }: ImportDialogProps) {
   const [playerData, setPlayerData] = useState('');
@@ -60,30 +54,30 @@ export function ImportDialog({ teamId, onSuccess }: ImportDialogProps) {
 
   return (
     <div className="space-y-6">
-      <Card className="p-6 bg-gradient-to-br from-blue-900/30 to-indigo-900/30 border-blue-700/50">
+      <Card className="p-6">
         <div className="space-y-4">
           <div className="flex items-center space-x-2">
-            <Upload className="h-5 w-5 text-blue-400" />
-            <h3 className="text-lg font-semibold text-gray-100">批量导入玩家</h3>
+            <Upload className="h-5 w-5 text-blue-600" />
+            <h3 className="text-lg font-semibold">批量导入玩家</h3>
           </div>
 
           <div>
-            <Label className="text-gray-200">CSV 数据</Label>
+            <Label>CSV 数据</Label>
             <Textarea
               value={playerData}
               onChange={(e) => setPlayerData(e.target.value)}
               placeholder="格式示例：&#10;角色名,职业,初始DKP&#10;无敌战士,战士,100&#10;治疗圣骑,圣骑士,150"
               rows={8}
-              className="font-mono text-sm bg-slate-800/80 border-slate-600 text-gray-200 placeholder:text-gray-500"
+              className="font-mono text-sm"
             />
           </div>
 
-          <div className="bg-blue-900/30 border border-blue-700/50 p-4 rounded-lg">
+          <div className="bg-blue-50 p-4 rounded-lg">
             <div className="flex items-start space-x-2">
-              <FileText className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-gray-200">
-                <p className="font-semibold mb-2 text-blue-300">格式说明：</p>
-                <ul className="space-y-1 list-disc list-inside text-gray-300">
+              <FileText className="h-5 w-5 text-blue-600 mt-0.5" />
+              <div className="text-sm text-blue-900">
+                <p className="font-semibold mb-2">格式说明：</p>
+                <ul className="space-y-1 list-disc list-inside">
                   <li>每行一个玩家，使用逗号分隔</li>
                   <li>格式：角色名,职业,初始DKP</li>
                   <li>初始DKP可选，默认为0</li>
@@ -95,7 +89,7 @@ export function ImportDialog({ teamId, onSuccess }: ImportDialogProps) {
 
           <Button
             onClick={handleImportPlayers}
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+            className="w-full"
             disabled={loading}
           >
             {loading ? '导入中...' : '开始导入'}
@@ -103,28 +97,24 @@ export function ImportDialog({ teamId, onSuccess }: ImportDialogProps) {
         </div>
       </Card>
 
-      <Card className="p-6 bg-gradient-to-br from-green-900/30 to-emerald-900/30 border-green-700/50">
+      <Card className="p-6">
         <div className="space-y-4">
           <div className="flex items-center space-x-2">
-            <Upload className="h-5 w-5 text-green-400" />
-            <h3 className="text-lg font-semibold text-gray-100">支持的职业列表</h3>
+            <Upload className="h-5 w-5 text-green-600" />
+            <h3 className="text-lg font-semibold">支持的职业列表</h3>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            {WOW_CLASSES.map((cls) => (
-              <div
-                key={cls}
-                className="px-4 py-3 rounded-lg text-sm text-center font-bold border-2 transition-all hover:scale-105"
-                style={{
-                  backgroundColor: `${getClassColor(cls, 'hex')}20`,
-                  borderColor: getClassColor(cls, 'hex'),
-                  color: getClassColor(cls, 'hex'),
-                  textShadow: `0 0 8px ${getClassColor(cls, 'hex')}80`,
-                }}
-              >
-                {cls}
-              </div>
-            ))}
+          <div className="grid grid-cols-3 gap-2">
+            {['战士', '圣骑士', '猎人', '盗贼', '牧师', '萨满祭司', '法师', '术士', '德鲁伊'].map(
+              (cls) => (
+                <div
+                  key={cls}
+                  className="bg-gray-100 px-3 py-2 rounded text-sm text-center"
+                >
+                  {cls}
+                </div>
+              )
+            )}
           </div>
         </div>
       </Card>

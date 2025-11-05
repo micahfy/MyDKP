@@ -89,7 +89,7 @@ export function Navbar({
             <div className="flex items-center space-x-3">
               <Swords className="h-8 w-8 text-yellow-400" />
               <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400">
-                MirAcLe DKP
+                MirAcLe DKP System
               </h1>
             </div>
             
