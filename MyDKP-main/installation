@@ -1,0 +1,44 @@
+
+安装编辑器
+编辑env文件
+apt update
+apt install ntpdate
+ntpdate ntp.aliyun.com
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+npm --version
+node --version
+npm install
+npx prisma generate
+npx prisma db push
+npm run db:seed
+npm run dev
+apt install -y build-essential
+npm install -g pm2
+npm run build
+pm2 status
+npx shadcn@latest add button
+
+npx shadcn@latest add dialog
+
+npx shadcn@latest add input
+
+npx shadcn@latest add select
+
+npx shadcn@latest add table
+
+npx shadcn@latest add tabs
+
+npx shadcn@latest add card
+
+npx shadcn@latest add label
+
+npx shadcn@latest add textarea
+
+npx shadcn@latest add badge
+
+npx shadcn@latest add dropdown-menu
+
+npx shadcn@latest add alert-dialog
+
+npm run build 
