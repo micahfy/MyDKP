@@ -3,13 +3,19 @@ import { prisma } from '@/lib/prisma';
 import { isAdmin, getSession } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
-  if (!(await isAdmin())) {
-    return NextResponse.json({ error: '权限不足' }, { status: 403 });
-  }
-
   try {
+    const adminStatus = await isAdmin();
+    
+    if (!adminStatus) {
+      return NextResponse.json({ error: '权限不足' }, { status: 403 });
+    }
+
     const session = await getSession();
     const { teamId } = await request.json();
+
+    if (!teamId) {
+      return NextResponse.json({ error: '缺少团队ID' }, { status: 400 });
+    }
 
     const lastDecay = await prisma.decayHistory.findFirst({
       where: { teamId, status: 'normal' },
@@ -24,9 +30,22 @@ export async function POST(request: NextRequest) {
       where: {
         teamId,
         type: 'decay',
-        createdAt: { gte: lastDecay.executedAt },
+        createdAt: { 
+          gte: lastDecay.executedAt,
+        },
+      },
+      orderBy: {
+        createdAt: 'asc'
       },
     });
+
+    console.log(`找到 ${decayLogs.length} 条衰减日志需要撤销`);
+
+    if (decayLogs.length === 0) {
+      return NextResponse.json({ error: '未找到相关的衰减日志' }, { status: 404 });
+    }
+
+    let affectedPlayers = 0;
 
     await prisma.$transaction(async (tx) => {
       for (const log of decayLogs) {
@@ -35,9 +54,12 @@ export async function POST(request: NextRequest) {
         });
 
         if (player) {
+          const undoChange = -log.change;
+          const newDkp = player.currentDkp + undoChange;
+
           await tx.player.update({
             where: { id: log.playerId },
-            data: { currentDkp: player.currentDkp - log.change },
+            data: { currentDkp: newDkp },
           });
 
           await tx.dkpLog.create({
@@ -45,11 +67,13 @@ export async function POST(request: NextRequest) {
               playerId: log.playerId,
               teamId,
               type: 'undo',
-              change: -log.change,
-              reason: '撤销衰减',
+              change: undoChange,
+              reason: `撤销衰减 (原因: ${log.reason || '未知'})`,
               operator: session.username || 'admin',
             },
           });
+
+          affectedPlayers++;
         }
       }
 
@@ -59,8 +83,15 @@ export async function POST(request: NextRequest) {
       });
     });
 
-    return NextResponse.json({ success: true });
+    console.log(`成功撤销 ${affectedPlayers} 名玩家的衰减`);
+
+    return NextResponse.json({ 
+      success: true,
+      affectedPlayers,
+      message: `已撤销 ${affectedPlayers} 名玩家的衰减` 
+    });
   } catch (error) {
+    console.error('撤销衰减失败:', error);
     return NextResponse.json({ error: '撤销失败' }, { status: 500 });
   }
 }

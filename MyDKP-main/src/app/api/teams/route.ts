@@ -10,7 +10,10 @@ export async function GET() {
           select: { players: true },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [
+        { sortOrder: 'asc' },
+        { createdAt: 'desc' },
+      ],
     });
     return NextResponse.json(teams);
   } catch (error) {
@@ -25,8 +28,18 @@ export async function POST(request: NextRequest) {
 
   try {
     const { name, description } = await request.json();
+    
+    const maxSortOrder = await prisma.team.findFirst({
+      orderBy: { sortOrder: 'desc' },
+      select: { sortOrder: true },
+    });
+    
     const team = await prisma.team.create({
-      data: { name, description },
+      data: { 
+        name, 
+        description,
+        sortOrder: (maxSortOrder?.sortOrder ?? -1) + 1,
+      },
     });
     return NextResponse.json(team);
   } catch (error) {

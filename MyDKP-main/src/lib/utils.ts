@@ -19,18 +19,18 @@ export function calculateAttendance(
 
 // 魔兽世界职业颜色配置（使用深色背景友好的颜色）
 export const CLASS_COLORS: Record<string, {
-  text: string;        // 文字颜色（深色背景）
-  textLight: string;   // 文字颜色（浅色背景）
-  bg: string;          // 背景颜色
-  border: string;      // 边框颜色
-  glow: string;        // 发光效果
+  text: string;
+  textLight: string;
+  bg: string;
+  border: string;
+  glow: string;
 }> = {
   '战士': {
-    text: 'text-amber-400',
-    textLight: 'text-amber-700',
-    bg: 'bg-amber-900/20',
-    border: 'border-amber-700',
-    glow: 'shadow-amber-500/50',
+    text: 'text-yellow-600',      // 战士应该是棕黄色/土黄色
+    textLight: 'text-yellow-700',
+    bg: 'bg-yellow-900/20',
+    border: 'border-yellow-700',
+    glow: 'shadow-yellow-500/50',
   },
   '圣骑士': {
     text: 'text-pink-400',
@@ -47,7 +47,7 @@ export const CLASS_COLORS: Record<string, {
     glow: 'shadow-green-500/50',
   },
   '盗贼': {
-    text: 'text-yellow-400',
+    text: 'text-yellow-300',     // 盗贼是亮黄色
     textLight: 'text-yellow-600',
     bg: 'bg-yellow-900/20',
     border: 'border-yellow-600',
@@ -90,9 +90,7 @@ export const CLASS_COLORS: Record<string, {
   },
 };
 
-// 职业简称和英文名映射到标准中文名
 const CLASS_NAME_MAP: Record<string, string> = {
-  // 中文简称
   '战': '战士',
   '骑': '圣骑士',
   'QS': '圣骑士',
@@ -111,7 +109,6 @@ const CLASS_NAME_MAP: Record<string, string> = {
   'SS': '术士',
   '德': '德鲁伊',
   'XD': '德鲁伊',
-  // 英文名
   'Warrior': '战士',
   'Paladin': '圣骑士',
   'Hunter': '猎人',
@@ -123,26 +120,56 @@ const CLASS_NAME_MAP: Record<string, string> = {
   'Druid': '德鲁伊',
 };
 
-export function getClassColor(className: string, type: 'text' | 'textLight' | 'bg' | 'border' | 'glow' = 'text'): string {
-  // 先尝试直接匹配
-  if (CLASS_COLORS[className]) {
-    return CLASS_COLORS[className][type];
+const CLASS_HEX: Record<string, string> = {
+  '战士': '#ca8a04',      // yellow-600
+  '圣骑士': '#f472b6',    // pink-400
+  '猎人': '#4ade80',      // green-400
+  '盗贼': '#fde047',      // yellow-300
+  '牧师': '#e5e7eb',      // gray-100
+  '萨满祭司': '#60a5fa',  // blue-400
+  '法师': '#67e8f9',      // cyan-400
+  '术士': '#c084fc',      // purple-400
+  '德鲁伊': '#fb923c',    // orange-400
+};
+
+export function getClassColor(className: string, type: 'text' | 'textLight' | 'bg' | 'border' | 'glow' | 'hex' = 'text'): string {
+  // 先清理职业名称（去除空格和特殊字符）
+  const cleanClassName = className?.trim() || '';
+  
+  console.log('职业名称匹配:', cleanClassName, '类型:', type);
+  
+  // 直接匹配
+  if (CLASS_COLORS[cleanClassName]) {
+    if (type === 'hex') {
+      return CLASS_HEX[cleanClassName] || '#9ca3af';
+    }
+    return CLASS_COLORS[cleanClassName][type];
   }
   
-  // 尝试通过映射表查找
-  const mappedName = CLASS_NAME_MAP[className];
+  // 通过映射表查找
+  const mappedName = CLASS_NAME_MAP[cleanClassName];
   if (mappedName && CLASS_COLORS[mappedName]) {
+    if (type === 'hex') {
+      return CLASS_HEX[mappedName] || '#9ca3af';
+    }
     return CLASS_COLORS[mappedName][type];
   }
   
-  // 尝试模糊匹配（职业名包含关键字）
+  // 模糊匹配
   for (const [key, value] of Object.entries(CLASS_COLORS)) {
-    if (className.includes(key) || key.includes(className)) {
+    if (cleanClassName.includes(key) || key.includes(cleanClassName)) {
+      if (type === 'hex') {
+        return CLASS_HEX[key] || '#9ca3af';
+      }
       return value[type];
     }
   }
   
-  // 默认返回灰色
+  // 默认灰色
+  console.warn('未找到职业颜色配置:', cleanClassName);
+  if (type === 'hex') {
+    return '#9ca3af';
+  }
   return type === 'text' ? 'text-gray-400' : 
          type === 'textLight' ? 'text-gray-600' :
          type === 'bg' ? 'bg-gray-700/20' :
