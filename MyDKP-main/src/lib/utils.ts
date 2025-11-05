@@ -90,6 +90,62 @@ export const CLASS_COLORS: Record<string, {
   },
 };
 
+// 职业简称和英文名映射到标准中文名
+const CLASS_NAME_MAP: Record<string, string> = {
+  // 中文简称
+  '战': '战士',
+  '骑': '圣骑士',
+  'QS': '圣骑士',
+  '猎': '猎人',
+  'LR': '猎人',
+  '贼': '盗贼',
+  'DZ': '盗贼',
+  '牧': '牧师',
+  'MS': '牧师',
+  '萨': '萨满祭司',
+  '萨满': '萨满祭司',
+  'SM': '萨满祭司',
+  '法': '法师',
+  'FS': '法师',
+  '术': '术士',
+  'SS': '术士',
+  '德': '德鲁伊',
+  'XD': '德鲁伊',
+  // 英文名
+  'Warrior': '战士',
+  'Paladin': '圣骑士',
+  'Hunter': '猎人',
+  'Rogue': '盗贼',
+  'Priest': '牧师',
+  'Shaman': '萨满祭司',
+  'Mage': '法师',
+  'Warlock': '术士',
+  'Druid': '德鲁伊',
+};
+
 export function getClassColor(className: string, type: 'text' | 'textLight' | 'bg' | 'border' | 'glow' = 'text'): string {
-  return CLASS_COLORS[className]?.[type] || 'text-gray-400';
+  // 先尝试直接匹配
+  if (CLASS_COLORS[className]) {
+    return CLASS_COLORS[className][type];
+  }
+  
+  // 尝试通过映射表查找
+  const mappedName = CLASS_NAME_MAP[className];
+  if (mappedName && CLASS_COLORS[mappedName]) {
+    return CLASS_COLORS[mappedName][type];
+  }
+  
+  // 尝试模糊匹配（职业名包含关键字）
+  for (const [key, value] of Object.entries(CLASS_COLORS)) {
+    if (className.includes(key) || key.includes(className)) {
+      return value[type];
+    }
+  }
+  
+  // 默认返回灰色
+  return type === 'text' ? 'text-gray-400' : 
+         type === 'textLight' ? 'text-gray-600' :
+         type === 'bg' ? 'bg-gray-700/20' :
+         type === 'border' ? 'border-gray-500' :
+         'shadow-gray-500/50';
 }

@@ -4,25 +4,26 @@
 
 @layer base {
   :root {
+    /* 深色主题配色 */
     --background: 222.2 47.4% 11.2%;
     --foreground: 210 40% 98%;
-    --card: 222.2 47.4% 14%;
+    --card: 222.2 47.4% 16%;
     --card-foreground: 210 40% 98%;
-    --popover: 222.2 47.4% 14%;
+    --popover: 222.2 47.4% 16%;
     --popover-foreground: 210 40% 98%;
     --primary: 217.2 91.2% 59.8%;
     --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
+    --secondary: 217.2 32.6% 20%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
+    --muted: 217.2 32.6% 20%;
+    --muted-foreground: 215 20.2% 75%;
+    --accent: 217.2 32.6% 20%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 70% 50%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 22%;
-    --input: 217.2 32.6% 22%;
-    --ring: 224.3 76.3% 48%;
+    --border: 217.2 32.6% 25%;
+    --input: 217.2 32.6% 25%;
+    --ring: 224.3 76.3% 58%;
     --radius: 0.5rem;
   }
 }
@@ -33,11 +34,11 @@
   }
   
   body {
-    @apply bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-foreground min-h-screen;
+    @apply bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-foreground min-h-screen;
     background-attachment: fixed;
   }
 
-  /* 添加魔幻光效背景 */
+  /* 魔幻光效背景 */
   body::before {
     content: '';
     position: fixed;
@@ -46,18 +47,23 @@
     right: 0;
     bottom: 0;
     background: 
-      radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
-      radial-gradient(circle at 80% 50%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
+      radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 80% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
     pointer-events: none;
     z-index: 0;
   }
 
-  /* 卡片光效 */
+  /* 卡片样式 */
   .card-glow {
-    @apply shadow-lg;
+    @apply shadow-2xl;
     box-shadow: 
-      0 0 20px rgba(59, 130, 246, 0.1),
-      0 10px 30px rgba(0, 0, 0, 0.3);
+      0 0 30px rgba(59, 130, 246, 0.15),
+      0 10px 40px rgba(0, 0, 0, 0.4);
+  }
+
+  .card-bg {
+    @apply bg-slate-800/90 backdrop-blur-sm;
+    border: 1px solid rgba(100, 149, 237, 0.3);
   }
 
   /* 表格行悬停效果 */
@@ -66,26 +72,42 @@
   }
 
   .table-row-hover:hover {
-    @apply bg-blue-950/30 shadow-lg;
-    box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+    @apply bg-slate-700/40;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.25);
+    transform: translateY(-1px);
+  }
+
+  /* 表格标题栏 */
+  .table-header {
+    @apply bg-gradient-to-r from-slate-700/80 to-slate-800/80 backdrop-blur-sm;
+    border-bottom: 2px solid rgba(100, 149, 237, 0.4);
+  }
+
+  /* 导航栏 */
+  .navbar {
+    @apply bg-slate-800/95 backdrop-blur-md border-b-2;
+    border-bottom-color: rgba(100, 149, 237, 0.3);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   }
 
   /* 滚动条样式 */
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
   }
 
   ::-webkit-scrollbar-track {
     @apply bg-slate-900/50;
+    border-radius: 6px;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-blue-700/50 rounded-lg;
+    @apply bg-blue-700/60 rounded-lg;
+    border: 2px solid rgba(15, 23, 42, 0.5);
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-blue-600/70;
+    @apply bg-blue-600/80;
   }
 
   /* 按钮发光效果 */
@@ -94,40 +116,169 @@
   }
 
   .btn-glow:hover {
-    box-shadow: 0 0 20px currentColor;
+    box-shadow: 0 0 25px currentColor, 0 4px 15px rgba(0, 0, 0, 0.3);
+    transform: translateY(-2px);
   }
 
-  /* 输入框聚焦效果 */
+  /* 输入框样式 */
+  input, textarea, select {
+    @apply bg-slate-800/80 border-slate-600 text-gray-100;
+  }
+
+  input::placeholder, textarea::placeholder {
+    @apply text-gray-500;
+  }
+
   input:focus, textarea:focus, select:focus {
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    @apply bg-slate-800 border-blue-500;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
   }
 
   /* 职业徽章样式 */
   .class-badge {
-    @apply px-3 py-1 rounded-full text-sm font-bold;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    @apply px-3 py-1.5 rounded-full text-sm font-bold inline-block;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
+    border: 1px solid currentColor;
   }
 
   /* DKP数字强调 */
   .dkp-number {
-    @apply font-bold text-lg;
-    text-shadow: 0 0 10px currentColor;
+    @apply font-bold text-xl;
+    text-shadow: 0 0 15px currentColor, 0 2px 4px rgba(0, 0, 0, 0.5);
   }
 
-  /* 表格标题栏 */
-  .table-header {
-    @apply bg-gradient-to-r from-blue-900/50 to-purple-900/50 backdrop-blur-sm;
+  /* Select 下拉菜单样式优化 */
+  [role="option"] {
+    @apply text-gray-200;
   }
 
-  /* 导航栏 */
-  .navbar {
-    @apply bg-gradient-to-r from-slate-900/95 via-blue-950/95 to-slate-900/95 backdrop-blur-md;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  [role="option"]:hover,
+  [data-state="checked"] {
+    @apply bg-slate-700 text-white;
   }
 
-  /* 卡片背景 */
-  .card-bg {
-    @apply bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm;
-    border: 1px solid rgba(59, 130, 246, 0.2);
+  /* Dialog 对话框样式 */
+  [role="dialog"] {
+    @apply bg-slate-800 border-slate-600;
+  }
+
+  /* 标签页样式 */
+  [role="tab"] {
+    @apply text-gray-300;
+  }
+
+  [role="tab"][data-state="active"] {
+    @apply text-white bg-slate-700;
+  }
+
+  /* 按钮样式优化 */
+  button {
+    @apply text-gray-100;
+  }
+
+  button:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  /* 确保所有标签文字清晰 */
+  label {
+    @apply text-gray-200 font-medium;
+  }
+
+  /* 卡片标题 */
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-gray-100;
+  }
+
+  /* 表格文字 */
+  table {
+    @apply text-gray-200;
+  }
+
+  thead th {
+    @apply text-gray-300 font-semibold;
+  }
+
+  tbody td {
+    @apply text-gray-200;
+  }
+
+  /* Alert Dialog 样式 */
+  [role="alertdialog"] {
+    @apply bg-slate-800 border-slate-600;
+  }
+
+  /* 职业颜色优化 - 确保在深色背景上清晰可见 */
+  .text-warrior { color: #fbbf24; } /* 战士 - 金色 */
+  .text-paladin { color: #f472b6; } /* 圣骑士 - 粉色 */
+  .text-hunter { color: #4ade80; } /* 猎人 - 绿色 */
+  .text-rogue { color: #fde047; } /* 盗贼 - 黄色 */
+  .text-priest { color: #e5e7eb; } /* 牧师 - 浅灰色 */
+  .text-shaman { color: #60a5fa; } /* 萨满 - 蓝色 */
+  .text-mage { color: #67e8f9; } /* 法师 - 青色 */
+  .text-warlock { color: #c084fc; } /* 术士 - 紫色 */
+  .text-druid { color: #fb923c; } /* 德鲁伊 - 橙色 */
+
+  /* 成功/警告/错误颜色优化 */
+  .text-success { color: #4ade80; }
+  .text-warning { color: #fbbf24; }
+  .text-error { color: #f87171; }
+  .text-info { color: #60a5fa; }
+
+  /* 阴影效果优化 */
+  .shadow-glow-blue {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+  }
+
+  .shadow-glow-purple {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
+  }
+
+  .shadow-glow-green {
+    box-shadow: 0 0 20px rgba(74, 222, 128, 0.4);
+  }
+
+  /* 渐变文字效果 */
+  .gradient-text {
+    @apply text-transparent bg-clip-text bg-gradient-to-r;
+  }
+
+  .gradient-text-blue {
+    @apply from-blue-400 to-cyan-400;
+  }
+
+  .gradient-text-purple {
+    @apply from-purple-400 to-pink-400;
+  }
+
+  .gradient-text-gold {
+    @apply from-yellow-400 to-orange-400;
+  }
+
+  /* 动画效果 */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  /* 加载动画 */
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .animate-spin {
+    animation: spin 1s linear infinite;
   }
 }
