@@ -17,7 +17,7 @@ export function calculateAttendance(
   return Math.round((participationCount / totalActivities) * 100) / 100;
 }
 
-// 魔兽世界职业颜色配置（使用深色背景友好的颜色）
+// 职业颜色
 export const CLASS_COLORS: Record<string, {
   text: string;
   textLight: string;
@@ -26,67 +26,67 @@ export const CLASS_COLORS: Record<string, {
   glow: string;
 }> = {
   '战士': {
-    text: 'text-yellow-600',      // 战士应该是棕黄色/土黄色
-    textLight: 'text-yellow-700',
-    bg: 'bg-yellow-900/20',
-    border: 'border-yellow-700',
-    glow: 'shadow-yellow-500/50',
+    text: 'text-wow-warrior',
+    textLight: 'text-wow-warrior',
+    bg: 'bg-wow-warrior/20',
+    border: 'border-wow-warrior/50',
+    glow: 'shadow-wow-warrior/50',
   },
   '圣骑士': {
-    text: 'text-pink-400',
-    textLight: 'text-pink-600',
-    bg: 'bg-pink-900/20',
-    border: 'border-pink-600',
-    glow: 'shadow-pink-500/50',
+    text: 'text-wow-paladin',
+    textLight: 'text-wow-paladin',
+    bg: 'bg-wow-paladin/20',
+    border: 'border-wow-paladin/50',
+    glow: 'shadow-wow-paladin/50',
   },
   '猎人': {
-    text: 'text-green-400',
-    textLight: 'text-green-600',
-    bg: 'bg-green-900/20',
-    border: 'border-green-600',
-    glow: 'shadow-green-500/50',
+    text: 'text-wow-hunter',
+    textLight: 'text-wow-hunter',
+    bg: 'bg-wow-hunter/20',
+    border: 'border-wow-hunter/50',
+    glow: 'shadow-wow-hunter/50',
   },
   '盗贼': {
-    text: 'text-yellow-300',     // 盗贼是亮黄色
-    textLight: 'text-yellow-600',
-    bg: 'bg-yellow-900/20',
-    border: 'border-yellow-600',
-    glow: 'shadow-yellow-500/50',
+    text: 'text-wow-rogue',
+    textLight: 'text-wow-rogue',
+    bg: 'bg-wow-rogue/20',
+    border: 'border-wow-rogue/50',
+    glow: 'shadow-wow-rogue/50',
   },
   '牧师': {
-    text: 'text-gray-100',
-    textLight: 'text-gray-700',
-    bg: 'bg-gray-700/20',
-    border: 'border-gray-400',
-    glow: 'shadow-gray-400/50',
+    text: 'text-wow-priest',
+    textLight: 'text-wow-priest',
+    bg: 'bg-wow-priest/20',
+    border: 'border-wow-priest/50',
+    glow: 'shadow-wow-priest/50',
   },
   '萨满祭司': {
-    text: 'text-blue-400',
-    textLight: 'text-blue-600',
-    bg: 'bg-blue-900/20',
-    border: 'border-blue-600',
-    glow: 'shadow-blue-500/50',
+    text: 'text-wow-shaman',
+    textLight: 'text-wow-shaman',
+    bg: 'bg-wow-shaman/20',
+    border: 'border-wow-shaman/50',
+    glow: 'shadow-wow-shaman/50',
   },
   '法师': {
-    text: 'text-cyan-400',
-    textLight: 'text-cyan-600',
-    bg: 'bg-cyan-900/20',
-    border: 'border-cyan-600',
-    glow: 'shadow-cyan-500/50',
+    text: 'text-wow-mage',
+    textLight: 'text-wow-mage',
+    bg: 'bg-wow-mage/20',
+    border: 'border-wow-mage/50',
+    glow: 'shadow-wow-mage/50',
   },
   '术士': {
-    text: 'text-purple-400',
-    textLight: 'text-purple-600',
-    bg: 'bg-purple-900/20',
-    border: 'border-purple-600',
-    glow: 'shadow-purple-500/50',
+    text: 'text-wow-warlock',
+    textLight: 'text-wow-warlock',
+    bg: 'bg-wow-warlock/20',
+    border: 'border-wow-warlock/50',
+    glow: 'shadow-wow-warlock/50',
   },
   '德鲁伊': {
-    text: 'text-orange-400',
-    textLight: 'text-orange-600',
-    bg: 'bg-orange-900/20',
-    border: 'border-orange-600',
-    glow: 'shadow-orange-500/50',
+    text: 'text-wow-druid',
+    textLight: 'text-wow-druid',
+    bg: 'bg-wow-druid/20',
+    border: 'border-wow-druid/50',
+    glow: 'shadow-wow-druid/50',
   },
 };
 
