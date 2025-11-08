@@ -21,6 +21,7 @@ import { Label } from '@/components/ui/label';
 import { LogIn, LogOut, Shield, Swords } from 'lucide-react';
 import { toast } from 'sonner';
 import { Team } from '@/types';
+import { ChangePasswordDialog } from './ChangePasswordDialog';
 
 interface NavbarProps {
   teams: Team[];
