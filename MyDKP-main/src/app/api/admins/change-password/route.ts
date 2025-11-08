@@ -44,8 +44,15 @@ export async function POST(request: NextRequest) {
     const hashedNewPassword = await hashPassword(newPassword);
     await prisma.admin.update({
       where: { id: session.adminId },
-      data: { password: hashedNewPassword },
+      data: { 
+        password: hashedNewPassword,
+        needPasswordChange: false,
+      },
     });
+
+    // 更新session
+    session.needPasswordChange = false;
+    await session.save();
 
     return NextResponse.json({ success: true, message: '密码修改成功' });
   } catch (error) {

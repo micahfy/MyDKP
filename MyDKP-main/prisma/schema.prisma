@@ -8,15 +8,15 @@ datasource db {
 }
 
 model Admin {
-  id          String   @id @default(cuid())
-  username    String   @unique
-  password    String   // 加密存储
-  role        String   @default("admin") // super_admin, admin
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdBy   String?
-  lastLoginAt DateTime?
+  id              String   @id @default(cuid())
+  username        String   @unique
+  password        String
+  role            String   @default("admin") // super_admin, admin
+  isActive        Boolean  @default(true)
+  needPasswordChange Boolean @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  lastLoginAt     DateTime?
 
   teamPermissions TeamPermission[]
 
@@ -74,7 +74,7 @@ model DkpLog {
   id        String   @id @default(cuid())
   playerId  String
   teamId    String
-  type      String   // earn, spend, decay, undo, penalty, attendance
+  type      String
   change    Float
   reason    String?
   item      String?
@@ -93,7 +93,7 @@ model DecayHistory {
   teamId        String
   rate          Float
   executedAt    DateTime @default(now())
-  status        String   @default("normal") // normal, undone
+  status        String   @default("normal")
   operator      String
   affectedCount Int      @default(0)
 

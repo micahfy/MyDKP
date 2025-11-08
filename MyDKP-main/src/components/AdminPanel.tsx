@@ -18,6 +18,8 @@ interface AdminPanelProps {
 }
 
 export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelProps) {
+  const isSuperAdmin = adminRole === 'super_admin';
+  
   return (
     <Card className="mb-6 card-bg card-glow">
       <CardHeader className="bg-gradient-to-r from-purple-900/50 to-blue-900/50">
@@ -30,7 +32,7 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
       </CardHeader>
       <CardContent className="pt-6">
         <Tabs defaultValue="operation" className="w-full">
-          <TabsList className={`grid w-full ${adminRole === 'super_admin' ? 'grid-cols-6' : 'grid-cols-5'} bg-slate-800/50`}>
+          <TabsList className={`grid w-full ${isSuperAdmin ? 'grid-cols-6' : 'grid-cols-5'} bg-slate-800/50`}>
             <TabsTrigger value="operation" className="data-[state=active]:bg-blue-950">
               DKP操作
             </TabsTrigger>
@@ -46,7 +48,7 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
             <TabsTrigger value="team" className="data-[state=active]:bg-blue-950">
               团队管理
             </TabsTrigger>
-            {adminRole === 'super_admin' && (
+            {isSuperAdmin && (
               <TabsTrigger value="admins" className="data-[state=active]:bg-purple-950">
                 管理员
               </TabsTrigger>
@@ -73,7 +75,7 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
             <TeamManagement onUpdate={onUpdate} />
           </TabsContent>
 
-          {adminRole === 'super_admin' && (
+          {isSuperAdmin && (
             <TabsContent value="admins" className="space-y-4">
               <AdminManagement teams={teams} currentAdminRole={adminRole} />
             </TabsContent>

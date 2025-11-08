@@ -8,9 +8,15 @@ export async function GET() {
       isAdmin: session.isAdmin === true,
       username: session.username || null,
       role: session.role || null,
+      needPasswordChange: session.needPasswordChange || false,
     });
   } catch (error) {
     console.error('Auth check error:', error);
-    return NextResponse.json({ isAdmin: false, username: null, role: null });
+    return NextResponse.json({ 
+      isAdmin: false, 
+      username: null, 
+      role: null,
+      needPasswordChange: false,
+    });
   }
 }

@@ -23,7 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { UserPlus, Edit2, Trash2, Shield, Key } from 'lucide-react';
+import { UserPlus, Edit2, Trash2, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Admin {
@@ -56,6 +56,7 @@ export function AdminManagement({ teams, currentAdminRole }: AdminManagementProp
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingAdmin, setEditingAdmin] = useState<Admin | null>(null);
+  const [editTeamIds, setEditTeamIds] = useState<string[]>([]);
 
   // 创建管理员表单
   const [username, setUsername] = useState('');
@@ -67,6 +68,12 @@ export function AdminManagement({ teams, currentAdminRole }: AdminManagementProp
       fetchAdmins();
     }
   }, [currentAdminRole]);
+
+  useEffect(() => {
+    if (editingAdmin) {
+      setEditTeamIds(editingAdmin.teamPermissions.map(p => p.team.id));
+    }
+  }, [editingAdmin]);
 
   const fetchAdmins = async () => {
     setLoading(true);
@@ -121,12 +128,14 @@ export function AdminManagement({ teams, currentAdminRole }: AdminManagementProp
     }
   };
 
-  const handleUpdatePermissions = async (adminId: string, teamIds: string[]) => {
+  const handleUpdatePermissions = async () => {
+    if (!editingAdmin) return;
+
     try {
-      const res = await fetch(`/api/admins/${adminId}`, {
+      const res = await fetch(`/api/admins/${editingAdmin.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ teamIds }),
+        body: JSON.stringify({ teamIds: editTeamIds }),
       });
 
       if (res.ok) {
@@ -341,7 +350,7 @@ export function AdminManagement({ teams, currentAdminRole }: AdminManagementProp
             </div>
             <div>
               <Label className="text-gray-200">授权团队</Label>
-              <div className="grid grid-cols-2 gap-2 mt-2">
+              <div className="grid grid-cols-2 gap-2 mt-2 max-h-48 overflow-y-auto">
                 {teams.map((team) => (
                   <label
                     key={team.id}
@@ -392,7 +401,7 @@ export function AdminManagement({ teams, currentAdminRole }: AdminManagementProp
             <div className="space-y-4">
               <div>
                 <Label className="text-gray-200">授权团队</Label>
-                <div className="grid grid-cols-2 gap-2 mt-2">
+                <div className="grid grid-cols-2 gap-2 mt-2 max-h-64 overflow-y-auto">
                   {teams.map((team) => (
                     <label
                       key={team.id}
@@ -400,23 +409,12 @@ export function AdminManagement({ teams, currentAdminRole }: AdminManagementProp
                     >
                       <input
                         type="checkbox"
-                        defaultChecked={editingAdmin.teamPermissions.some(
-                          (p) => p.team.id === team.id
-                        )}
+                        checked={editTeamIds.includes(team.id)}
                         onChange={(e) => {
-                          const currentTeams = editingAdmin.teamPermissions.map(
-                            (p) => p.team.id
-                          );
                           if (e.target.checked) {
-                            handleUpdatePermissions(editingAdmin.id, [
-                              ...currentTeams,
-                              team.id,
-                            ]);
+                            setEditTeamIds([...editTeamIds, team.id]);
                           } else {
-                            handleUpdatePermissions(
-                              editingAdmin.id,
-                              currentTeams.filter((id) => id !== team.id)
-                            );
+                            setEditTeamIds(editTeamIds.filter((id) => id !== team.id));
                           }
                         }}
                         className="rounded"
@@ -433,7 +431,10 @@ export function AdminManagement({ teams, currentAdminRole }: AdminManagementProp
                 onClick={() => setEditingAdmin(null)}
                 className="bg-slate-700"
               >
-                关闭
+                取消
+              </Button>
+              <Button onClick={handleUpdatePermissions} className="bg-gradient-to-r from-blue-600 to-purple-600">
+                保存
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -46,7 +46,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '权限不足' }, { status: 403 });
     }
 
-    const session = await getSession();
     const { username, password, role, teamIds } = await request.json();
 
     if (!username || !password) {
@@ -78,7 +77,7 @@ export async function POST(request: NextRequest) {
         username,
         password: hashedPassword,
         role: role || 'admin',
-        createdBy: session.username,
+        needPasswordChange: false,
       },
     });
 

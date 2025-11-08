@@ -49,7 +49,9 @@ export default function Home() {
   const handleAuthChange = (newIsAdmin: boolean) => {
     setIsAdmin(newIsAdmin);
     if (newIsAdmin) {
-      checkAuth(); // 重新验证
+      checkAuth();
+    } else {
+      setAdminRole('');
     }
   };
 
@@ -59,16 +61,17 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-xl text-gray-600">加载中...</div>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mb-4"></div>
+          <div className="text-xl text-gray-300">加载中...</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <Navbar
         teams={teams}
         selectedTeam={selectedTeam}
@@ -79,7 +82,12 @@ export default function Home() {
       
       <main className="container mx-auto px-4 py-8">
         {isAdmin && (
-          <AdminPanel teamId={selectedTeam} onUpdate={handleUpdate} />
+          <AdminPanel 
+            teamId={selectedTeam} 
+            teams={teams} 
+            adminRole={adminRole} 
+            onUpdate={handleUpdate} 
+          />
         )}
         
         {teams.length === 0 ? (

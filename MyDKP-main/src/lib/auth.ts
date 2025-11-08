@@ -7,6 +7,7 @@ export interface SessionData {
   username?: string;
   role?: 'super_admin' | 'admin';
   isAdmin: boolean;
+  needPasswordChange?: boolean;
 }
 
 const sessionOptions = {

@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '用户名和密码不能为空' }, { status: 400 });
     }
 
-    // 查找管理员
+    // 查找数据库中的管理员
     const admin = await prisma.admin.findUnique({
       where: { username },
     });
@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
     session.adminId = admin.id;
     session.username = admin.username;
     session.role = admin.role as 'super_admin' | 'admin';
+    session.needPasswordChange = admin.needPasswordChange;
     await session.save();
 
     return NextResponse.json({
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
         id: admin.id,
         username: admin.username,
         role: admin.role,
+        needPasswordChange: admin.needPasswordChange,
       },
     });
   } catch (error) {
