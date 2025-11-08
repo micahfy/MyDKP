@@ -1,27 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { verifyPassword } from '@/lib/password';
 
 export async function POST(request: NextRequest) {
   try {
     const { username, password } = await request.json();
 
-    if (
-      username === process.env.ADMIN_USERNAME &&
-      password === process.env.ADMIN_PASSWORD
-    ) {
-      const session = await getSession();
-      session.isAdmin = true;
-      session.username = username;
-      await session.save();
-
-      return NextResponse.json({ success: true });
+    if (!username || !password) {
+      return NextResponse.json({ error: '用户名和密码不能为空' }, { status: 400 });
     }
 
-    return NextResponse.json(
-      { error: '用户名或密码错误' },
-      { status: 401 }
-    );
+    // 查找管理员
+    const admin = await prisma.admin.findUnique({
+      where: { username },
+    });
+
+    if (!admin) {
+      return NextResponse.json({ error: '用户名或密码错误' }, { status: 401 });
+    }
+
+    // 检查账号是否激活
+    if (!admin.isActive) {
+      return NextResponse.json({ error: '账号已被禁用' }, { status: 403 });
+    }
+
+    // 验证密码
+    const isValidPassword = await verifyPassword(password, admin.password);
+    if (!isValidPassword) {
+      return NextResponse.json({ error: '用户名或密码错误' }, { status: 401 });
+    }
+
+    // 更新最后登录时间
+    await prisma.admin.update({
+      where: { id: admin.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    // 设置 session
+    const session = await getSession();
+    session.isAdmin = true;
+    session.adminId = admin.id;
+    session.username = admin.username;
+    session.role = admin.role as 'super_admin' | 'admin';
+    await session.save();
+
+    return NextResponse.json({
+      success: true,
+      admin: {
+        id: admin.id,
+        username: admin.username,
+        role: admin.role,
+      },
+    });
   } catch (error) {
+    console.error('Login error:', error);
     return NextResponse.json({ error: '登录失败' }, { status: 500 });
   }
 }

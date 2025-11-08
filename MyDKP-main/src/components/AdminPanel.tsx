@@ -7,14 +7,17 @@ import { DecayDialog } from './DecayDialog';
 import { DkpOperationForm } from './DkpOperationForm';
 import { TeamManagement } from './TeamManagement';
 import { BatchDkpImportDialog } from './BatchDkpImportDialog';
+import { AdminManagement } from './AdminManagement';
 import { Shield } from 'lucide-react';
 
 interface AdminPanelProps {
   teamId: string;
+  teams: any[];
+  adminRole: string;
   onUpdate: () => void;
 }
 
-export function AdminPanel({ teamId, onUpdate }: AdminPanelProps) {
+export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelProps) {
   return (
     <Card className="mb-6 card-bg card-glow">
       <CardHeader className="bg-gradient-to-r from-purple-900/50 to-blue-900/50">
@@ -27,7 +30,7 @@ export function AdminPanel({ teamId, onUpdate }: AdminPanelProps) {
       </CardHeader>
       <CardContent className="pt-6">
         <Tabs defaultValue="operation" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 bg-slate-800/50">
+          <TabsList className={`grid w-full ${adminRole === 'super_admin' ? 'grid-cols-6' : 'grid-cols-5'} bg-slate-800/50`}>
             <TabsTrigger value="operation" className="data-[state=active]:bg-blue-950">
               DKP操作
             </TabsTrigger>
@@ -43,6 +46,11 @@ export function AdminPanel({ teamId, onUpdate }: AdminPanelProps) {
             <TabsTrigger value="team" className="data-[state=active]:bg-blue-950">
               团队管理
             </TabsTrigger>
+            {adminRole === 'super_admin' && (
+              <TabsTrigger value="admins" className="data-[state=active]:bg-purple-950">
+                管理员
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="operation" className="space-y-4">
@@ -64,6 +72,12 @@ export function AdminPanel({ teamId, onUpdate }: AdminPanelProps) {
           <TabsContent value="team" className="space-y-4">
             <TeamManagement onUpdate={onUpdate} />
           </TabsContent>
+
+          {adminRole === 'super_admin' && (
+            <TabsContent value="admins" className="space-y-4">
+              <AdminManagement teams={teams} currentAdminRole={adminRole} />
+            </TabsContent>
+          )}
         </Tabs>
       </CardContent>
     </Card>

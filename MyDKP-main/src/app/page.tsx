@@ -9,6 +9,7 @@ import { Toaster } from 'sonner';
 export default function Home() {
   const [selectedTeam, setSelectedTeam] = useState<string>('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminRole, setAdminRole] = useState<string>('');
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -22,6 +23,7 @@ export default function Home() {
       const res = await fetch('/api/auth/check');
       const data = await res.json();
       setIsAdmin(data.isAdmin === true);
+      setAdminRole(data.role || '');
     } catch (error) {
       console.error('Auth check failed:', error);
       setIsAdmin(false);

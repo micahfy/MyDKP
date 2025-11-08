@@ -6,10 +6,11 @@ export async function GET() {
     const session = await getSession();
     return NextResponse.json({ 
       isAdmin: session.isAdmin === true,
-      username: session.username || null 
+      username: session.username || null,
+      role: session.role || null,
     });
   } catch (error) {
     console.error('Auth check error:', error);
-    return NextResponse.json({ isAdmin: false, username: null });
+    return NextResponse.json({ isAdmin: false, username: null, role: null });
   }
 }

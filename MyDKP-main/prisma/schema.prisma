@@ -7,17 +7,46 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Admin {
+  id          String   @id @default(cuid())
+  username    String   @unique
+  password    String   // 加密存储
+  role        String   @default("admin") // super_admin, admin
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String?
+  lastLoginAt DateTime?
+
+  teamPermissions TeamPermission[]
+
+  @@map("admins")
+}
+
+model TeamPermission {
+  id        String   @id @default(cuid())
+  adminId   String
+  teamId    String
+  createdAt DateTime @default(now())
+
+  admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  team  Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([adminId, teamId])
+  @@map("team_permissions")
+}
+
 model Team {
   id          String   @id @default(cuid())
   name        String   @unique
   description String?
-  sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  players       Player[]
-  dkpLogs       DkpLog[]
-  decayHistory  DecayHistory[]
+  players         Player[]
+  dkpLogs         DkpLog[]
+  decayHistory    DecayHistory[]
+  teamPermissions TeamPermission[]
 
   @@map("teams")
 }
@@ -60,13 +89,13 @@ model DkpLog {
 }
 
 model DecayHistory {
-  id          String   @id @default(cuid())
-  teamId      String
-  rate        Float
-  executedAt  DateTime @default(now())
-  status      String   @default("normal") // normal, undone
-  operator    String
-  affectedCount Int    @default(0)
+  id            String   @id @default(cuid())
+  teamId        String
+  rate          Float
+  executedAt    DateTime @default(now())
+  status        String   @default("normal") // normal, undone
+  operator      String
+  affectedCount Int      @default(0)
 
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
