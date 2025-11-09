@@ -32,18 +32,31 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
   const [loading, setLoading] = useState(false);
   const [teams, setTeams] = useState<Team[]>([]);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [fetchLoading, setFetchLoading] = useState(true);
 
   useEffect(() => {
     fetchTeams();
   }, []);
 
   const fetchTeams = async () => {
+    setFetchLoading(true);
     try {
       const res = await fetch('/api/teams');
-      const data = await res.json();
-      setTeams(data);
+      if (res.ok) {
+        const data = await res.json();
+        // 确保 data 是数组
+        setTeams(Array.isArray(data) ? data : []);
+      } else {
+        console.error('Failed to fetch teams');
+        setTeams([]);
+        toast.error('获取团队列表失败');
+      }
     } catch (error) {
+      console.error('Fetch teams error:', error);
+      setTeams([]);
       toast.error('获取团队列表失败');
+    } finally {
+      setFetchLoading(false);
     }
   };
 
@@ -195,7 +208,12 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
             </div>
           </div>
           
-          {teams.length === 0 ? (
+          {fetchLoading ? (
+            <div className="text-center py-8 text-gray-400">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
+              <p className="mt-4">加载中...</p>
+            </div>
+          ) : teams.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
               暂无团队
             </div>

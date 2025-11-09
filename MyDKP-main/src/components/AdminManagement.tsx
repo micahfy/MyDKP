@@ -51,7 +51,7 @@ interface AdminManagementProps {
   currentAdminRole: string;
 }
 
-export function AdminManagement({ teams = [], currentAdminRole }: AdminManagementProps) {
+export function AdminManagement({ teams: propTeams = [], currentAdminRole }: AdminManagementProps) {
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -64,7 +64,7 @@ export function AdminManagement({ teams = [], currentAdminRole }: AdminManagemen
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
 
   // 确保 teams 是数组
-  const safeTeams = Array.isArray(teams) ? teams : [];
+  const teams = Array.isArray(propTeams) ? propTeams : [];
 
   useEffect(() => {
     if (currentAdminRole === 'super_admin') {
@@ -84,9 +84,15 @@ export function AdminManagement({ teams = [], currentAdminRole }: AdminManagemen
       const res = await fetch('/api/admins');
       if (res.ok) {
         const data = await res.json();
-        setAdmins(data);
+        setAdmins(Array.isArray(data) ? data : []);
+      } else {
+        console.error('Failed to fetch admins');
+        setAdmins([]);
+        toast.error('获取管理员列表失败');
       }
     } catch (error) {
+      console.error('Fetch admins error:', error);
+      setAdmins([]);
       toast.error('获取管理员列表失败');
     } finally {
       setLoading(false);
@@ -219,7 +225,10 @@ export function AdminManagement({ teams = [], currentAdminRole }: AdminManagemen
         </div>
 
         {loading ? (
-          <div className="text-center py-8 text-gray-400">加载中...</div>
+          <div className="text-center py-8 text-gray-400">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-purple-500 border-t-transparent"></div>
+            <p className="mt-4">加载中...</p>
+          </div>
         ) : admins.length === 0 ? (
           <div className="text-center py-8 text-gray-400">暂无管理员</div>
         ) : (
@@ -353,28 +362,34 @@ export function AdminManagement({ teams = [], currentAdminRole }: AdminManagemen
             </div>
             <div>
               <Label className="text-gray-200">授权团队</Label>
-              <div className="grid grid-cols-2 gap-2 mt-2 max-h-48 overflow-y-auto">
-                {teams.map((team) => (
-                  <label
-                    key={team.id}
-                    className="flex items-center space-x-2 p-2 rounded bg-slate-900/50 cursor-pointer hover:bg-slate-700/50"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedTeams.includes(team.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedTeams([...selectedTeams, team.id]);
-                        } else {
-                          setSelectedTeams(selectedTeams.filter((id) => id !== team.id));
-                        }
-                      }}
-                      className="rounded"
-                    />
-                    <span className="text-sm text-gray-200">{team.name}</span>
-                  </label>
-                ))}
-              </div>
+              {teams.length === 0 ? (
+                <div className="text-center py-4 text-gray-500 bg-slate-900/50 rounded-lg">
+                  暂无可用团队，请先创建团队
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 mt-2 max-h-48 overflow-y-auto">
+                  {teams.map((team) => (
+                    <label
+                      key={team.id}
+                      className="flex items-center space-x-2 p-2 rounded bg-slate-900/50 cursor-pointer hover:bg-slate-700/50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedTeams.includes(team.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedTeams([...selectedTeams, team.id]);
+                          } else {
+                            setSelectedTeams(selectedTeams.filter((id) => id !== team.id));
+                          }
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-sm text-gray-200">{team.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
@@ -404,28 +419,34 @@ export function AdminManagement({ teams = [], currentAdminRole }: AdminManagemen
             <div className="space-y-4">
               <div>
                 <Label className="text-gray-200">授权团队</Label>
-                <div className="grid grid-cols-2 gap-2 mt-2 max-h-64 overflow-y-auto">
-                  {teams.map((team) => (
-                    <label
-                      key={team.id}
-                      className="flex items-center space-x-2 p-2 rounded bg-slate-900/50 cursor-pointer hover:bg-slate-700/50"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={editTeamIds.includes(team.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setEditTeamIds([...editTeamIds, team.id]);
-                          } else {
-                            setEditTeamIds(editTeamIds.filter((id) => id !== team.id));
-                          }
-                        }}
-                        className="rounded"
-                      />
-                      <span className="text-sm text-gray-200">{team.name}</span>
-                    </label>
-                  ))}
-                </div>
+                {teams.length === 0 ? (
+                  <div className="text-center py-4 text-gray-500 bg-slate-900/50 rounded-lg">
+                    暂无可用团队
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2 mt-2 max-h-64 overflow-y-auto">
+                    {teams.map((team) => (
+                      <label
+                        key={team.id}
+                        className="flex items-center space-x-2 p-2 rounded bg-slate-900/50 cursor-pointer hover:bg-slate-700/50"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={editTeamIds.includes(team.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setEditTeamIds([...editTeamIds, team.id]);
+                            } else {
+                              setEditTeamIds(editTeamIds.filter((id) => id !== team.id));
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <span className="text-sm text-gray-200">{team.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             <DialogFooter>
