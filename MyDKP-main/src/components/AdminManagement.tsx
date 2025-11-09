@@ -51,7 +51,7 @@ interface AdminManagementProps {
   currentAdminRole: string;
 }
 
-export function AdminManagement({ teams, currentAdminRole }: AdminManagementProps) {
+export function AdminManagement({ teams = [], currentAdminRole }: AdminManagementProps) {
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -62,6 +62,9 @@ export function AdminManagement({ teams, currentAdminRole }: AdminManagementProp
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
+
+  // 确保 teams 是数组
+  const safeTeams = Array.isArray(teams) ? teams : [];
 
   useEffect(() => {
     if (currentAdminRole === 'super_admin') {
