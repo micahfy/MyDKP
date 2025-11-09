@@ -6,6 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -99,6 +106,9 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
     }
   };
 
+  // 新增：管理员角色选择
+  const [selectedRole, setSelectedRole] = useState<'admin' | 'super_admin'>('admin');
+
   const handleCreateAdmin = async () => {
     if (!username || !password) {
       toast.error('请填写完整信息');
@@ -112,8 +122,8 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
         body: JSON.stringify({
           username,
           password,
-          role: 'admin',
-          teamIds: selectedTeams,
+          role: selectedRole,
+          teamIds: selectedRole === 'super_admin' ? [] : selectedTeams, // 超管不需要团队权限
         }),
       });
 
@@ -125,6 +135,7 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
         setUsername('');
         setPassword('');
         setSelectedTeams([]);
+        setSelectedRole('admin');
         fetchAdmins();
       } else {
         toast.error(data.error || '创建失败');
@@ -144,7 +155,10 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
       const res = await fetch(`/api/admins/${editingAdmin.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ teamIds: editTeamIds }),
+        body: JSON.stringify({ 
+          teamIds: editTeamIds,
+          role: editingAdmin.role, // 保持角色不变
+        }),
       });
 
       if (res.ok) {
@@ -159,7 +173,43 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
     }
   };
 
-  const handleToggleActive = async (adminId: string, isActive: boolean) => {
+  const handlePromoteToSuperAdmin = async (adminId: string, username: string) => {
+    try {
+      const res = await fetch(`/api/admins/${adminId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: 'super_admin' }),
+      });
+
+      if (res.ok) {
+        toast.success(`${username} 已提升为超级管理员`);
+        fetchAdmins();
+      } else {
+        toast.error('提升失败');
+      }
+    } catch (error) {
+      toast.error('提升失败');
+    }
+  };
+
+  const handleDemoteToAdmin = async (adminId: string, username: string) => {
+    try {
+      const res = await fetch(`/api/admins/${adminId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: 'admin' }),
+      });
+
+      if (res.ok) {
+        toast.success(`${username} 已降级为普通管理员`);
+        fetchAdmins();
+      } else {
+        toast.error('降级失败');
+      }
+    } catch (error) {
+      toast.error('降级失败');
+    }
+  };
     try {
       const res = await fetch(`/api/admins/${adminId}`, {
         method: 'PATCH',
@@ -276,6 +326,15 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
                     <Button
                       variant="ghost"
                       size="sm"
+                      onClick={() => handlePromoteToSuperAdmin(admin.id, admin.username)}
+                      className="text-yellow-400 hover:bg-yellow-950"
+                      title="提升为超级管理员"
+                    >
+                      <Shield className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => setEditingAdmin(admin)}
                       className="text-blue-400 hover:bg-blue-950"
                     >
@@ -339,6 +398,25 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
           </DialogHeader>
           <div className="space-y-4">
             <div>
+              <Label className="text-gray-200">管理员角色</Label>
+              <Select value={selectedRole} onValueChange={(value: 'admin' | 'super_admin') => setSelectedRole(value)}>
+                <SelectTrigger className="bg-slate-900/50 border-slate-600 text-gray-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600">
+                  <SelectItem value="admin" className="hover:bg-blue-950 text-gray-200">
+                    普通管理员
+                  </SelectItem>
+                  <SelectItem value="super_admin" className="hover:bg-blue-950 text-gray-200">
+                    超级管理员
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500 mt-1">
+                {selectedRole === 'super_admin' ? '超级管理员拥有所有权限' : '普通管理员需要授权团队'}
+              </p>
+            </div>
+            <div>
               <Label className="text-gray-200">用户名</Label>
               <Input
                 value={username}
@@ -362,7 +440,11 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
             </div>
             <div>
               <Label className="text-gray-200">授权团队</Label>
-              {teams.length === 0 ? (
+              {selectedRole === 'super_admin' ? (
+                <div className="text-center py-4 text-gray-400 bg-slate-900/50 rounded-lg border border-yellow-700/50">
+                  超级管理员自动拥有所有团队权限
+                </div>
+              ) : teams.length === 0 ? (
                 <div className="text-center py-4 text-gray-500 bg-slate-900/50 rounded-lg">
                   暂无可用团队，请先创建团队
                 </div>
@@ -444,7 +526,20 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
                         />
                         <span className="text-sm text-gray-200">{team.name}</span>
                       </label>
-                    ))}
+                    )                    )}
+                  </div>
+                )}
+                {admin.role === 'super_admin' && (
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDemoteToAdmin(admin.id, admin.username)}
+                      className="text-orange-400 hover:bg-orange-950"
+                      title="降级为普通管理员"
+                    >
+                      降级
+                    </Button>
                   </div>
                 )}
               </div>

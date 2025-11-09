@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { isAdmin } from '@/lib/auth';
+import { isSuperAdmin } from '@/lib/auth';
 
 // GET /api/teams/[id] - 获取单个团队信息
 export async function GET(
@@ -37,17 +37,16 @@ export async function GET(
   }
 }
 
-// PATCH /api/teams/[id] - 更新团队信息
+// PATCH /api/teams/[id] - 更新团队信息（仅超管）
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const adminStatus = await isAdmin();
-    
-    if (!adminStatus) {
+    // 只有超级管理员可以修改团队
+    if (!(await isSuperAdmin())) {
       return NextResponse.json(
-        { error: '权限不足，请先登录管理员账号' },
+        { error: '权限不足，只有超级管理员可以修改团队' },
         { status: 403 }
       );
     }
@@ -113,17 +112,16 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/teams/[id] - 删除团队
+// DELETE /api/teams/[id] - 删除团队（仅超管）
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const adminStatus = await isAdmin();
-    
-    if (!adminStatus) {
+    // 只有超级管理员可以删除团队
+    if (!(await isSuperAdmin())) {
       return NextResponse.json(
-        { error: '权限不足，请先登录管理员账号' },
+        { error: '权限不足，只有超级管理员可以删除团队' },
         { status: 403 }
       );
     }

@@ -12,17 +12,32 @@ export async function PATCH(
       return NextResponse.json({ error: '权限不足' }, { status: 403 });
     }
 
-    const { teamIds, isActive } = await request.json();
+    const { teamIds, isActive, role } = await request.json();
+
+    const updateData: any = {};
 
     // 更新激活状态
     if (isActive !== undefined) {
+      updateData.isActive = isActive;
+    }
+
+    // 更新角色
+    if (role !== undefined) {
+      if (role !== 'admin' && role !== 'super_admin') {
+        return NextResponse.json({ error: '无效的角色' }, { status: 400 });
+      }
+      updateData.role = role;
+    }
+
+    // 更新管理员基本信息
+    if (Object.keys(updateData).length > 0) {
       await prisma.admin.update({
         where: { id: params.id },
-        data: { isActive },
+        data: updateData,
       });
     }
 
-    // 更新团队权限
+    // 更新团队权限（仅针对普通管理员）
     if (teamIds !== undefined) {
       // 删除现有权限
       await prisma.teamPermission.deleteMany({

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { isAdmin } from '@/lib/auth';
+import { isAdmin, isSuperAdmin } from '@/lib/auth';
 
 export async function GET() {
   try {
@@ -28,11 +28,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const adminStatus = await isAdmin();
-    
-    if (!adminStatus) {
+    // 只有超级管理员可以创建团队
+    if (!(await isSuperAdmin())) {
       return NextResponse.json(
-        { error: '权限不足，请先登录管理员账号' },
+        { error: '权限不足，只有超级管理员可以创建团队' },
         { status: 403 }
       );
     }
