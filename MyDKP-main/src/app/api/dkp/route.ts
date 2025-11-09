@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { isAdmin, getSession } from '@/lib/auth';
+import { isAdmin, hasTeamPermission, getSession } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,9 +17,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
     }
 
+    // 检查团队权限
+    const hasPermission = await hasTeamPermission(teamId);
+    if (!hasPermission) {
+      return NextResponse.json({ error: '您没有权限操作该团队' }, { status: 403 });
+    }
+
     const player = await prisma.player.findUnique({ where: { id: playerId } });
     if (!player) {
       return NextResponse.json({ error: '玩家不存在' }, { status: 404 });
+    }
+
+    // 验证玩家属于该团队
+    if (player.teamId !== teamId) {
+      return NextResponse.json({ error: '玩家不属于该团队' }, { status: 400 });
     }
 
     const newDkp = player.currentDkp + change;

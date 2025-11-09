@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { LogIn, LogOut, Shield, Swords } from 'lucide-react';
+import { LogIn, LogOut, Shield, Swords, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { Team } from '@/types';
 import { ChangePasswordDialog } from './ChangePasswordDialog';
@@ -42,6 +42,33 @@ export function Navbar({
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{
+    username: string;
+    role: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchCurrentUser();
+    } else {
+      setCurrentUser(null);
+    }
+  }, [isAdmin]);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const res = await fetch('/api/auth/check');
+      const data = await res.json();
+      if (data.isAdmin && data.username) {
+        setCurrentUser({
+          username: data.username,
+          role: data.role,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch current user:', error);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +89,7 @@ export function Navbar({
         setIsLoginOpen(false);
         setUsername('');
         setPassword('');
+        fetchCurrentUser();
       } else {
         toast.error(data.error || '登录失败');
       }
@@ -77,6 +105,7 @@ export function Navbar({
       await fetch('/api/auth/logout', { method: 'POST' });
       toast.success('已退出登录');
       onAuthChange(false);
+      setCurrentUser(null);
     } catch (error) {
       toast.error('退出失败');
     }
@@ -117,9 +146,19 @@ export function Navbar({
           <div className="flex items-center space-x-3">
             {isAdmin ? (
               <>
-                <div className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-green-950/30 border border-green-700/50">
+                <div className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-gradient-to-r from-green-900/40 to-emerald-900/40 border border-green-700/50">
                   <Shield className="h-4 w-4 text-green-400" />
-                  <span className="text-sm text-green-400 font-semibold">管理员模式</span>
+                  <div className="flex flex-col">
+                    <div className="flex items-center space-x-2">
+                      <User className="h-3 w-3 text-green-400" />
+                      <span className="text-sm text-green-400 font-semibold">
+                        {currentUser?.username || '管理员'}
+                      </span>
+                    </div>
+                    {currentUser?.role === 'super_admin' && (
+                      <span className="text-xs text-yellow-400">超级管理员</span>
+                    )}
+                  </div>
                 </div>
                 <ChangePasswordDialog />
                 <Button

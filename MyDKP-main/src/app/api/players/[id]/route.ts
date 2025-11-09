@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { isAdmin } from '@/lib/auth';
+import { isAdmin, hasTeamPermission } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
@@ -31,6 +31,22 @@ export async function PATCH(
   }
 
   try {
+    // 先获取玩家信息以检查团队权限
+    const existingPlayer = await prisma.player.findUnique({
+      where: { id: params.id },
+      select: { teamId: true },
+    });
+
+    if (!existingPlayer) {
+      return NextResponse.json({ error: '玩家不存在' }, { status: 404 });
+    }
+
+    // 检查团队权限
+    const hasPermission = await hasTeamPermission(existingPlayer.teamId);
+    if (!hasPermission) {
+      return NextResponse.json({ error: '您没有权限操作该团队的玩家' }, { status: 403 });
+    }
+
     const data = await request.json();
     const player = await prisma.player.update({
       where: { id: params.id },
@@ -51,6 +67,22 @@ export async function DELETE(
   }
 
   try {
+    // 先获取玩家信息以检查团队权限
+    const existingPlayer = await prisma.player.findUnique({
+      where: { id: params.id },
+      select: { teamId: true },
+    });
+
+    if (!existingPlayer) {
+      return NextResponse.json({ error: '玩家不存在' }, { status: 404 });
+    }
+
+    // 检查团队权限
+    const hasPermission = await hasTeamPermission(existingPlayer.teamId);
+    if (!hasPermission) {
+      return NextResponse.json({ error: '您没有权限操作该团队的玩家' }, { status: 403 });
+    }
+
     await prisma.player.delete({ where: { id: params.id } });
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { isAdmin, getSession } from '@/lib/auth';
+import { isAdmin, hasTeamPermission, getSession } from '@/lib/auth';
 import Papa from 'papaparse';
 
 export async function POST(request: NextRequest) {
@@ -16,6 +16,12 @@ export async function POST(request: NextRequest) {
 
     if (!csvData || !teamId) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
+    }
+
+    // 检查团队权限
+    const hasPermission = await hasTeamPermission(teamId);
+    if (!hasPermission) {
+      return NextResponse.json({ error: '您没有权限操作该团队' }, { status: 403 });
     }
 
     const parsed = Papa.parse(csvData, { header: false, skipEmptyLines: true });
