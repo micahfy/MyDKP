@@ -69,6 +69,7 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
+  const [selectedRole, setSelectedRole] = useState<'admin' | 'super_admin'>('admin');
 
   // 确保 teams 是数组
   const teams = Array.isArray(propTeams) ? propTeams : [];
@@ -106,9 +107,6 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
     }
   };
 
-  // 新增：管理员角色选择
-  const [selectedRole, setSelectedRole] = useState<'admin' | 'super_admin'>('admin');
-
   const handleCreateAdmin = async () => {
     if (!username || !password) {
       toast.error('请填写完整信息');
@@ -123,7 +121,7 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
           username,
           password,
           role: selectedRole,
-          teamIds: selectedRole === 'super_admin' ? [] : selectedTeams, // 超管不需要团队权限
+          teamIds: selectedRole === 'super_admin' ? [] : selectedTeams,
         }),
       });
 
@@ -157,7 +155,7 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           teamIds: editTeamIds,
-          role: editingAdmin.role, // 保持角色不变
+          role: editingAdmin.role,
         }),
       });
 
@@ -210,6 +208,8 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
       toast.error('降级失败');
     }
   };
+
+  const handleToggleActive = async (adminId: string, isActive: boolean) => {
     try {
       const res = await fetch(`/api/admins/${adminId}`, {
         method: 'PATCH',
@@ -305,7 +305,9 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
                     )}
                   </div>
                   <div className="mt-2 text-sm text-gray-400">
-                    {admin.teamPermissions.length > 0 ? (
+                    {admin.role === 'super_admin' ? (
+                      <span>拥有所有权限</span>
+                    ) : admin.teamPermissions.length > 0 ? (
                       <span>
                         权限团队：
                         {admin.teamPermissions.map((p) => p.team.name).join('、')}
@@ -321,69 +323,81 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
                   )}
                 </div>
 
-                {admin.role !== 'super_admin' && (
-                  <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2">
+                  {admin.role === 'super_admin' ? (
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handlePromoteToSuperAdmin(admin.id, admin.username)}
-                      className="text-yellow-400 hover:bg-yellow-950"
-                      title="提升为超级管理员"
+                      onClick={() => handleDemoteToAdmin(admin.id, admin.username)}
+                      className="text-orange-400 hover:bg-orange-950"
+                      title="降级为普通管理员"
                     >
-                      <Shield className="h-4 w-4" />
+                      降级
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setEditingAdmin(admin)}
-                      className="text-blue-400 hover:bg-blue-950"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleToggleActive(admin.id, admin.isActive)}
-                      className={
-                        admin.isActive
-                          ? 'text-orange-400 hover:bg-orange-950'
-                          : 'text-green-400 hover:bg-green-950'
-                      }
-                    >
-                      {admin.isActive ? '禁用' : '启用'}
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-400 hover:bg-red-950"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent className="bg-slate-800 border-red-900">
-                        <AlertDialogHeader>
-                          <AlertDialogTitle className="text-gray-100">
-                            确认删除管理员？
-                          </AlertDialogTitle>
-                          <AlertDialogDescription className="text-gray-400">
-                            此操作将删除管理员 <strong>{admin.username}</strong> 及其所有权限，无法撤销！
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel className="bg-slate-700">取消</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDeleteAdmin(admin.id)}
-                            className="bg-red-600 hover:bg-red-700"
+                  ) : (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handlePromoteToSuperAdmin(admin.id, admin.username)}
+                        className="text-yellow-400 hover:bg-yellow-950"
+                        title="提升为超级管理员"
+                      >
+                        <Shield className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditingAdmin(admin)}
+                        className="text-blue-400 hover:bg-blue-950"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleToggleActive(admin.id, admin.isActive)}
+                        className={
+                          admin.isActive
+                            ? 'text-orange-400 hover:bg-orange-950'
+                            : 'text-green-400 hover:bg-green-950'
+                        }
+                      >
+                        {admin.isActive ? '禁用' : '启用'}
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-400 hover:bg-red-950"
                           >
-                            确认删除
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                )}
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="bg-slate-800 border-red-900">
+                          <AlertDialogHeader>
+                            <AlertDialogTitle className="text-gray-100">
+                              确认删除管理员？
+                            </AlertDialogTitle>
+                            <AlertDialogDescription className="text-gray-400">
+                              此操作将删除管理员 <strong>{admin.username}</strong> 及其所有权限，无法撤销！
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel className="bg-slate-700">取消</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteAdmin(admin.id)}
+                              className="bg-red-600 hover:bg-red-700"
+                            >
+                              确认删除
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -526,20 +540,7 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
                         />
                         <span className="text-sm text-gray-200">{team.name}</span>
                       </label>
-                    )                    )}
-                  </div>
-                )}
-                {admin.role === 'super_admin' && (
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDemoteToAdmin(admin.id, admin.username)}
-                      className="text-orange-400 hover:bg-orange-950"
-                      title="降级为普通管理员"
-                    >
-                      降级
-                    </Button>
+                    ))}
                   </div>
                 )}
               </div>
