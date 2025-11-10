@@ -17,10 +17,10 @@ export default function Home() {
     checkAuth();
     fetchTeams();
     
-    // 每30秒检查一次权限，以便及时响应角色变化
+    // 降低检查频率到30秒，减少服务器负载
     const authCheckInterval = setInterval(() => {
       checkAuth();
-    }, 30000);
+    }, 30000); // 30秒
     
     return () => clearInterval(authCheckInterval);
   }, []);
