@@ -75,14 +75,18 @@ export function PlayerTable({ teamId, isAdmin = false }: PlayerTableProps) {
     filterPlayers();
   }, [players, search, classFilter]);
 
-  const fetchPlayers = async () => {
+const fetchPlayers = async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/players?teamId=${teamId}`);
       const data = await res.json();
-      setPlayers(data);
+      
+      // 兼容新旧API格式
+      const playerList = Array.isArray(data) ? data : (data.players || []);
+      setPlayers(playerList);
     } catch (error) {
       toast.error('获取玩家列表失败');
+      setPlayers([]); // 确保出错时也是数组
     } finally {
       setLoading(false);
     }

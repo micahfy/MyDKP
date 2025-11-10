@@ -31,28 +31,17 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (teamId) fetchPlayers();
+    if (teamId) {
+      fetchPlayers();
+    }
   }, [teamId]);
 
   const fetchPlayers = async () => {
     try {
       const res = await fetch(`/api/players?teamId=${teamId}`);
       const data = await res.json();
-
-      // ✅ 修正：接口返回的是 { players: [...], pagination: {...} }
-      const list = Array.isArray(data)
-        ? data
-        : data.players || [];
-
-      if (!Array.isArray(list)) {
-        console.error("Invalid players data:", data);
-        toast.error('玩家数据格式错误');
-        setPlayers([]);
-      } else {
-        setPlayers(list);
-      }
+      setPlayers(data);
     } catch (error) {
-      console.error(error);
       toast.error('获取玩家列表失败');
     }
   };
@@ -115,15 +104,11 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
               <SelectValue placeholder="选择玩家" />
             </SelectTrigger>
             <SelectContent>
-              {Array.isArray(players) && players.length > 0 ? (
-                players.map((player) => (
-                  <SelectItem key={player.id} value={player.id}>
-                    {player.name} ({player.class})
-                  </SelectItem>
-                ))
-              ) : (
-                <div className="p-2 text-gray-500 text-sm">暂无玩家</div>
-              )}
+              {players.map((player) => (
+                <SelectItem key={player.id} value={player.id}>
+                  {player.name} ({player.class})
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
