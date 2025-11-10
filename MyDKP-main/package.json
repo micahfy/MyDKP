@@ -9,7 +9,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "setup": "npm install && npx prisma generate && npx prisma db push && npm run db:seed"
-    "protect:admin": "tsx prisma/protect-admin.ts"
+    "protect:admin": "tsx prisma/protect-admin.ts",
   },
   "dependencies": {
     "next": "^14.2.0",
