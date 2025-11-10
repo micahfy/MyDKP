@@ -8,8 +8,8 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "setup": "npm install && npx prisma generate && npx prisma db push && npm run db:seed"
-    "protect:admin": "tsx prisma/protect-admin.ts",
+    "setup": "npm install && npx prisma generate && npx prisma db push && npm run db:seed",
+    "protect:admin": "tsx prisma/protect-admin.ts"
   },
   "dependencies": {
     "next": "^14.2.0",
@@ -45,10 +45,5 @@
     "postcss": "^8.4.38",
     "autoprefixer": "^10.4.19",
     "tsx": "^4.10.2"
-  }
-}
-{
-  "scripts": {
-    "protect:admin": "tsx prisma/protect-admin.ts"
   }
 }
