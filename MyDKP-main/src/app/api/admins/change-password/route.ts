@@ -1,7 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdmin, getSession } from '@/lib/auth';
-import { hashPassword, verifyPassword, validatePassword } from '@/lib/password';
+import * as bcrypt from 'bcryptjs';
+
+// 密码验证函数
+function validatePassword(password: string): { isValid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  if (password.length < 8) {
+    errors.push('密码长度至少8位');
+  }
+
+  if (!/[a-z]/.test(password)) {
+    errors.push('密码必须包含小写字母');
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    errors.push('密码必须包含大写字母');
+  }
+
+  if (!/[0-9]/.test(password)) {
+    errors.push('密码必须包含数字');
+  }
+
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    errors.push('密码必须包含特殊字符');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,13 +65,13 @@ export async function POST(request: NextRequest) {
     }
 
     // 验证旧密码
-    const isValidOldPassword = await verifyPassword(oldPassword, admin.password);
+    const isValidOldPassword = await bcrypt.compare(oldPassword, admin.password);
     if (!isValidOldPassword) {
       return NextResponse.json({ error: '原密码错误' }, { status: 401 });
     }
 
     // 更新密码
-    const hashedNewPassword = await hashPassword(newPassword);
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
     await prisma.admin.update({
       where: { id: session.adminId },
       data: { 

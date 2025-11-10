@@ -16,12 +16,27 @@ export default function Home() {
   useEffect(() => {
     checkAuth();
     fetchTeams();
+    
+    // 每30秒检查一次权限，以便及时响应角色变化
+    const authCheckInterval = setInterval(() => {
+      checkAuth();
+    }, 30000);
+    
+    return () => clearInterval(authCheckInterval);
   }, []);
 
   const checkAuth = async () => {
     try {
       const res = await fetch('/api/auth/check');
       const data = await res.json();
+      
+      // 如果角色发生变化且不是初始加载，刷新页面
+      if (data.isAdmin && data.role && adminRole && data.role !== adminRole) {
+        console.log('Role changed from', adminRole, 'to', data.role, '- reloading...');
+        window.location.reload();
+        return;
+      }
+      
       setIsAdmin(data.isAdmin === true);
       setAdminRole(data.role || '');
     } catch (error) {
@@ -57,6 +72,7 @@ export default function Home() {
 
   const handleUpdate = () => {
     fetchTeams();
+    checkAuth(); // 同时检查权限
   };
 
   if (loading) {
@@ -95,7 +111,7 @@ export default function Home() {
             <div className="text-gray-400 text-lg mb-4">
               {isAdmin ? '暂无团队，请先创建一个团队' : '暂无团队数据'}
             </div>
-            {isAdmin && (
+            {isAdmin && adminRole === 'super_admin' && (
               <div className="text-sm text-gray-500">
                 请在上方管理面板的"团队管理"标签中创建团队
               </div>

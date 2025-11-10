@@ -8,6 +8,7 @@ export interface SessionData {
   role?: 'super_admin' | 'admin';
   isAdmin: boolean;
   needPasswordChange?: boolean;
+  permissionVersion?: number; // 添加权限版本号
 }
 
 const sessionOptions = {

@@ -14,6 +14,8 @@ model Admin {
   role            String   @default("admin") // super_admin, admin
   isActive        Boolean  @default(true)
   needPasswordChange Boolean @default(false)
+  isProtected     Boolean  @default(false) // 是否受保护，不能被降级/删除
+  permissionVersion Int    @default(0) // 权限版本号，每次权限变更时递增
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   lastLoginAt     DateTime?

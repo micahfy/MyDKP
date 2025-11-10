@@ -12,13 +12,43 @@ export async function PATCH(
       return NextResponse.json({ error: '权限不足' }, { status: 403 });
     }
 
+    const session = await getSession();
     const { teamIds, isActive, role } = await request.json();
 
+    // 检查目标管理员是否存在
+    const targetAdmin = await prisma.admin.findUnique({
+      where: { id: params.id },
+    });
+
+    if (!targetAdmin) {
+      return NextResponse.json({ error: '管理员不存在' }, { status: 404 });
+    }
+
+    // 检查目标管理员是否受保护
+    if (targetAdmin.isProtected) {
+      // 只有受保护的管理员自己可以修改自己
+      if (session.adminId !== params.id) {
+        return NextResponse.json({ 
+          error: '该管理员账号受保护，无法被其他管理员修改',
+          isProtected: true 
+        }, { status: 403 });
+      }
+    }
+
+    // 不能修改自己的角色（防止误操作导致自己失去权限）
+    if (role !== undefined && session.adminId === params.id) {
+      return NextResponse.json({ 
+        error: '不能修改自己的角色' 
+      }, { status: 400 });
+    }
+
     const updateData: any = {};
+    let needIncrementVersion = false;
 
     // 更新激活状态
     if (isActive !== undefined) {
       updateData.isActive = isActive;
+      needIncrementVersion = true;
     }
 
     // 更新角色
@@ -27,6 +57,14 @@ export async function PATCH(
         return NextResponse.json({ error: '无效的角色' }, { status: 400 });
       }
       updateData.role = role;
+      needIncrementVersion = true;
+    }
+
+    // 递增权限版本号
+    if (needIncrementVersion) {
+      updateData.permissionVersion = {
+        increment: 1,
+      };
     }
 
     // 更新管理员基本信息
@@ -53,6 +91,18 @@ export async function PATCH(
           })),
         });
       }
+
+      // 团队权限变更也需要递增版本号
+      if (!needIncrementVersion) {
+        await prisma.admin.update({
+          where: { id: params.id },
+          data: {
+            permissionVersion: {
+              increment: 1,
+            },
+          },
+        });
+      }
     }
 
     return NextResponse.json({ success: true });
@@ -77,6 +127,18 @@ export async function DELETE(
     // 不能删除自己
     if (session.adminId === params.id) {
       return NextResponse.json({ error: '不能删除自己的账号' }, { status: 400 });
+    }
+
+    // 检查目标管理员是否受保护
+    const targetAdmin = await prisma.admin.findUnique({
+      where: { id: params.id },
+    });
+
+    if (targetAdmin?.isProtected) {
+      return NextResponse.json({ 
+        error: '该管理员账号受保护，无法删除',
+        isProtected: true 
+      }, { status: 403 });
     }
 
     await prisma.admin.delete({

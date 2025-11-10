@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { verifyPassword } from '@/lib/password';
+import * as bcrypt from 'bcryptjs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 验证密码
-    const isValidPassword = await verifyPassword(password, admin.password);
+    const isValidPassword = await bcrypt.compare(password, admin.password);
     if (!isValidPassword) {
       return NextResponse.json({ error: '用户名或密码错误' }, { status: 401 });
     }
@@ -37,13 +37,14 @@ export async function POST(request: NextRequest) {
       data: { lastLoginAt: new Date() },
     });
 
-    // 设置 session
+    // 设置 session，包含权限版本号
     const session = await getSession();
     session.isAdmin = true;
     session.adminId = admin.id;
     session.username = admin.username;
     session.role = admin.role as 'super_admin' | 'admin';
     session.needPasswordChange = admin.needPasswordChange;
+    session.permissionVersion = admin.permissionVersion; // 记录权限版本号
     await session.save();
 
     return NextResponse.json({
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
         username: admin.username,
         role: admin.role,
         needPasswordChange: admin.needPasswordChange,
+        permissionVersion: admin.permissionVersion,
       },
     });
   } catch (error) {

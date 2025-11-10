@@ -38,6 +38,7 @@ interface Admin {
   username: string;
   role: string;
   isActive: boolean;
+  isProtected: boolean; // 添加保护标记
   createdAt: string;
   lastLoginAt: string | null;
   teamPermissions: Array<{
@@ -180,8 +181,13 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
       });
 
       if (res.ok) {
-        toast.success(`${username} 已提升为超级管理员`);
+        toast.success(`${username} 已提升为超级管理员，正在刷新页面...`);
         fetchAdmins();
+        
+        // 延迟刷新页面，让被提升的管理员看到新权限
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
       } else {
         toast.error('提升失败');
       }
@@ -199,8 +205,13 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
       });
 
       if (res.ok) {
-        toast.success(`${username} 已降级为普通管理员`);
+        toast.success(`${username} 已降级为普通管理员，正在刷新页面...`);
         fetchAdmins();
+        
+        // 延迟刷新页面
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
       } else {
         toast.error('降级失败');
       }
@@ -325,26 +336,72 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
 
                 <div className="flex items-center space-x-2">
                   {admin.role === 'super_admin' ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDemoteToAdmin(admin.id, admin.username)}
-                      className="text-orange-400 hover:bg-orange-950"
-                      title="降级为普通管理员"
-                    >
-                      降级
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-orange-400 hover:bg-orange-950"
+                          title="降级为普通管理员"
+                        >
+                          降级
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="bg-slate-800 border-orange-900">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="text-gray-100">
+                            确认降级管理员？
+                          </AlertDialogTitle>
+                          <AlertDialogDescription className="text-gray-400">
+                            此操作将把超级管理员 <strong className="text-orange-400">{admin.username}</strong> 降级为普通管理员。
+                            降级后需要重新分配团队权限。
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="bg-slate-700">取消</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDemoteToAdmin(admin.id, admin.username)}
+                            className="bg-orange-600 hover:bg-orange-700"
+                          >
+                            确认降级
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   ) : (
                     <>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handlePromoteToSuperAdmin(admin.id, admin.username)}
-                        className="text-yellow-400 hover:bg-yellow-950"
-                        title="提升为超级管理员"
-                      >
-                        <Shield className="h-4 w-4" />
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-yellow-400 hover:bg-yellow-950"
+                            title="提升为超级管理员"
+                          >
+                            <Shield className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="bg-slate-800 border-yellow-900">
+                          <AlertDialogHeader>
+                            <AlertDialogTitle className="text-gray-100">
+                              确认提升为超级管理员？
+                            </AlertDialogTitle>
+                            <AlertDialogDescription className="text-gray-400">
+                              此操作将把普通管理员 <strong className="text-yellow-400">{admin.username}</strong> 提升为超级管理员。
+                              提升后将拥有所有权限，包括管理其他管理员、创建/删除团队等。
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel className="bg-slate-700">取消</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handlePromoteToSuperAdmin(admin.id, admin.username)}
+                              className="bg-yellow-600 hover:bg-yellow-700"
+                            >
+                              确认提升
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                       <Button
                         variant="ghost"
                         size="sm"
