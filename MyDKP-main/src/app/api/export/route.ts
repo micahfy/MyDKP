@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-
+// 标记为动态路由
+export const dynamic = 'force-dynamic';
 // GET /api/export?type=players&teamId=xxx
 // GET /api/export?type=logs&teamId=xxx
 export async function GET(request: NextRequest) {

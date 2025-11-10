@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdmin, getSession } from '@/lib/auth';
 import * as bcrypt from 'bcryptjs';
-
+export const dynamic = 'force-dynamic';
 // 密码验证函数
 function validatePassword(password: string): { isValid: boolean; errors: string[] } {
   const errors: string[] = [];

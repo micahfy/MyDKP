@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdmin, isSuperAdmin } from '@/lib/auth';
-
+export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const teams = await prisma.team.findMany({

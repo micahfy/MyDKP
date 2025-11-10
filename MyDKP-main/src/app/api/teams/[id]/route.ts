@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isSuperAdmin } from '@/lib/auth';
-
+export const dynamic = 'force-dynamic';
 // GET /api/teams/[id] - 获取单个团队信息
 export async function GET(
   request: NextRequest,

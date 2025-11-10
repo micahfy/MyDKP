@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import * as bcrypt from 'bcryptjs';
-
+export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
     const { username, password } = await request.json();

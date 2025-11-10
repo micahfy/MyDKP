@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isSuperAdmin, getSession } from '@/lib/auth';
-
+export const dynamic = 'force-dynamic';
 // PATCH /api/admins/[id] - 更新管理员权限（仅超管）
 export async function PATCH(
   request: NextRequest,

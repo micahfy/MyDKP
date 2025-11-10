@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { hasTeamPermission, isAdmin } from '@/lib/auth';
+// 标记为动态路由
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {

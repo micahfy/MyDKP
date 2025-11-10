@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isSuperAdmin, getSession } from '@/lib/auth';
 import { hashPassword, validatePassword } from '@/lib/password';
-
+export const dynamic = 'force-dynamic';
 // GET /api/admins - 获取管理员列表（仅超管）
 export async function GET() {
   try {
