@@ -21,9 +21,8 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Search, Download, Edit2, Trash2, Crown } from 'lucide-react';
-import { PlayerDetail } from '@/components/PlayerDetail';
-import { PlayerEditDialog } from '@/components/PlayerEditDialog';
-
+import { PlayerDetail } from './PlayerDetail';
+import { PlayerEditDialog } from './PlayerEditDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -75,9 +74,10 @@ export function PlayerTable({ teamId, isAdmin = false }: PlayerTableProps) {
     filterPlayers();
   }, [players, search, classFilter]);
 
-const fetchPlayers = async () => {
+  const fetchPlayers = async () => {
     setLoading(true);
     try {
+      // 访客和管理员都使用同一个接口，但返回的数据字段可能不同
       const res = await fetch(`/api/players?teamId=${teamId}`);
       const data = await res.json();
       
@@ -164,15 +164,17 @@ const fetchPlayers = async () => {
                 DKP 排行榜
               </span>
             </CardTitle>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleExport}
-              className="btn-glow border-blue-500 text-blue-400 hover:bg-blue-950"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              导出 CSV
-            </Button>
+            {isAdmin && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleExport}
+                className="btn-glow border-blue-500 text-blue-400 hover:bg-blue-950"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                导出 CSV
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="pt-6">
@@ -320,6 +322,7 @@ const fetchPlayers = async () => {
         </CardContent>
       </Card>
 
+      {/* 访客也可以查看玩家详情，但可能没有某些功能 */}
       {selectedPlayer && (
         <PlayerDetail
           player={selectedPlayer}
@@ -328,7 +331,8 @@ const fetchPlayers = async () => {
         />
       )}
 
-      {editingPlayer && (
+      {/* 只有管理员才能编辑 */}
+      {editingPlayer && isAdmin && (
         <PlayerEditDialog
           player={editingPlayer}
           open={!!editingPlayer}

@@ -15,15 +15,27 @@ export default function Home() {
 
   useEffect(() => {
     checkAuth();
-    fetchTeams();
+  }, []);
+
+  // 只在管理员登录后才加载完整团队信息
+  useEffect(() => {
+    if (isAdmin) {
+      fetchFullTeams();
+    } else {
+      fetchBasicTeams();
+    }
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
     
-    // 降低检查频率到30秒，减少服务器负载
+    // 降低检查频率到30秒，减少服务器负载（仅管理员）
     const authCheckInterval = setInterval(() => {
       checkAuth();
     }, 30000); // 30秒
     
     return () => clearInterval(authCheckInterval);
-  }, []);
+  }, [isAdmin]);
 
   const checkAuth = async () => {
     try {
@@ -45,7 +57,25 @@ export default function Home() {
     }
   };
 
-  const fetchTeams = async () => {
+  // 访客用户：只加载基本团队信息（不含玩家数量等统计数据）
+  const fetchBasicTeams = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/teams/basic');
+      const data = await res.json();
+      setTeams(data);
+      if (data.length > 0 && !selectedTeam) {
+        setSelectedTeam(data[0].id);
+      }
+    } catch (error) {
+      console.error('Fetch basic teams failed:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 管理员用户：加载完整团队信息
+  const fetchFullTeams = async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/teams');
@@ -65,13 +95,19 @@ export default function Home() {
     setIsAdmin(newIsAdmin);
     if (newIsAdmin) {
       checkAuth();
+      fetchFullTeams(); // 登录后立即加载完整数据
     } else {
       setAdminRole('');
+      fetchBasicTeams(); // 登出后只加载基本数据
     }
   };
 
   const handleUpdate = () => {
-    fetchTeams();
+    if (isAdmin) {
+      fetchFullTeams();
+    } else {
+      fetchBasicTeams();
+    }
     checkAuth(); // 同时检查权限
   };
 

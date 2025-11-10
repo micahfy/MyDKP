@@ -135,7 +135,8 @@ export function Navbar({
                       value={team.id}
                       className="hover:bg-blue-950 text-gray-200"
                     >
-                      {team.name} ({team._count?.players || 0}人)
+                      {/* 访客模式不显示玩家数量 */}
+                      {team.name} {isAdmin && team._count ? `(${team._count.players}人)` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
