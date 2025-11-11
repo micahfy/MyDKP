@@ -99,8 +99,17 @@ export async function POST(request: NextRequest) {
         const playerName = parts[0];
         const changeValue = parseFloat(parts[1]);
         const reason = parts[2] || '';
-        const dateStr = parts[3] || new Date().toLocaleDateString('zh-CN');
-        const timeStr = parts[4] || new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        
+        // 生成标准化的日期时间字符串用于去重
+        let dateStr = parts[3] || '';
+        let timeStr = parts[4] || '';
+        
+        // 如果没有提供日期时间，使用当前时间
+        if (!dateStr || !timeStr) {
+          const now = new Date();
+          dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+          timeStr = now.toTimeString().split(' ')[0]; // HH:MM:SS
+        }
 
         if (!playerName) {
           failedCount++;

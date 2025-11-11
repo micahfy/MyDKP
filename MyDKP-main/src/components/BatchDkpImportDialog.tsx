@@ -80,19 +80,26 @@ export function BatchDkpImportDialog({ teamId, onSuccess }: BatchDkpImportDialog
 
   const generateExampleData = () => {
     const now = new Date();
-    const dateStr = now.toLocaleDateString('zh-CN');
-    const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hour = String(now.getHours()).padStart(2, '0');
+    const minute = String(now.getMinutes()).padStart(2, '0');
+    const second = String(now.getSeconds()).padStart(2, '0');
     
-    const example = `# 单人奖励（正分）
+    const dateStr = `${year}-${month}-${day}`;
+    const timeStr = `${hour}:${minute}:${second}`;
+    
+    const example = `# 单人奖励（正分）- 完整格式（包含秒数）
 无敌战士,50,击杀奈法利安,${dateStr},${timeStr}
 神圣奶妈,45,击杀奈法利安,${dateStr},${timeStr}
 
 # 单人扣分（负分）
 狂暴猎人,-30,购买装备,${dateStr},${timeStr}
 
-# 指定历史日期
-暗影刺客,20,补发奖励,2024/12/01,20:30
-元素萨满,25,副本奖励,2024年12月15日,19时00分`;
+# 指定历史日期（支持多种格式）
+暗影刺客,20,补发奖励,2024/12/01,20:30:45
+元素萨满,25,副本奖励,2024-12-15,19:00:00`;
 
     setImportData(example);
   };
