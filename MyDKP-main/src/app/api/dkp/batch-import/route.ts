@@ -72,14 +72,23 @@ export async function POST(request: NextRequest) {
       // 构建已存在记录的哈希集合
       for (const log of recentLogs) {
         const logDate = new Date(log.createdAt);
-        const dateStr = logDate.toLocaleDateString('zh-CN');
-        const timeStr = logDate.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        // 统一使用 ISO 格式
+        const year = logDate.getFullYear();
+        const month = String(logDate.getMonth() + 1).padStart(2, '0');
+        const day = String(logDate.getDate()).padStart(2, '0');
+        const hour = String(logDate.getHours()).padStart(2, '0');
+        const minute = String(logDate.getMinutes()).padStart(2, '0');
+        const second = String(logDate.getSeconds()).padStart(2, '0');
+        
+        const logDateStr = `${year}-${month}-${day}`;
+        const logTimeStr = `${hour}:${minute}:${second}`;
+        
         const hash = generateRecordHash(
           log.player.name,
           log.change,
           log.reason || '',
-          dateStr,
-          timeStr
+          logDateStr,
+          logTimeStr
         );
         existingHashes.add(hash);
       }
@@ -152,9 +161,10 @@ export async function POST(request: NextRequest) {
         // 解析日期时间
         let recordTime: Date;
         try {
-          // 尝试解析日期时间
+          // 支持多种日期格式：2024/12/20, 2024-12-20, 2024年12月20日
           const dateParts = dateStr.match(/(\d{4})[\/\-年](\d{1,2})[\/\-月](\d{1,2})/);
-          const timeParts = timeStr.match(/(\d{1,2})[:\时](\d{1,2})/);
+          // 支持多种时间格式：20:30:45, 20:30, 20时30分45秒, 20时30分
+          const timeParts = timeStr.match(/(\d{1,2})[:\时](\d{1,2})(?:[:\分](\d{1,2}))?/);
           
           if (dateParts && timeParts) {
             const year = parseInt(dateParts[1]);
@@ -162,13 +172,22 @@ export async function POST(request: NextRequest) {
             const day = parseInt(dateParts[3]);
             const hour = parseInt(timeParts[1]);
             const minute = parseInt(timeParts[2]);
-            recordTime = new Date(year, month, day, hour, minute);
+            const second = timeParts[3] ? parseInt(timeParts[3]) : 0; // 秒数可选
+            recordTime = new Date(year, month, day, hour, minute, second);
+            
+            // 标准化日期时间字符串用于去重（统一格式）
+            dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`;
           } else {
             // 如果解析失败，使用当前时间
             recordTime = new Date();
+            dateStr = recordTime.toISOString().split('T')[0];
+            timeStr = recordTime.toTimeString().split(' ')[0];
           }
         } catch (error) {
           recordTime = new Date();
+          dateStr = recordTime.toISOString().split('T')[0];
+          timeStr = recordTime.toTimeString().split(' ')[0];
         }
 
         const operationType = changeValue >= 0 ? 'earn' : 'spend';
@@ -176,27 +195,33 @@ export async function POST(request: NextRequest) {
         const newEarned = changeValue > 0 ? player.totalEarned + changeValue : player.totalEarned;
         const newSpent = changeValue < 0 ? player.totalSpent + Math.abs(changeValue) : player.totalSpent;
 
-        await prisma.$transaction([
-          prisma.player.update({
-            where: { id: player.id },
-            data: {
-              currentDkp: newDkp,
-              totalEarned: newEarned,
-              totalSpent: newSpent,
-            },
-          }),
-          prisma.dkpLog.create({
-            data: {
-              playerId: player.id,
-              teamId,
-              type: operationType,
-              change: changeValue,
-              reason: reason || `批量导入 - ${changeValue >= 0 ? '获得' : '消耗'}`,
-              operator: session.username || 'admin',
-              createdAt: recordTime, // 使用指定的时间
-            },
-          }),
-        ]);
+        // 先更新玩家数据
+        const updatedPlayer = await prisma.player.update({
+          where: { id: player.id },
+          data: {
+            currentDkp: newDkp,
+            totalEarned: newEarned,
+            totalSpent: newSpent,
+          },
+        });
+
+        // 再创建日志
+        await prisma.dkpLog.create({
+          data: {
+            playerId: player.id,
+            teamId,
+            type: operationType,
+            change: changeValue,
+            reason: reason || `批量导入 - ${changeValue >= 0 ? '获得' : '消耗'}`,
+            operator: session.username || 'admin',
+            createdAt: recordTime,
+          },
+        });
+
+        // 更新内存中的玩家数据，供后续操作使用
+        player.currentDkp = updatedPlayer.currentDkp;
+        player.totalEarned = updatedPlayer.totalEarned;
+        player.totalSpent = updatedPlayer.totalSpent;
 
         processedHashes.add(recordHash);
         successCount++;

@@ -142,7 +142,7 @@ export function BatchDkpImportDialog({ teamId, onSuccess }: BatchDkpImportDialog
             <Textarea
               value={importData}
               onChange={(e) => setImportData(e.target.value)}
-              placeholder="每行格式：角色名,分数,原因,日期,时间&#10;&#10;示例：&#10;无敌战士,50,击杀奈法利安,2024/12/20,20:30&#10;神圣奶妈,-30,购买装备,2024/12/20,20:30&#10;&#10;注意：&#10;- 正数表示获得，负数表示消耗&#10;- 日期格式支持：2024/12/20 或 2024-12-20 或 2024年12月20日&#10;- 时间格式支持：20:30 或 20时30分&#10;- 如果省略日期时间，将使用当前时间"
+              placeholder="每行格式：角色名,分数,原因,日期,时间&#10;&#10;示例：&#10;无敌战士,50,击杀奈法利安,2025-11-13,23:20:21&#10;神圣奶妈,-30,购买装备,2025-11-13,23:20:21&#10;&#10;注意：&#10;- 正数表示获得，负数表示消耗&#10;- 日期格式：2024-12-20 或 2024/12/20 或 2024年12月20日&#10;- 时间格式：20:30:45 或 20:30 或 20时30分45秒&#10;- 建议使用：YYYY-MM-DD HH:MM:SS 格式&#10;- 如果省略日期时间，将使用当前时间"
               rows={12}
               className="font-mono text-sm bg-slate-800/80 border-slate-600 text-gray-200 placeholder:text-gray-500"
             />
@@ -157,8 +157,9 @@ export function BatchDkpImportDialog({ teamId, onSuccess }: BatchDkpImportDialog
                   <li><strong>标准格式</strong>：角色名,分数,原因,日期,时间</li>
                   <li><strong>简化格式</strong>：角色名,分数,原因（自动使用当前日期时间）</li>
                   <li>分数为<strong className="text-green-400">正数</strong>表示获得DKP，<strong className="text-red-400">负数</strong>表示扣除DKP</li>
-                  <li>日期支持：<code className="bg-slate-700 px-1 rounded">2024/12/20</code> 或 <code className="bg-slate-700 px-1 rounded">2024-12-20</code> 或 <code className="bg-slate-700 px-1 rounded">2024年12月20日</code></li>
-                  <li>时间支持：<code className="bg-slate-700 px-1 rounded">20:30</code> 或 <code className="bg-slate-700 px-1 rounded">20时30分</code></li>
+                  <li>日期支持：<code className="bg-slate-700 px-1 rounded">2024-12-20</code> 或 <code className="bg-slate-700 px-1 rounded">2024/12/20</code> 或 <code className="bg-slate-700 px-1 rounded">2024年12月20日</code></li>
+                  <li>时间支持：<code className="bg-slate-700 px-1 rounded">20:30:45</code> 或 <code className="bg-slate-700 px-1 rounded">20:30</code> 或 <code className="bg-slate-700 px-1 rounded">20时30分45秒</code></li>
+                  <li><strong className="text-yellow-400">推荐格式</strong>：<code className="bg-slate-700 px-1 rounded">YYYY-MM-DD HH:MM:SS</code> 确保精确匹配</li>
                   <li>每行独立处理，失败不影响其他行</li>
                   <li>以 <code className="bg-slate-700 px-1 rounded">#</code> 开头的行会被忽略（可用于注释）</li>
                 </ul>
@@ -279,21 +280,21 @@ export function BatchDkpImportDialog({ teamId, onSuccess }: BatchDkpImportDialog
 
           <div className="bg-slate-800 p-4 rounded-lg border border-green-700/50">
             <pre className="text-xs font-mono text-gray-300 whitespace-pre-wrap">
-{`# 完整格式（包含日期时间）
-无敌战士,50,击杀奈法利安,2024/12/20,20:30
-神圣奶妈,45,击杀奈法利安,2024/12/20,20:30
+{`# 完整格式（推荐：包含秒数）
+无敌战士,50,击杀奈法利安,2024-12-20,20:30:45
+神圣奶妈,45,击杀奈法利安,2024-12-20,20:30:45
 
-# 简化格式（使用当前时间）
-狂暴猎人,-30,购买装备
-暗影刺客,-25,购买装备
+# 简化格式（秒数可选）
+狂暴猎人,-30,购买装备,2024-12-20,20:30
+暗影刺客,-25,购买装备,2024-12-20,20:30
 
 # 不同的日期时间格式
-元素萨满,30,副本奖励,2024-12-15,19:00
-奥术法神,30,副本奖励,2024年12月15日,19时00分
+元素萨满,30,副本奖励,2024/12/15,19:00:30
+奥术法神,30,副本奖励,2024年12月15日,19时00分30秒
 
 # 补录历史数据
-痛苦术士,100,补发奖励,2024/11/01,18:00
-野性德鲁伊,80,补发奖励,2024/11/01,18:00`}
+痛苦术士,100,补发奖励,2024-11-01,18:00:00
+野性德鲁伊,80,补发奖励,2024-11-01,18:00:00`}
             </pre>
           </div>
 
