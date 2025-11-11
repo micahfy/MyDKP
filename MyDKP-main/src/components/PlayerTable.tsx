@@ -21,8 +21,8 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Search, Download, Edit2, Trash2, Crown } from 'lucide-react';
-import { PlayerDetail } from './PlayerDetail';
-import { PlayerEditDialog } from './PlayerEditDialog';
+import { PlayerDetail } from '@/components/PlayerDetail';
+import { PlayerEditDialog } from '@/components/PlayerEditDialog';
 import {
   AlertDialog,
   AlertDialogAction,
