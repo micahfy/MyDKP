@@ -77,6 +77,80 @@ function normalizeDateTime(rawDate?: string, rawTime?: string) {
   };
 }
 
+async function updateTeamAttendance(teamId: string) {
+  const [logs, players] = await Promise.all([
+    prisma.dkpLog.findMany({
+      where: { teamId },
+      select: { playerId: true, change: true, reason: true, createdAt: true },
+    }),
+    prisma.player.findMany({
+      where: { teamId },
+      select: { id: true },
+    }),
+  ]);
+
+  if (players.length === 0) {
+    return;
+  }
+
+  const activityDays = new Set<string>();
+  const logsByDay = new Map<string, Array<{ playerId: string; change: number }>>();
+
+  for (const log of logs) {
+    const { dateStr } = formatBeijing(new Date(log.createdAt));
+    if (!logsByDay.has(dateStr)) {
+      logsByDay.set(dateStr, []);
+    }
+    logsByDay.get(dateStr)!.push({ playerId: log.playerId, change: log.change });
+
+    if ((log.reason || '').trim() === '集合分') {
+      activityDays.add(dateStr);
+    }
+  }
+
+  if (activityDays.size === 0) {
+    await prisma.player.updateMany({
+      where: { teamId },
+      data: { attendance: 0 },
+    });
+    return;
+  }
+
+  const attendanceMap = new Map<string, Set<string>>();
+
+  for (const day of activityDays) {
+    const dayLogs = logsByDay.get(day);
+    if (!dayLogs) continue;
+
+    const presentPlayers = new Set<string>();
+    for (const entry of dayLogs) {
+      if (entry.change > 0) {
+        presentPlayers.add(entry.playerId);
+      }
+    }
+
+    for (const playerId of presentPlayers) {
+      if (!attendanceMap.has(playerId)) {
+        attendanceMap.set(playerId, new Set());
+      }
+      attendanceMap.get(playerId)!.add(day);
+    }
+  }
+
+  const totalActivities = activityDays.size;
+
+  await Promise.all(
+    players.map(({ id }) => {
+      const attendedDays = attendanceMap.get(id)?.size ?? 0;
+      const attendance = totalActivities === 0 ? 0 : attendedDays / totalActivities;
+      return prisma.player.update({
+        where: { id },
+        data: { attendance },
+      });
+    }),
+  );
+}
+
 export async function POST(request: NextRequest) {
   try {
     const adminStatus = await isAdmin();
@@ -115,7 +189,7 @@ export async function POST(request: NextRequest) {
 
     const playerMap = new Map(teamPlayers.map((p) => [p.name, p]));
     const processedHashes = new Set<string>();
-    const existingHashes = new Set<string>();
+const existingHashes = new Set<string>();
 
     if (ignoreDuplicates) {
       const recentLogs = await prisma.dkpLog.findMany({
@@ -229,6 +303,8 @@ export async function POST(request: NextRequest) {
         errors.push({ line: line.substring(0, 50), error: error?.message || '未知错误' });
       }
     }
+
+    await updateTeamAttendance(teamId);
 
     return NextResponse.json({
       success: successCount,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import { Player, DkpLog } from '@/types';
 import {
   Dialog,
@@ -34,6 +34,36 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   penalty: { label: '扣分', color: 'bg-purple-500' },
   attendance: { label: '出席', color: 'bg-cyan-500' },
 };
+
+const EQUIP_REGEX = /\[([^\]]+)\]/g;
+
+function renderReasonText(reason: string): ReactNode[] {
+  EQUIP_REGEX.lastIndex = 0;
+  const nodes: ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+
+  while ((match = EQUIP_REGEX.exec(reason)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(reason.slice(lastIndex, match.index));
+    }
+
+    nodes.push(
+      <span key={`equip-${key++}`} className="text-purple-400 font-semibold">
+        [{match[1]}]
+      </span>,
+    );
+
+    lastIndex = EQUIP_REGEX.lastIndex;
+  }
+
+  if (lastIndex < reason.length) {
+    nodes.push(reason.slice(lastIndex));
+  }
+
+  return nodes.length > 0 ? nodes : [reason];
+}
 
 export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
   const [logs, setLogs] = useState<DkpLog[]>([]);
@@ -147,7 +177,7 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
                           <span className="text-orange-600">[Boss] {log.boss}</span>
                         )}
                         {log.reason && !log.item && !log.boss && (
-                          <span className="text-gray-600">{log.reason}</span>
+                          <span className="text-gray-600">{renderReasonText(log.reason)}</span>
                         )}
                       </TableCell>
                       <TableCell className="text-sm text-gray-500">
