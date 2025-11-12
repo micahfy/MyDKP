@@ -50,7 +50,11 @@ function renderReasonText(reason: string): ReactNode[] {
     }
 
     nodes.push(
-      <span key={`equip-${key++}`} className="text-purple-400 font-semibold">
+      <span
+        key={`equip-${key++}`}
+        className="font-semibold"
+        style={{ color: '#a335ee' }}
+      >
         [{match[1]}]
       </span>,
     );
