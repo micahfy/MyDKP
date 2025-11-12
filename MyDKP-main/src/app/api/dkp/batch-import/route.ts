@@ -8,6 +8,30 @@ function generateRecordHash(playerName: string, change: number, reason: string, 
   return `${playerName}-${change}-${reason}-${date}-${time}`;
 }
 
+function pad(num: number) {
+  return String(num).padStart(2, '0');
+}
+
+function toBeijingParts(date: Date) {
+  const beijing = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  return {
+    year: beijing.getUTCFullYear(),
+    month: beijing.getUTCMonth() + 1,
+    day: beijing.getUTCDate(),
+    hour: beijing.getUTCHours(),
+    minute: beijing.getUTCMinutes(),
+    second: beijing.getUTCSeconds(),
+  };
+}
+
+function formatBeijing(date: Date) {
+  const parts = toBeijingParts(date);
+  return {
+    dateStr: `${parts.year}-${pad(parts.month)}-${pad(parts.day)}`,
+    timeStr: `${pad(parts.hour)}:${pad(parts.minute)}:${pad(parts.second)}`,
+  };
+}
+
 function normalizeDateTime(rawDate?: string, rawTime?: string) {
   let dateStr = rawDate?.trim() || '';
   let timeStr = rawTime?.trim() || '';
@@ -16,8 +40,7 @@ function normalizeDateTime(rawDate?: string, rawTime?: string) {
     const now = new Date();
     return {
       recordTime: now,
-      dateStr: now.toISOString().split('T')[0],
-      timeStr: now.toTimeString().split(' ')[0],
+      ...formatBeijing(now),
     };
   }
 
@@ -26,19 +49,21 @@ function normalizeDateTime(rawDate?: string, rawTime?: string) {
     const timeParts = timeStr.match(/(\d{1,2})[:\时](\d{1,2})(?:[:\分](\d{1,2}))?/);
 
     if (dateParts && timeParts) {
-      const year = parseInt(dateParts[1]);
-      const month = parseInt(dateParts[2]) - 1;
-      const day = parseInt(dateParts[3]);
-      const hour = parseInt(timeParts[1]);
-      const minute = parseInt(timeParts[2]);
-      const second = timeParts[3] ? parseInt(timeParts[3]) : 0;
+      const year = parseInt(dateParts[1], 10);
+      const month = parseInt(dateParts[2], 10);
+      const day = parseInt(dateParts[3], 10);
+      const hour = parseInt(timeParts[1], 10);
+      const minute = parseInt(timeParts[2], 10);
+      const second = timeParts[3] ? parseInt(timeParts[3], 10) : 0;
 
-      const recordTime = new Date(year, month, day, hour, minute, second);
+      const isoDate = `${year}-${pad(month)}-${pad(day)}`;
+      const isoTime = `${pad(hour)}:${pad(minute)}:${pad(second)}`;
+      const recordTime = new Date(`${isoDate}T${isoTime}+08:00`);
 
       return {
         recordTime,
-        dateStr: `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
-        timeStr: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`,
+        dateStr: isoDate,
+        timeStr: isoTime,
       };
     }
   } catch {
@@ -48,8 +73,7 @@ function normalizeDateTime(rawDate?: string, rawTime?: string) {
   const fallback = new Date();
   return {
     recordTime: fallback,
-    dateStr: fallback.toISOString().split('T')[0],
-    timeStr: fallback.toTimeString().split(' ')[0],
+    ...formatBeijing(fallback),
   };
 }
 
@@ -107,14 +131,7 @@ export async function POST(request: NextRequest) {
       });
 
       for (const log of recentLogs) {
-        const logDate = new Date(log.createdAt);
-        const logDateStr = `${logDate.getFullYear()}-${String(logDate.getMonth() + 1).padStart(2, '0')}-${String(
-          logDate.getDate(),
-        ).padStart(2, '0')}`;
-        const logTimeStr = `${String(logDate.getHours()).padStart(2, '0')}:${String(logDate.getMinutes()).padStart(2, '0')}:${String(
-          logDate.getSeconds(),
-        ).padStart(2, '0')}`;
-
+        const { dateStr: logDateStr, timeStr: logTimeStr } = formatBeijing(new Date(log.createdAt));
         const hash = generateRecordHash(log.player.name, log.change, (log.reason || '').trim(), logDateStr, logTimeStr);
         existingHashes.add(hash);
       }
