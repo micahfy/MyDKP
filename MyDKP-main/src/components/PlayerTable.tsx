@@ -266,7 +266,10 @@ export function PlayerTable({ teamId, isAdmin = false }: PlayerTableProps) {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => setEditingPlayer(player)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setEditingPlayer(player);
+                              }}
                               className="text-blue-400 hover:text-blue-300 hover:bg-blue-950"
                             >
                               <Edit2 className="h-4 w-4" />
@@ -276,6 +279,7 @@ export function PlayerTable({ teamId, isAdmin = false }: PlayerTableProps) {
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  onClick={(event) => event.stopPropagation()}
                                   className="text-red-400 hover:text-red-300 hover:bg-red-950"
                                 >
                                   <Trash2 className="h-4 w-4" />

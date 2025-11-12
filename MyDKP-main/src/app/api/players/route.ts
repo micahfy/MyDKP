@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { isAdmin } from '@/lib/auth';
+import { isAdmin, hasTeamPermission } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,9 +45,40 @@ export async function POST(request: NextRequest) {
 
   try {
     const data = await request.json();
-    const player = await prisma.player.create({ data });
+    const { name, class: playerClass, teamId, currentDkp = 0, totalEarned = 0, totalSpent = 0, attendance = 0 } = data;
+
+    if (!teamId || typeof teamId !== 'string') {
+      return NextResponse.json({ error: '缺少团队ID' }, { status: 400 });
+    }
+
+    if (!name || !playerClass) {
+      return NextResponse.json({ error: '玩家名称和职业不能为空' }, { status: 400 });
+    }
+
+    const hasPermission = await hasTeamPermission(teamId);
+    if (!hasPermission) {
+      return NextResponse.json({ error: '您没有权限操作该团队' }, { status: 403 });
+    }
+
+    const player = await prisma.player.create({
+      data: {
+        name: name.trim(),
+        class: playerClass.trim(),
+        teamId,
+        currentDkp,
+        totalEarned,
+        totalSpent,
+        attendance,
+      },
+    });
     return NextResponse.json(player);
   } catch (error) {
+    console.error('Create player error:', error);
+
+    if (error instanceof Error && error.message.includes('Unique constraint')) {
+      return NextResponse.json({ error: '该团队中已存在同名玩家' }, { status: 409 });
+    }
+
     return NextResponse.json({ error: '创建玩家失败' }, { status: 500 });
   }
 }
