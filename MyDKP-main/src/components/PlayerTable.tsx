@@ -159,15 +159,17 @@ export function PlayerTable({ teamId, isAdmin = false }: PlayerTableProps) {
                 DKP 排行榜
               </span>
             </CardTitle>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleExport}
-              className="btn-glow border-blue-500 text-blue-400 hover:bg-blue-950"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              导出 CSV
-            </Button>
+            {isAdmin && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleExport}
+                className="btn-glow border-blue-500 text-blue-400 hover:bg-blue-950"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                导出 CSV
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="pt-6">

@@ -1,10 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { Navbar } from '@/components/Navbar';
 import { PlayerTable } from '@/components/PlayerTable';
-import { AdminPanel } from '@/components/AdminPanel';
 import { Toaster } from 'sonner';
+
+const AdminPanel = dynamic(() =>
+  import('@/components/AdminPanel').then((mod) => mod.AdminPanel),
+  {
+    ssr: false,
+  }
+);
 
 export default function Home() {
   const [selectedTeam, setSelectedTeam] = useState<string>('');
@@ -134,12 +141,14 @@ export default function Home() {
       
       <main className="container mx-auto px-4 py-8">
         {isAdmin && (
-          <AdminPanel 
-            teamId={selectedTeam} 
-            teams={teams} 
-            adminRole={adminRole} 
-            onUpdate={handleUpdate} 
-          />
+          <Suspense fallback={null}>
+            <AdminPanel 
+              teamId={selectedTeam} 
+              teams={teams} 
+              adminRole={adminRole} 
+              onUpdate={handleUpdate} 
+            />
+          </Suspense>
         )}
         
         {teams.length === 0 ? (
