@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
 
     for (const line of lines) {
       try {
-        const parts = line.split(',').map((part) => part.trim());
+        const parts = line.split(',').map((part: string) => part.trim());
 
         if (parts.length < 3) {
           failedCount++;
