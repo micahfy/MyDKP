@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { isAdmin, hasTeamPermission, getSession } from '@/lib/auth';
 // 标记为动态路由
 export const dynamic = 'force-dynamic';
 // GET /api/export?type=players&teamId=xxx
 // GET /api/export?type=logs&teamId=xxx
 export async function GET(request: NextRequest) {
   try {
+    if (!(await isAdmin())) {
+      return NextResponse.json(
+        { error: '权限不足' },
+        { status: 403 }
+      );
+    }
+
+    const session = await getSession();
+    const isSuperAdmin = session.role === 'super_admin';
+
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type'); // 'players' | 'logs' | 'teams'
     const teamId = searchParams.get('teamId');
@@ -22,16 +33,40 @@ export async function GET(request: NextRequest) {
 
     switch (type) {
       case 'players':
+        if (!teamId && !isSuperAdmin) {
+          return NextResponse.json(
+            { error: '普通管理员必须指定团队' },
+            { status: 400 }
+          );
+        }
+        if (teamId && !(await hasTeamPermission(teamId))) {
+          return NextResponse.json({ error: '无权访问该团队' }, { status: 403 });
+        }
         csvContent = await exportPlayers(teamId);
         filename = `players-${new Date().toISOString().split('T')[0]}.csv`;
         break;
 
       case 'logs':
+        if (!teamId && !isSuperAdmin) {
+          return NextResponse.json(
+            { error: '普通管理员必须指定团队' },
+            { status: 400 }
+          );
+        }
+        if (teamId && !(await hasTeamPermission(teamId))) {
+          return NextResponse.json({ error: '无权访问该团队' }, { status: 403 });
+        }
         csvContent = await exportLogs(teamId);
         filename = `dkp-logs-${new Date().toISOString().split('T')[0]}.csv`;
         break;
 
       case 'teams':
+        if (!isSuperAdmin) {
+          return NextResponse.json(
+            { error: '只有超级管理员可以导出团队列表' },
+            { status: 403 }
+          );
+        }
         csvContent = await exportTeams();
         filename = `teams-${new Date().toISOString().split('T')[0]}.csv`;
         break;

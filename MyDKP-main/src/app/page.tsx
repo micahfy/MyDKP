@@ -19,6 +19,7 @@ export default function Home() {
   const [adminRole, setAdminRole] = useState<string>('');
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [playerRefreshKey, setPlayerRefreshKey] = useState(0);
 
   useEffect(() => {
     checkAuth();
@@ -116,6 +117,7 @@ export default function Home() {
       fetchBasicTeams();
     }
     checkAuth(); // 同时检查权限
+    setPlayerRefreshKey((key) => key + 1);
   };
 
   if (loading) {
@@ -163,7 +165,7 @@ export default function Home() {
             )}
           </div>
         ) : (
-          <PlayerTable teamId={selectedTeam} isAdmin={isAdmin} />
+          <PlayerTable teamId={selectedTeam} isAdmin={isAdmin} refreshKey={playerRefreshKey} />
         )}
       </main>
 

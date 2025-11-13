@@ -174,15 +174,17 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
                         </span>
                       </TableCell>
                       <TableCell>
-                        {log.item && (
-                          <span className="text-purple-600">[装备] {log.item}</span>
-                        )}
-                        {log.boss && (
-                          <span className="text-orange-600">[Boss] {log.boss}</span>
-                        )}
-                        {log.reason && !log.item && !log.boss && (
-                          <span className="text-gray-600">{renderReasonText(log.reason)}</span>
-                        )}
+                        <div className="flex flex-col gap-1">
+                          {log.item && (
+                            <span className="text-purple-600">[装备] {log.item}</span>
+                          )}
+                          {log.boss && (
+                            <span className="text-orange-600">[Boss] {log.boss}</span>
+                          )}
+                          {log.reason && (
+                            <span className="text-gray-600">{renderReasonText(log.reason)}</span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-sm text-gray-500">
                         {log.operator}

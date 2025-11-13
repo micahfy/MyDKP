@@ -136,8 +136,6 @@ export function getClassColor(className: string, type: 'text' | 'textLight' | 'b
   // 先清理职业名称（去除空格和特殊字符）
   const cleanClassName = className?.trim() || '';
   
-  console.log('职业名称匹配:', cleanClassName, '类型:', type);
-  
   // 直接匹配
   if (CLASS_COLORS[cleanClassName]) {
     if (type === 'hex') {
@@ -166,7 +164,6 @@ export function getClassColor(className: string, type: 'text' | 'textLight' | 'b
   }
   
   // 默认灰色
-  console.warn('未找到职业颜色配置:', cleanClassName);
   if (type === 'hex') {
     return '#9ca3af';
   }

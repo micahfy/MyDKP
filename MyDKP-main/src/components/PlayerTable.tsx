@@ -40,6 +40,7 @@ import { getClassColor } from '@/lib/utils';
 interface PlayerTableProps {
   teamId: string;
   isAdmin?: boolean;
+  refreshKey?: number;
 }
 
 const WOW_CLASSES = [
@@ -55,7 +56,7 @@ const WOW_CLASSES = [
   '德鲁伊',
 ];
 
-export function PlayerTable({ teamId, isAdmin = false }: PlayerTableProps) {
+export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerTableProps) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
   const [search, setSearch] = useState('');
@@ -68,7 +69,8 @@ export function PlayerTable({ teamId, isAdmin = false }: PlayerTableProps) {
     if (teamId) {
       fetchPlayers();
     }
-  }, [teamId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamId, refreshKey]);
 
   useEffect(() => {
     filterPlayers();

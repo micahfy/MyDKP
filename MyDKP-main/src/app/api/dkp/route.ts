@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdmin, hasTeamPermission, getSession } from '@/lib/auth';
+import { recalculateTeamAttendance } from '@/lib/attendance';
 export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
@@ -33,20 +34,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '玩家不属于该团队' }, { status: 400 });
     }
 
-    const newDkp = player.currentDkp + change;
-    const newEarned = change > 0 ? player.totalEarned + change : player.totalEarned;
-    const newSpent = change < 0 ? player.totalSpent + Math.abs(change) : player.totalSpent;
-
-    await prisma.$transaction([
-      prisma.player.update({
+    await prisma.$transaction(async (tx) => {
+      await tx.player.update({
         where: { id: playerId },
         data: {
-          currentDkp: newDkp,
-          totalEarned: newEarned,
-          totalSpent: newSpent,
+          currentDkp: { increment: change },
+          ...(change > 0
+            ? { totalEarned: { increment: change } }
+            : {}),
+          ...(change < 0
+            ? { totalSpent: { increment: Math.abs(change) } }
+            : {}),
         },
-      }),
-      prisma.dkpLog.create({
+      });
+
+      await tx.dkpLog.create({
         data: {
           playerId,
           teamId,
@@ -57,8 +59,12 @@ export async function POST(request: NextRequest) {
           boss,
           operator: session.username || 'admin',
         },
-      }),
-    ]);
+      });
+    });
+
+    if (type === 'attendance') {
+      await recalculateTeamAttendance(teamId);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
