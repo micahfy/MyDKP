@@ -53,12 +53,10 @@ export async function GET() {
   filteredPlayers.forEach((player, index) => {
     const isLast = index === filteredPlayers.length - 1;
     lines.push(`\t["${luaEscape(player.name)}"] = {`);
-    lines.push(`\t\t["playerId"] = "${player.id}",`);
-    lines.push(`\t\t["class"] = "${luaEscape(player.class)}",`);
-    lines.push(`\t\t["team"] = "${luaEscape(player.team?.name)}",`);
     lines.push(`\t\t["dkp1"] = 0,`);
     lines.push(`\t\t["dkp_1"] = ${Number(player.currentDkp).toFixed(2)},`);
     lines.push(`\t\t["Selected"] = false,`);
+    lines.push(`\t\t["class"] = "${luaEscape(player.class)}",`);
     lines.push(isLast ? '\t}' : '\t},');
   });
 
