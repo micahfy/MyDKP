@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MirAcLe DKP 省流版</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+          sans-serif;
+        margin: 16px;
+        background: #fff;
+        color: #111;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin-top: 12px;
+      }
+      th,
+      td {
+        border: 1px solid #ccc;
+        padding: 6px 8px;
+        text-align: left;
+        font-size: 14px;
+      }
+      th {
+        background: #f2f2f2;
+      }
+      #status {
+        margin-top: 8px;
+        font-size: 13px;
+      }
+      button,
+      select {
+        padding: 4px 8px;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>MirAcLe DKP 省流模式</h1>
+    <div>
+      <label for="teamSelect">选择团队：</label>
+      <select id="teamSelect"></select>
+      <button id="refreshBtn">刷新</button>
+    </div>
+    <div id="status"></div>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>角色名</th>
+          <th>职业</th>
+          <th>当前DKP</th>
+          <th>总获得</th>
+          <th>总消耗</th>
+          <th>出席率</th>
+        </tr>
+      </thead>
+      <tbody id="playerBody">
+        <tr>
+          <td colspan="7">正在加载...</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <script>
+      const teamSelect = document.getElementById('teamSelect');
+      const playerBody = document.getElementById('playerBody');
+      const statusBox = document.getElementById('status');
+      const refreshBtn = document.getElementById('refreshBtn');
+
+      async function loadTeams() {
+        status('正在加载团队列表...');
+        try {
+          const res = await fetch('/api/teams/basic');
+          const teams = await res.json();
+          teamSelect.innerHTML = '';
+          teams.forEach((team) => {
+            const option = document.createElement('option');
+            option.value = team.id;
+            option.textContent = team.name;
+            teamSelect.appendChild(option);
+          });
+          if (teams.length > 0) {
+            await loadPlayers();
+          } else {
+            status('暂无团队数据');
+            playerBody.innerHTML =
+              '<tr><td colspan="7">暂无团队</td></tr>';
+          }
+        } catch (err) {
+          status('团队列表加载失败');
+          playerBody.innerHTML =
+            '<tr><td colspan="7">无法加载团队数据</td></tr>';
+        }
+      }
+
+      async function loadPlayers() {
+        const teamId = teamSelect.value;
+        if (!teamId) {
+          playerBody.innerHTML =
+            '<tr><td colspan="7">请先选择团队</td></tr>';
+          return;
+        }
+        status('正在加载玩家数据...');
+        playerBody.innerHTML =
+          '<tr><td colspan="7">正在加载...</td></tr>';
+        try {
+          const res = await fetch(`/api/players?teamId=${teamId}`);
+          const players = await res.json();
+          if (!Array.isArray(players) || players.length === 0) {
+            playerBody.innerHTML =
+              '<tr><td colspan="7">该团队暂无玩家</td></tr>';
+            status('已加载，暂无玩家');
+            return;
+          }
+
+          playerBody.innerHTML = '';
+          players.forEach((player, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+              <td>${index + 1}</td>
+              <td>${player.name}</td>
+              <td>${player.class}</td>
+              <td>${Number(player.currentDkp || 0).toFixed(1)}</td>
+              <td>${Number(player.totalEarned || 0).toFixed(1)}</td>
+              <td>${Number(player.totalSpent || 0).toFixed(1)}</td>
+              <td>${Math.round((player.attendance || 0) * 100)}%</td>
+            `;
+            playerBody.appendChild(row);
+          });
+          const now = new Date();
+          status(`已加载，共 ${players.length} 人。更新时间 ${now.toLocaleString()}`);
+        } catch (err) {
+          status('玩家数据加载失败');
+          playerBody.innerHTML =
+            '<tr><td colspan="7">无法加载玩家数据</td></tr>';
+        }
+      }
+
+      function status(message) {
+        statusBox.textContent = message;
+      }
+
+      refreshBtn.addEventListener('click', loadPlayers);
+      loadTeams();
+    </script>
+  </body>
+</html>
