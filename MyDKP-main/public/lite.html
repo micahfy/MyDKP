@@ -50,6 +50,28 @@
       <button id="refreshBtn">刷新</button>
     </div>
     <div id="status"></div>
+    <div id="detailPanel" style="margin-top:16px; display:none;">
+      <h2 id="detailTitle" style="margin-bottom:8px;">玩家明细</h2>
+      <div id="detailStatus" style="font-size:13px; margin-bottom:6px;">
+        点击下方表格中的玩家以查看记录
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>时间</th>
+            <th>类型</th>
+            <th>变动</th>
+            <th>原因</th>
+            <th>操作人</th>
+          </tr>
+        </thead>
+        <tbody id="detailBody">
+          <tr>
+            <td colspan="5">尚未选择玩家</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
     <table>
       <thead>
         <tr>
@@ -68,26 +90,6 @@
         </tr>
       </tbody>
     </table>
-    <div id="detailPanel" style="margin-top:24px; display:none;">
-      <h2 id="detailTitle" style="margin-bottom:8px;">玩家明细</h2>
-      <div id="detailStatus" style="font-size:13px; margin-bottom:6px;"></div>
-      <table>
-        <thead>
-          <tr>
-            <th>时间</th>
-            <th>类型</th>
-            <th>变动</th>
-            <th>原因</th>
-            <th>操作人</th>
-          </tr>
-        </thead>
-        <tbody id="detailBody">
-          <tr>
-            <td colspan="5">请选择表格中的玩家以查看详细记录</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
 
     <script>
       const teamSelect = document.getElementById('teamSelect');
@@ -255,6 +257,7 @@
 
       async function loadPlayerLogs(player) {
         detailPanel.style.display = 'block';
+        detailPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
         detailTitle.textContent = `${player.name} - ${player.class}`;
         detailStatusMessage('正在加载记录...');
         detailBody.innerHTML =
