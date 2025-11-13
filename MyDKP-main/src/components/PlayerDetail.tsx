@@ -72,9 +72,11 @@ function renderReasonText(reason: string): ReactNode[] {
 export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
   const [logs, setLogs] = useState<DkpLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && player) {
+      setErrorMessage(null);
       fetchLogs();
     }
   }, [open, player]);
@@ -84,9 +86,26 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
     try {
       const res = await fetch(`/api/dkp/logs?playerId=${player.id}`);
       const data = await res.json();
-      setLogs(data);
+      if (!res.ok) {
+        const message = data?.error || '获取日志失败';
+        setErrorMessage(message);
+        setLogs([]);
+        if (res.status !== 403) {
+          toast.error(message);
+        }
+      } else if (Array.isArray(data)) {
+        setLogs(data);
+      } else if (Array.isArray(data?.logs)) {
+        setLogs(data.logs);
+      } else {
+        setLogs([]);
+        setErrorMessage('日志数据格式异常');
+        toast.error('日志数据格式异常');
+      }
     } catch (error) {
       toast.error('获取日志失败');
+      setErrorMessage('获取日志失败');
+      setLogs([]);
     } finally {
       setLoading(false);
     }
@@ -132,6 +151,8 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
           <h3 className="text-lg font-semibold mb-4">DKP 变动记录</h3>
           {loading ? (
             <div className="text-center py-10 text-gray-500">加载中...</div>
+          ) : errorMessage ? (
+            <div className="text-center py-10 text-gray-500">{errorMessage}</div>
           ) : logs.length === 0 ? (
             <div className="text-center py-10 text-gray-500">暂无记录</div>
           ) : (

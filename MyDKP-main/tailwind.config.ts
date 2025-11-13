@@ -127,11 +127,6 @@ const config: Config = {
     'border-wow-mage/50',
     'border-wow-warlock/50',
     'border-wow-druid/50',
-    
-    // 原有的动态颜色类（如果还在使用）
-    {
-      pattern: /(text|bg|border)-\[#.*\]/,
-    },
     'text-[#C79C6E]',
     'bg-[#C79C6E]/20',
     'border-[#C79C6E]/50',

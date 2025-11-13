@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { isAdmin, hasTeamPermission, getSession } from '@/lib/auth';
+import { hasTeamPermission, getSession } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
-    if (!(await isAdmin())) {
-      return NextResponse.json({ error: '权限不足' }, { status: 403 });
-    }
-
     const session = await getSession();
-    const isSuperAdmin = session.role === 'super_admin';
+    const isAdmin = session.isAdmin === true && !!session.adminId;
+    const isSuperAdmin = isAdmin && session.role === 'super_admin';
 
     const { searchParams } = new URL(request.url);
     const teamId = searchParams.get('teamId');
@@ -26,7 +23,7 @@ export async function GET(request: NextRequest) {
       effectiveTeamId = player?.teamId || null;
     }
 
-    if (!isSuperAdmin) {
+    if (isAdmin && !isSuperAdmin) {
       if (!effectiveTeamId) {
         return NextResponse.json(
           { error: '普通管理员必须指定团队或玩家' },
@@ -37,10 +34,17 @@ export async function GET(request: NextRequest) {
       if (!hasPermission) {
         return NextResponse.json({ error: '无权访问该团队' }, { status: 403 });
       }
+    } else if (!isAdmin) {
+      if (!effectiveTeamId) {
+        return NextResponse.json(
+          { error: '访客查看日志时必须指定团队或玩家' },
+          { status: 400 }
+        );
+      }
     }
 
     const where: any = {};
-    if (teamId) where.teamId = teamId;
+    if (effectiveTeamId) where.teamId = effectiveTeamId;
     if (playerId) where.playerId = playerId;
 
     const logs = await prisma.dkpLog.findMany({
