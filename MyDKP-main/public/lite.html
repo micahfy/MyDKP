@@ -68,6 +68,26 @@
         </tr>
       </tbody>
     </table>
+    <div id="detailPanel" style="margin-top:24px; display:none;">
+      <h2 id="detailTitle" style="margin-bottom:8px;">玩家明细</h2>
+      <div id="detailStatus" style="font-size:13px; margin-bottom:6px;"></div>
+      <table>
+        <thead>
+          <tr>
+            <th>时间</th>
+            <th>类型</th>
+            <th>变动</th>
+            <th>原因</th>
+            <th>操作人</th>
+          </tr>
+        </thead>
+        <tbody id="detailBody">
+          <tr>
+            <td colspan="5">请选择表格中的玩家以查看详细记录</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
     <script>
       const teamSelect = document.getElementById('teamSelect');
@@ -75,6 +95,10 @@
       const classSelect = document.getElementById('classSelect');
       const statusBox = document.getElementById('status');
       const refreshBtn = document.getElementById('refreshBtn');
+      const detailPanel = document.getElementById('detailPanel');
+      const detailBody = document.getElementById('detailBody');
+      const detailStatus = document.getElementById('detailStatus');
+      const detailTitle = document.getElementById('detailTitle');
       const CLASS_COLORS = {
         战士: '#C79C6E',
         圣骑士: '#F58CBA',
@@ -191,6 +215,8 @@
         filtered.forEach((player, index) => {
           const color = CLASS_COLORS[player.class] || '#888888';
           const row = document.createElement('tr');
+          row.style.cursor = 'pointer';
+          row.addEventListener('click', () => loadPlayerLogs(player));
           row.innerHTML = `
             <td>${index + 1}</td>
             <td>
@@ -222,6 +248,53 @@
 
       function status(message) {
         statusBox.textContent = message;
+      }
+      function detailStatusMessage(message) {
+        detailStatus.textContent = message;
+      }
+
+      async function loadPlayerLogs(player) {
+        detailPanel.style.display = 'block';
+        detailTitle.textContent = `${player.name} - ${player.class}`;
+        detailStatusMessage('正在加载记录...');
+        detailBody.innerHTML =
+          '<tr><td colspan="5">加载中...</td></tr>';
+        try {
+          const res = await fetch(`/api/dkp/logs?playerId=${player.id}&limit=50`);
+          const data = await res.json();
+          if (!res.ok || !Array.isArray(data)) {
+            detailBody.innerHTML =
+              '<tr><td colspan="5">无法获取该玩家记录</td></tr>';
+            detailStatusMessage(data?.error || '获取记录失败');
+            return;
+          }
+          if (data.length === 0) {
+            detailBody.innerHTML =
+              '<tr><td colspan="5">暂无记录</td></tr>';
+            detailStatusMessage('该玩家暂无日志记录');
+            return;
+          }
+          detailBody.innerHTML = '';
+          data.forEach((log) => {
+            const tr = document.createElement('tr');
+            const changeValue =
+              (log.change > 0 ? '+' : '') +
+              Number(log.change || 0).toFixed(1);
+            tr.innerHTML = `
+              <td>${new Date(log.createdAt).toLocaleString()}</td>
+              <td>${log.type || ''}</td>
+              <td>${changeValue}</td>
+              <td>${log.reason || ''}</td>
+              <td>${log.operator || ''}</td>
+            `;
+            detailBody.appendChild(tr);
+          });
+          detailStatusMessage(`共 ${data.length} 条记录（最多显示 50 条）`);
+        } catch (error) {
+          detailBody.innerHTML =
+            '<tr><td colspan="5">无法获取该玩家记录</td></tr>';
+          detailStatusMessage('获取记录失败');
+        }
       }
 
       refreshBtn.addEventListener('click', loadPlayers);
