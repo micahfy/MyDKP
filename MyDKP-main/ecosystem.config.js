@@ -1,32 +1,24 @@
 module.exports = {
-  apps: [{
-    name: 'dkp-manager',
-    script: 'node_modules/next/dist/bin/next',
-    args: 'start',
-    instances: 1, // 单核VPS使用1个实例
-    exec_mode: 'cluster',
-    watch: false,
-    max_memory_restart: '500M',
-    env: {
-      NODE_ENV: 'production',
-      PORT: 3000,
+  apps: [
+    {
+      name: 'dkp-manager',
+      cwd: '/var/www/MyDKP/MyDKP-main',   // 改成你的实际目录
+      script: 'npm',
+      args: 'run start',                 // 生产模式执行 next start
+      exec_mode: 'fork',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      env: {
+        NODE_ENV: 'development',
+      },
+      env_production: {
+        NODE_ENV: 'production',
+      },
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      error_file: './logs/error.log',
+      out_file: './logs/out.log',
+      merge_logs: true,
     },
-    error_file: './logs/err.log',
-    out_file: './logs/out.log',
-    log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-    merge_logs: true,
-    
-    // 自动重启配置
-    autorestart: true,
-    max_restarts: 10,
-    min_uptime: '10s',
-    
-    // 优雅关闭
-    kill_timeout: 5000,
-    wait_ready: true,
-    listen_timeout: 10000,
-    
-    // 性能监控
-    instance_var: 'INSTANCE_ID',
-  }]
+  ],
 };
