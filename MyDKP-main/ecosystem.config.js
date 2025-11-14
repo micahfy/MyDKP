@@ -3,15 +3,16 @@ module.exports = {
     {
       name: 'dkp-manager',
       cwd: '/var/www/MyDKP/MyDKP-main',
-      script: 'node_modules/.bin/next',
-      args: 'start',
+      script: 'node',
+      args: '.next/standalone/server.js',
       exec_mode: 'fork',
       instances: 1,
       autorestart: true,
       watch: false,
       env: {
         NODE_ENV: 'production',
-        PORT: 3000
+        PORT: 3000,
+        HOST: '0.0.0.0'
       },
       log_date_format: 'YYYY-MM-DD HH:mm:ss',
       error_file: './logs/error.log',
