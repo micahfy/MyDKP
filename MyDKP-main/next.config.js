@@ -16,7 +16,7 @@ const nextConfig = {
   productionBrowserSourceMaps: false,
   
   // 输出配置
-  output: 'standalone',
+ // output: 'standalone',
   
   // 实验性功能
   experimental: {
