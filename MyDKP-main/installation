@@ -1,44 +1,163 @@
+# MirAcLe DKP 服务器部署手册
 
-安装编辑器
-编辑env文件
-apt update
-apt install ntpdate
-ntpdate ntp.aliyun.com
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs
-npm --version
-node --version
+以下步骤以 `/var/www/MyDKP/MyDKP-main` 作为项目目录、SQLite 作为数据库为例，可按需调整。
+
+---
+
+## 1. 环境准备
+
+### 基础依赖（Debian/Ubuntu）
+```bash
+sudo apt update
+sudo apt install -y git curl build-essential sqlite3
+```
+
+### 安装 Node.js 20（推荐使用 nvm）
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+source ~/.bashrc
+nvm install 20
+nvm use 20
+```
+
+---
+
+## 2. 获取代码
+```bash
+mkdir -p /var/www/MyDKP
+cd /var/www/MyDKP
+git clone <your-repo-url> MyDKP-main
+cd MyDKP-main
+```
+
+---
+
+## 3. 安装依赖
+```bash
 npm install
-npx prisma generate
-npx prisma db push
-npm run db:seed
-npm run dev
-apt install -y build-essential
-npm install -g pm2
+```
+
+如果报缺少某些 Radix 组件（如 `@radix-ui/react-checkbox`），按提示 `npm install 包名` 即可。
+
+---
+
+## 4. 配置环境变量
+```bash
+cp .env.example .env
+```
+根据实际情况修改 `.env`，示例（SQLite）：
+```
+DATABASE_URL="file:/var/www/MyDKP/data.db"
+SESSION_SECRET="请替换成随机字符串"
+```
+
+---
+
+## 5. 初始化数据库
+```bash
+npx prisma db push        # 同步 schema 到数据库
+npx prisma db seed        # 可选：写入示例数据
+```
+
+如需保护默认管理员账号，可运行：
+```bash
+npx prisma protect-admin
+```
+
+---
+
+## 6. 构建 & 本地验证
+```bash
+npm run dev               # 开发模式，热重载
+
+npm run build             # 生成生产构建
+npm run start             # 使用本地 3000 端口验证
+```
+
+`next.config.js` 默认为 `output: 'standalone'`，构建完成后会生成 `.next/standalone/server.js`。
+
+---
+
+## 7. PM2 配置
+
+在项目根目录创建/编辑 `ecosystem.config.js`：
+```js
+module.exports = {
+  apps: [
+    {
+      name: 'dkp-manager',
+      cwd: '/var/www/MyDKP/MyDKP-main',
+      script: 'node',
+      args: '.next/standalone/server.js',
+      env: {
+        NODE_ENV: 'production',
+        PORT: 3000,
+        HOST: '0.0.0.0',
+      },
+      exec_mode: 'fork',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      error_file: './logs/error.log',
+      out_file: './logs/out.log',
+      merge_logs: true,
+    },
+  ],
+};
+```
+
+> 如果不想使用 standalone，可在 `next.config.js` 去掉 `output: 'standalone'`，并将上方 `script/args` 改为 `script: 'npm', args: 'run start'`。
+
+---
+
+## 8. 生产部署命令
+
+```bash
+cd /var/www/MyDKP/MyDKP-main
+
+# 1. 构建（代码变化后需重新执行）
 npm run build
-pm2 status
-npx shadcn@latest add button
 
-npx shadcn@latest add dialog
+# 2. 停止旧的 pm2 进程
+pm2 delete dkp-manager 2>/dev/null || true
 
-npx shadcn@latest add input
+# 3. 启动新进程
+pm2 start ecosystem.config.js
 
-npx shadcn@latest add select
+# 4. 保存 pm2 进程列表
+pm2 save
 
-npx shadcn@latest add table
+# 5. （可选）设置开机自启
+pm2 startup
+```
 
-npx shadcn@latest add tabs
+站点运行后，默认监听 `http://服务器IP:3000`。若需要反向代理，可在 Nginx/Apache 里转发到 3000。
 
-npx shadcn@latest add card
+---
 
-npx shadcn@latest add label
+## 9. 省流访客页面
 
-npx shadcn@latest add textarea
+`public/lite.html` 为极简模式页面，需保持在部署目录中，访客访问 `https://域名/lite.html` 即可查看省流版本（支持职业筛选、职业颜色、点击查看日志）。
 
-npx shadcn@latest add badge
+---
 
-npx shadcn@latest add dropdown-menu
+## 10. 日志与排错
 
-npx shadcn@latest add alert-dialog
+- 查看 PM2 状态：`pm2 ls`
+- 实时日志：`pm2 logs dkp-manager --lines 100`
+- 端口监听：`lsof -i:3000` 或 `netstat -tunlp | grep 3000`
+- `.next/standalone/server.js` 不存在：重新 `npm run build`
+- Prisma 报表不存在（P2021 等）：`npx prisma db push`
+- API 返回 403/500：使用 `curl http://127.0.0.1:3000/api/...` 排查
+- 如果登录/Session 异常，检查 `SESSION_SECRET` 是否设置、浏览器 Cookie 是否被阻止
 
-npm run build 
+---
+
+## 11. 常见补充
+
+- **微信分享卡片**：在 `src/app/layout.tsx` 中配置好 `metadata.openGraph`、`metadata.twitter`，并放置 `public/share-card.png`。
+- **导出 WebDKP**：登录管理员后访问 `/api/export/webdkp` 获取 Lua 格式数据。
+- **定期备份**：SQLite 数据文件默认在 `DATABASE_URL` 指定位置，建议定期备份。
+
+完成以上步骤后，MirAcLe DKP 即可通过 PM2 以生产模式稳定运行。若环境或需求有变动，可在此基础上调整。祝部署顺利！
