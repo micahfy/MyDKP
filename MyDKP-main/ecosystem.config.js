@@ -3,8 +3,8 @@ module.exports = {
     {
       name: 'dkp-manager',
       cwd: '/var/www/MyDKP/MyDKP-main',
-      script: 'node',
-      args: '.next/standalone/server.js',
+      script: 'npm',
+      args: 'run start',
       exec_mode: 'fork',
       instances: 1,
       autorestart: true,
