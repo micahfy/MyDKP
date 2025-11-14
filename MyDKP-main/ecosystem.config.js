@@ -12,7 +12,8 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 3000,
-        HOST: '0.0.0.0'
+        HOST: '0.0.0.0',
+        DATABASE_URL: 'file:/var/www/MyDKP/MyDKP-main/data.db',
       },
       log_date_format: 'YYYY-MM-DD HH:mm:ss',
       error_file: './logs/error.log',
