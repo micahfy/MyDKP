@@ -14,7 +14,17 @@ function toBeijingDate(date: Date): string {
 export async function recalculateTeamAttendance(teamId: string) {
   const [attendanceLogs, players] = await Promise.all([
     prisma.dkpLog.findMany({
-      where: { teamId, type: 'attendance' },
+      where: {
+        teamId,
+        OR: [
+          { type: 'attendance' },
+          {
+            reason: {
+              contains: '集合分',
+            },
+          },
+        ],
+      },
       select: { playerId: true, createdAt: true },
     }),
     prisma.player.findMany({
