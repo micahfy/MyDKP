@@ -21,6 +21,7 @@ model Admin {
   lastLoginAt     DateTime?
 
   teamPermissions TeamPermission[]
+  deletedLogs     DkpLog[] @relation("DeletedByAdmin")
 
   @@map("admins")
 }
@@ -84,9 +85,13 @@ model DkpLog {
   boss      String?
   operator  String
   createdAt DateTime @default(now())
+  isDeleted Boolean  @default(false)
+  deletedAt DateTime?
+  deletedByAdminId String?
 
   player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
   team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  deletedByAdmin Admin? @relation("DeletedByAdmin", fields: [deletedByAdminId], references: [id])
 
   @@map("dkp_logs")
 }

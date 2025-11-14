@@ -9,13 +9,14 @@ function toBeijingDate(date: Date): string {
 }
 
 /**
- * 根据 attendance 类型的日志计算团队出席率
+ * 根据出席日志或“集合分”记录计算团队出席率
  */
 export async function recalculateTeamAttendance(teamId: string) {
   const [attendanceLogs, players] = await Promise.all([
     prisma.dkpLog.findMany({
       where: {
         teamId,
+        isDeleted: false,
         OR: [
           { type: 'attendance' },
           {

@@ -28,7 +28,7 @@ interface PlayerDetailProps {
 
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   earn: { label: '获得', color: 'bg-green-500' },
-  spend: { label: '消耗', color: 'bg-red-500' },
+  spend: { label: '消�?, color: 'bg-red-500' },
   decay: { label: '衰减', color: 'bg-orange-500' },
   undo: { label: '撤销', color: 'bg-blue-500' },
   penalty: { label: '扣分', color: 'bg-purple-500' },
@@ -84,7 +84,7 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/dkp/logs?playerId=${player.id}`);
+      const res = await fetch(`/api/dkp/logs?playerId=${player.id}&includeDeleted=true`);
       const data = await res.json();
       if (!res.ok) {
         const message = data?.error || '获取日志失败';
@@ -128,19 +128,19 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
             </div>
           </div>
           <div className="bg-green-50 p-4 rounded-lg">
-            <div className="text-sm text-gray-600">总获得</div>
+            <div className="text-sm text-gray-600">总获�?/div>
             <div className="text-2xl font-bold text-green-600">
               {player.totalEarned.toFixed(1)}
             </div>
           </div>
           <div className="bg-red-50 p-4 rounded-lg">
-            <div className="text-sm text-gray-600">总消耗</div>
+            <div className="text-sm text-gray-600">总消�?/div>
             <div className="text-2xl font-bold text-red-600">
               {player.totalSpent.toFixed(1)}
             </div>
           </div>
           <div className="bg-purple-50 p-4 rounded-lg">
-            <div className="text-sm text-gray-600">出席率</div>
+            <div className="text-sm text-gray-600">出席�?/div>
             <div className="text-2xl font-bold text-purple-600">
               {(player.attendance * 100).toFixed(0)}%
             </div>
@@ -150,7 +150,7 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
         <div>
           <h3 className="text-lg font-semibold mb-4">DKP 变动记录</h3>
           {loading ? (
-            <div className="text-center py-10 text-gray-500">加载中...</div>
+            <div className="text-center py-10 text-gray-500">加载�?..</div>
           ) : errorMessage ? (
             <div className="text-center py-10 text-gray-500">{errorMessage}</div>
           ) : logs.length === 0 ? (
@@ -164,12 +164,12 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
                     <TableHead>类型</TableHead>
                     <TableHead>变动</TableHead>
                     <TableHead>原因/装备/Boss</TableHead>
-                    <TableHead>操作人</TableHead>
+                    <TableHead>������</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {logs.map((log) => (
-                    <TableRow key={log.id}>
+                    <TableRow key={log.id} className={log.isDeleted ? 'opacity-70' : undefined}>
                       <TableCell className="text-sm">
                         {formatDate(log.createdAt)}
                       </TableCell>
@@ -205,6 +205,12 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
                           {log.reason && (
                             <span className="text-gray-600">{renderReasonText(log.reason)}</span>
                           )}
+                          {log.isDeleted && (
+                            <span className="text-sm text-red-500">
+                              已由 {log.deletedByAdmin?.username || '管理�?} 在{' '}
+                              {log.deletedAt ? formatDate(log.deletedAt) : '未知时间'} 删除
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-gray-500">
@@ -221,3 +227,6 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
     </Dialog>
   );
 }
+
+
+

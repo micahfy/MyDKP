@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
       where: {
         teamId,
         type: 'decay',
+        isDeleted: false,
         createdAt: { 
           gte: lastDecay.executedAt,
         },

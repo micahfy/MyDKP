@@ -130,7 +130,10 @@ async function exportPlayers(teamId: string | null): Promise<string> {
 
 // 导出 DKP 日志
 async function exportLogs(teamId: string | null): Promise<string> {
-  const where = teamId ? { teamId } : {};
+  const where: any = { isDeleted: false };
+  if (teamId) {
+    where.teamId = teamId;
+  }
   
   const logs = await prisma.dkpLog.findMany({
     where,

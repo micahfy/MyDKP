@@ -32,6 +32,11 @@ export interface DkpLog {
   boss?: string;
   operator: string;
   createdAt: string;
+  isDeleted?: boolean;
+  deletedAt?: string | null;
+  deletedByAdmin?: {
+    username: string;
+  } | null;
   player?: {
     name: string;
   };

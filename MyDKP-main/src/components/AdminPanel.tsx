@@ -9,6 +9,7 @@ import { DkpOperationForm } from './DkpOperationForm';
 import { TeamManagement } from './TeamManagement';
 import { BatchDkpImportDialog } from './BatchDkpImportDialog';
 import { AdminManagement } from './AdminManagement';
+import { DkpLogManager } from './DkpLogManager';
 import { Shield, Lock } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -91,7 +92,7 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
       </CardHeader>
       <CardContent className="pt-6">
         <Tabs defaultValue="operation" className="w-full">
-          <TabsList className={`grid w-full ${isSuperAdmin ? 'grid-cols-6' : 'grid-cols-5'} bg-slate-800/50`}>
+          <TabsList className={`grid w-full ${isSuperAdmin ? 'grid-cols-7' : 'grid-cols-5'} bg-slate-800/50`}>
             <TabsTrigger value="operation" className="data-[state=active]:bg-blue-950">
               DKP操作
             </TabsTrigger>
@@ -103,6 +104,9 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
             </TabsTrigger>
             <TabsTrigger value="decay" className="data-[state=active]:bg-blue-950">
               衰减管理
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="data-[state=active]:bg-blue-950">
+              日志管理
             </TabsTrigger>
             {isSuperAdmin && (
               <TabsTrigger value="team" className="data-[state=active]:bg-blue-950">
@@ -130,6 +134,10 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
 
           <TabsContent value="decay" className="space-y-4">
             <DecayDialog teamId={teamId} onSuccess={onUpdate} />
+          </TabsContent>
+
+          <TabsContent value="logs" className="space-y-4">
+            <DkpLogManager teams={teams} />
           </TabsContent>
 
           {isSuperAdmin && (

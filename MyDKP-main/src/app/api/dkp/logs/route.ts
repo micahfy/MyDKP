@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
     const teamId = searchParams.get('teamId');
     const playerId = searchParams.get('playerId');
     const limit = parseInt(searchParams.get('limit') || '100');
+    const includeDeleted = searchParams.get('includeDeleted') === 'true';
 
     let effectiveTeamId = teamId;
 
@@ -46,6 +47,9 @@ export async function GET(request: NextRequest) {
     const where: any = {};
     if (effectiveTeamId) where.teamId = effectiveTeamId;
     if (playerId) where.playerId = playerId;
+    if (!includeDeleted) {
+      where.isDeleted = false;
+    }
 
     const logs = await prisma.dkpLog.findMany({
       where,
@@ -53,6 +57,7 @@ export async function GET(request: NextRequest) {
       take: limit,
       include: {
         player: { select: { name: true } },
+        deletedByAdmin: { select: { username: true } },
       },
     });
 

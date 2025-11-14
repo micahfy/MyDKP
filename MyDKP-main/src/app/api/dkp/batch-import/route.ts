@@ -78,11 +78,12 @@ function normalizeDateTime(rawDate?: string, rawTime?: string) {
 
 async function collectExistingHashes(teamId: string) {
   const cutoff = new Date(Date.now() - DUPLICATE_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
-  const recentLogs = await prisma.dkpLog.findMany({
-    where: {
-      teamId,
-      createdAt: { gte: cutoff },
-    },
+    const recentLogs = await prisma.dkpLog.findMany({
+      where: {
+        teamId,
+        isDeleted: false,
+        createdAt: { gte: cutoff },
+      },
     include: {
       player: { select: { name: true } },
     },
