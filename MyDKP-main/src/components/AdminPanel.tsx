@@ -137,7 +137,7 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
           </TabsContent>
 
           <TabsContent value="logs" className="space-y-4">
-            <DkpLogManager teams={teams} />
+            <DkpLogManager teams={teams} onChange={onUpdate} />
           </TabsContent>
 
           {isSuperAdmin && (

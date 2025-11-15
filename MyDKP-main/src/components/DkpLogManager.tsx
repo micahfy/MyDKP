@@ -30,11 +30,12 @@ interface ManageLog extends DkpLog {
 
 interface DkpLogManagerProps {
   teams: Team[];
+  onChange?: () => void;
 }
 
 const PAGE_SIZE = 25;
 
-export function DkpLogManager({ teams }: DkpLogManagerProps) {
+export function DkpLogManager({ teams, onChange }: DkpLogManagerProps) {
   const [logs, setLogs] = useState<ManageLog[]>([]);
   const [search, setSearch] = useState('');
   const [teamFilter, setTeamFilter] = useState<string>('all');
@@ -124,6 +125,7 @@ export function DkpLogManager({ teams }: DkpLogManagerProps) {
       toast.success(`已删除 ${data.deleted || selectedIds.size} 条记录`);
       setConfirmOpen(false);
       fetchLogs();
+      onChange?.();
     } catch (error) {
       console.error(error);
       toast.error('删除失败');
