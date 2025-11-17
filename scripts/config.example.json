@@ -1,16 +1,16 @@
 {
-  "webdkp_file": "../WebDKP.lua",
-  "backup_dir": "../backups",
-  "log_csv_path": "../log.csv",
-  "export_output_path": "../export.log",
+  "webdkp_file": "./WebDKP.lua",
+  "backup_dir": "./backups",
+  "log_csv_path": "./log.csv",
+  "export_output_path": "./export.log",
   "clear_log_after_import": true,
   "confirm_before_import": true,
   "confirm_before_export": true,
   "prompt_team_selection": true,
   "site": {
-    "base_url": "https://dkp.deruby.net",
-    "username": "admin",
-    "password": "wow@admin123",
+    "base_url": "https://111.net",
+    "username": "",
+    "password": "",
     "team_id": null,
     "ignore_duplicates": true
   }
