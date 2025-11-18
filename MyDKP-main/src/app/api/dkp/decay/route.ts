@@ -52,7 +52,10 @@ export async function POST(request: NextRequest) {
 
         await tx.player.update({
           where: { id: player.id },
-          data: { currentDkp: newDkp },
+          data: {
+            currentDkp: newDkp,
+            totalDecay: { increment: decayAmount },
+          },
         });
 
         await tx.dkpLog.create({

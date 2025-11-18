@@ -14,6 +14,7 @@ export interface Player {
   currentDkp: number;
   totalEarned: number;
   totalSpent: number;
+  totalDecay: number;
   attendance: number;
   teamId: string;
   team?: {

@@ -162,7 +162,9 @@ export async function DELETE(request: NextRequest) {
           currentDkp: { increment: -log.change },
         };
 
-        if (log.change > 0) {
+        if (log.type === 'decay') {
+          playerUpdate.totalDecay = { decrement: Math.abs(log.change) };
+        } else if (log.change > 0) {
           playerUpdate.totalEarned = { decrement: log.change };
         } else if (log.change < 0) {
           playerUpdate.totalSpent = { decrement: Math.abs(log.change) };

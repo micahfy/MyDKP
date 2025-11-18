@@ -130,7 +130,7 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           <div className="bg-blue-50 p-4 rounded-lg">
             <div className="text-sm text-gray-600">当前 DKP</div>
             <div className="text-2xl font-bold text-blue-600">
@@ -153,6 +153,12 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
             <div className="text-sm text-gray-600">出席率</div>
             <div className="text-2xl font-bold text-purple-600">
               {(player.attendance * 100).toFixed(0)}%
+            </div>
+          </div>
+          <div className="bg-orange-50 p-4 rounded-lg">
+            <div className="text-sm text-gray-600">总衰减</div>
+            <div className="text-2xl font-bold text-orange-600">
+              {player.totalDecay.toFixed(1)}
             </div>
           </div>
         </div>
