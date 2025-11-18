@@ -15,11 +15,11 @@ wow-dkp-manager/
 │   │   │   │   ├── route.ts
 │   │   │   │   ├── [id]/route.ts
 │   │   │   │   └── import/route.ts
-│   │   │   ├── dkp/
-│   │   │   │   ├── route.ts
-│   │   │   │   ├── logs/route.ts
-│   │   │   │   ├── decay/route.ts
-│   │   │   │   └── undo-decay/route.ts
+    │   │   │   ├── dkp/
+    │   │   │   │   ├── route.ts
+    │   │   │   │   ├── logs/route.ts
+    │   │   │   │   ├── decay/route.ts
+    │   │   │   │   └── export/webdkp/route.ts
 │   │   │   └── export/route.ts
 │   │   ├── layout.tsx
 │   │   ├── page.tsx
@@ -27,12 +27,14 @@ wow-dkp-manager/
 │   ├── components/
 │   │   ├── ui/ (shadcn/ui components)
 │   │   ├── Navbar.tsx
-│   │   ├── PlayerTable.tsx
-│   │   ├── PlayerDetail.tsx
-│   │   ├── AdminPanel.tsx
-│   │   ├── DkpLogTable.tsx
-│   │   ├── ImportDialog.tsx
-│   │   └── DecayDialog.tsx
+    │   │   ├── PlayerTable.tsx
+    │   │   ├── PlayerDetail.tsx
+    │   │   ├── AdminPanel.tsx
+    │   │   ├── DkpLogManager.tsx
+    │   │   ├── ImportDialog.tsx
+    │   │   ├── BatchDkpImportDialog.tsx
+    │   │   ├── DecayDialog.tsx
+    │   │   └── TeamManagement.tsx
 │   ├── lib/
 │   │   ├── prisma.ts
 │   │   ├── auth.ts

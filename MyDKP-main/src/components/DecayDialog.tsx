@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { AlertTriangle, RotateCcw } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -27,7 +27,6 @@ interface DecayDialogProps {
 export function DecayDialog({ teamId, onSuccess }: DecayDialogProps) {
   const [decayRate, setDecayRate] = useState('');
   const [loading, setLoading] = useState(false);
-  const [undoLoading, setUndoLoading] = useState(false);
 
   const handleDecay = async () => {
     const rate = parseFloat(decayRate);
@@ -57,30 +56,6 @@ export function DecayDialog({ teamId, onSuccess }: DecayDialogProps) {
       toast.error('衰减失败，请重试');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleUndoDecay = async () => {
-    setUndoLoading(true);
-    try {
-      const res = await fetch('/api/dkp/undo-decay', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ teamId }),
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        toast.success('撤销衰减成功！');
-        onSuccess();
-      } else {
-        toast.error(data.error || '撤销失败');
-      }
-    } catch (error) {
-      toast.error('撤销失败，请重试');
-    } finally {
-      setUndoLoading(false);
     }
   };
 
@@ -120,7 +95,7 @@ export function DecayDialog({ teamId, onSuccess }: DecayDialogProps) {
                   <li>衰减将应用于当前团队的所有玩家</li>
                   <li>每个玩家的当前DKP将减少对应比例</li>
                   <li>操作会记录到日志中</li>
-                  <li>可通过"撤销上次衰减"恢复</li>
+                  <li>如需撤销，请使用日志管理中的删除功能</li>
                 </ul>
               </div>
             </div>
@@ -149,54 +124,6 @@ export function DecayDialog({ teamId, onSuccess }: DecayDialogProps) {
                 <AlertDialogCancel>取消</AlertDialogCancel>
                 <AlertDialogAction onClick={handleDecay}>
                   确认执行
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      </Card>
-
-      <Card className="p-6">
-        <div className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <RotateCcw className="h-5 w-5 text-blue-600" />
-            <h3 className="text-lg font-semibold">撤销上次衰减</h3>
-          </div>
-
-          <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-            <div className="text-sm text-blue-900">
-              <p className="font-semibold mb-2">撤销说明：</p>
-              <ul className="space-y-1 list-disc list-inside">
-                <li>将恢复最近一次衰减前的DKP状态</li>
-                <li>只能撤销最近一次衰减操作</li>
-                <li>撤销操作会记录到日志</li>
-                <li>已撤销的衰减无法再次撤销</li>
-              </ul>
-            </div>
-          </div>
-
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                className="w-full"
-                variant="outline"
-                disabled={undoLoading}
-              >
-                <RotateCcw className="h-4 w-4 mr-2" />
-                {undoLoading ? '撤销中...' : '撤销上次衰减'}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>确认撤销衰减？</AlertDialogTitle>
-                <AlertDialogDescription>
-                  此操作将恢复最近一次衰减前的DKP状态，所有玩家的DKP将回退到衰减前的数值。
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>取消</AlertDialogCancel>
-                <AlertDialogAction onClick={handleUndoDecay}>
-                  确认撤销
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

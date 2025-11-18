@@ -102,9 +102,9 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
             <TabsTrigger value="import" className="data-[state=active]:bg-blue-950">
               导入玩家
             </TabsTrigger>
-            <TabsTrigger value="decay" className="data-[state=active]:bg-blue-950">
-              衰减管理
-            </TabsTrigger>
+          <TabsTrigger value="decay" className="data-[state=active]:bg-blue-950">
+            衰减管理
+          </TabsTrigger>
             <TabsTrigger value="logs" className="data-[state=active]:bg-blue-950">
               日志管理
             </TabsTrigger>
