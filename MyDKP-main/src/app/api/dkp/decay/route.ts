@@ -36,6 +36,16 @@ export async function POST(request: NextRequest) {
     const executedAt = new Date();
 
     await prisma.$transaction(async (tx) => {
+      const history = await tx.decayHistory.create({
+        data: {
+          teamId,
+          rate,
+          operator: session.username || 'admin',
+          affectedCount: players.length,
+          executedAt,
+        },
+      });
+
       for (const player of players) {
         const decayAmount = player.currentDkp * rate;
         const newDkp = player.currentDkp - decayAmount;
@@ -54,19 +64,10 @@ export async function POST(request: NextRequest) {
             reason: `衰减 ${(rate * 100).toFixed(1)}%`,
             operator: session.username || 'admin',
             createdAt: executedAt,
+            decayHistoryId: history.id,
           },
         });
       }
-
-      await tx.decayHistory.create({
-        data: {
-          teamId,
-          rate,
-          operator: session.username || 'admin',
-          affectedCount: players.length,
-          executedAt,
-        },
-      });
     });
 
     return NextResponse.json({ success: true, affected: players.length });

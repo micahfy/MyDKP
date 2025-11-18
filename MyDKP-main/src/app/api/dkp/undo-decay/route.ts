@@ -37,9 +37,7 @@ export async function POST(request: NextRequest) {
         teamId,
         type: 'decay',
         isDeleted: false,
-        createdAt: { 
-          gte: lastDecay.executedAt,
-        },
+        decayHistoryId: lastDecay.id,
       },
       orderBy: {
         createdAt: 'asc'

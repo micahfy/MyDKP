@@ -37,6 +37,7 @@ export interface DkpLog {
   deletedByAdmin?: {
     username: string;
   } | null;
+  decayHistoryId?: string | null;
   player?: {
     name: string;
   };
