@@ -33,6 +33,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '该团队没有玩家' }, { status: 400 });
     }
 
+    const executedAt = new Date();
+
     await prisma.$transaction(async (tx) => {
       for (const player of players) {
         const decayAmount = player.currentDkp * rate;
@@ -51,6 +53,7 @@ export async function POST(request: NextRequest) {
             change: -decayAmount,
             reason: `衰减 ${(rate * 100).toFixed(1)}%`,
             operator: session.username || 'admin',
+            createdAt: executedAt,
           },
         });
       }
@@ -61,6 +64,7 @@ export async function POST(request: NextRequest) {
           rate,
           operator: session.username || 'admin',
           affectedCount: players.length,
+          executedAt,
         },
       });
     });
