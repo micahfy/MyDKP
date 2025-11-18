@@ -46,13 +46,12 @@ export async function GET(request: NextRequest) {
             is: {
               name: {
                 contains: search,
-                mode: 'insensitive',
               },
             },
           },
         },
-        { reason: { contains: search, mode: 'insensitive' } },
-        { operator: { contains: search, mode: 'insensitive' } },
+        { reason: { contains: search } },
+        { operator: { contains: search } },
       ];
     }
 
