@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Download } from 'lucide-react';
 
 interface LootItem {
   id: string;
@@ -151,9 +151,20 @@ export function LootLibrary() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-gray-100 font-semibold">当前装备（{items.length}）</h3>
-              <Button variant="outline" size="sm" onClick={fetchItems} disabled={loading}>
-                刷新
-              </Button>
+              <div className="flex space-x-2">
+                <Button variant="outline" size="sm" onClick={fetchItems} disabled={loading}>
+                  刷新
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExport}
+                  className="text-purple-200 border-purple-600"
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  导出
+                </Button>
+              </div>
             </div>
             <div className="max-h-80 overflow-auto space-y-2 pr-1">
               {loading ? (
@@ -190,3 +201,23 @@ export function LootLibrary() {
     </Card>
   );
 }
+  const handleExport = async () => {
+    try {
+      const res = await fetch('/api/loot-items/export');
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || '导出失败');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `loot-items-${new Date().toISOString().split('T')[0]}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      toast.error(error?.message || '导出失败');
+    }
+  };
