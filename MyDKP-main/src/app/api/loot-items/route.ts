@@ -77,7 +77,6 @@ export async function POST(request: NextRequest) {
     if (toCreate.length > 0) {
       await prisma.lootItem.createMany({
         data: toCreate,
-        skipDuplicates: true,
       });
     }
 
