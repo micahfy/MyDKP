@@ -113,3 +113,13 @@ model DecayHistory {
 
   @@map("decay_history")
 }
+
+model LootItem {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  searchName  String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("loot_items")
+}

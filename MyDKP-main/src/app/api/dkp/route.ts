@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdmin, hasTeamPermission, getSession } from '@/lib/auth';
 import { recalculateTeamAttendance } from '@/lib/attendance';
+import { applyLootHighlight, fetchLootItems } from '@/lib/loot';
 export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
@@ -34,6 +35,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '玩家不属于该团队' }, { status: 400 });
     }
 
+    const lootItems = await fetchLootItems();
+    const highlightedReason = applyLootHighlight(reason, lootItems);
+
     await prisma.$transaction(async (tx) => {
       await tx.player.update({
         where: { id: playerId },
@@ -54,7 +58,7 @@ export async function POST(request: NextRequest) {
           teamId,
           type,
           change,
-          reason,
+          reason: highlightedReason,
           item,
           boss,
           operator: session.username || 'admin',

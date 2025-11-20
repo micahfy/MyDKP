@@ -11,6 +11,7 @@ import { BatchDkpImportDialog } from './BatchDkpImportDialog';
 import { AdminManagement } from './AdminManagement';
 import { DkpLogManager } from './DkpLogManager';
 import { Shield, Lock } from 'lucide-react';
+import { LootLibrary } from './LootLibrary';
 
 interface AdminPanelProps {
   teamId: string;
@@ -92,7 +93,7 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
       </CardHeader>
       <CardContent className="pt-6">
         <Tabs defaultValue="operation" className="w-full">
-          <TabsList className={`grid w-full ${isSuperAdmin ? 'grid-cols-7' : 'grid-cols-5'} bg-slate-800/50`}>
+          <TabsList className={`grid w-full ${isSuperAdmin ? 'grid-cols-8' : 'grid-cols-5'} bg-slate-800/50`}>
             <TabsTrigger value="operation" className="data-[state=active]:bg-blue-950">
               DKP操作
             </TabsTrigger>
@@ -102,9 +103,9 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
             <TabsTrigger value="import" className="data-[state=active]:bg-blue-950">
               导入玩家
             </TabsTrigger>
-          <TabsTrigger value="decay" className="data-[state=active]:bg-blue-950">
-            衰减管理
-          </TabsTrigger>
+            <TabsTrigger value="decay" className="data-[state=active]:bg-blue-950">
+              衰减管理
+            </TabsTrigger>
             <TabsTrigger value="logs" className="data-[state=active]:bg-blue-950">
               日志管理
             </TabsTrigger>
@@ -116,6 +117,11 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
             {isSuperAdmin && (
               <TabsTrigger value="admins" className="data-[state=active]:bg-purple-950">
                 管理员
+              </TabsTrigger>
+            )}
+            {isSuperAdmin && (
+              <TabsTrigger value="loot" className="data-[state=active]:bg-purple-950">
+                装备库
               </TabsTrigger>
             )}
           </TabsList>
@@ -149,6 +155,11 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
           {isSuperAdmin && (
             <TabsContent value="admins" className="space-y-4">
               <AdminManagement teams={teams} currentAdminRole={adminRole} />
+            </TabsContent>
+          )}
+          {isSuperAdmin && (
+            <TabsContent value="loot" className="space-y-4">
+              <LootLibrary />
             </TabsContent>
           )}
         </Tabs>

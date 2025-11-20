@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdmin, hasTeamPermission, getSession } from '@/lib/auth';
 import { recalculateTeamAttendance } from '@/lib/attendance';
+import { applyLootHighlight, fetchLootItems, normalizeReason } from '@/lib/loot';
 
 export const dynamic = 'force-dynamic';
 
 const DUPLICATE_LOOKBACK_DAYS = 30;
 
 function generateRecordHash(playerName: string, change: number, reason: string, date: string, time: string): string {
-  return `${playerName}-${change}-${reason}-${date}-${time}`;
+  return `${playerName}-${change}-${normalizeReason(reason)}-${date}-${time}`;
 }
 
 function pad(num: number) {
@@ -93,7 +94,7 @@ async function collectExistingHashes(teamId: string) {
 
   for (const log of recentLogs) {
     const { dateStr, timeStr } = formatBeijing(new Date(log.createdAt));
-    hashes.add(generateRecordHash(log.player.name, log.change, (log.reason || '').trim(), dateStr, timeStr));
+    hashes.add(generateRecordHash(log.player.name, log.change, log.reason || '', dateStr, timeStr));
   }
 
   return hashes;
@@ -134,6 +135,7 @@ export async function POST(request: NextRequest) {
     });
     const playerMap = new Map(teamPlayers.map((player) => [player.name, { ...player }]));
 
+    const lootItems = await fetchLootItems();
     const processedHashes = new Set<string>();
     const existingHashes = ignoreDuplicates ? await collectExistingHashes(teamId) : new Set<string>();
 
@@ -172,8 +174,9 @@ export async function POST(request: NextRequest) {
         }
 
         const { recordTime, dateStr, timeStr } = normalizeDateTime(dateRaw, timeRaw);
-        const finalReason = trimmedReason || `批量导入 - ${changeValue >= 0 ? '奖励' : '扣分'}`;
-        const recordHash = generateRecordHash(playerName, changeValue, finalReason, dateStr, timeStr);
+        const baseReason = trimmedReason || `批量导入 - ${changeValue >= 0 ? '奖励' : '扣分'}`;
+        const highlightedReason = applyLootHighlight(baseReason, lootItems);
+        const recordHash = generateRecordHash(playerName, changeValue, baseReason, dateStr, timeStr);
 
         if (processedHashes.has(recordHash) || existingHashes.has(recordHash)) {
           duplicateCount++;
@@ -202,7 +205,7 @@ export async function POST(request: NextRequest) {
               teamId,
               type: operationType,
               change: changeValue,
-              reason: finalReason,
+              reason: highlightedReason,
               operator: session.username || 'admin',
               createdAt: recordTime,
             },
