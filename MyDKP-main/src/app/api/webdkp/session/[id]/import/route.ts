@@ -33,7 +33,9 @@ export async function POST(
       return NextResponse.json({ error: '会话不存在' }, { status: 404 });
     }
 
-    const rows = (sessionRecord.editedRows as WebdkpLogRow[] | null) || (sessionRecord.parsedRows as WebdkpLogRow[]);
+    const parsedRows = sessionRecord.parsedRows ? JSON.parse(sessionRecord.parsedRows) : [];
+    const editedRows = sessionRecord.editedRows ? JSON.parse(sessionRecord.editedRows) : null;
+    const rows: WebdkpLogRow[] = (editedRows && editedRows.length ? editedRows : parsedRows) || [];
     if (!rows || rows.length === 0) {
       return NextResponse.json({ error: '没有可导入的数据' }, { status: 400 });
     }

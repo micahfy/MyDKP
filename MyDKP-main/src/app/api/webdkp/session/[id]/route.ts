@@ -28,7 +28,13 @@ export async function GET(
       return NextResponse.json({ error: '会话不存在' }, { status: 404 });
     }
 
-    return NextResponse.json(session);
+    return NextResponse.json({
+      id: session.id,
+      status: session.status,
+      teamId: session.teamId,
+      parsedRows: JSON.parse(session.parsedRows || '[]'),
+      editedRows: session.editedRows ? JSON.parse(session.editedRows) : null,
+    });
   } catch (error) {
     console.error('GET webdkp session error:', error);
     return NextResponse.json({ error: '获取失败' }, { status: 500 });
@@ -52,7 +58,7 @@ export async function PUT(
     await prisma.webdkpSession.update({
       where: { id: params.id },
       data: {
-        editedRows: body.rows,
+        editedRows: JSON.stringify(body.rows),
         updatedAt: new Date(),
       },
     });

@@ -129,6 +129,8 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
       }
       setImportResult(data.result);
       setDownloadReady(true);
+      setRows([]);
+      setSessionId(sessionId);
       toast.success('导入完成');
     } catch (error: any) {
       toast.error(error?.message || '导入失败');

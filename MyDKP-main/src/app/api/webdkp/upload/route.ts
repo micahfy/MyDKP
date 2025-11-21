@@ -34,11 +34,12 @@ export async function POST(request: NextRequest) {
     const luaContent = await extractLuaContent(request);
     const rows = parseWebdkpLogs(luaContent);
 
+    const rowsJson = JSON.stringify(rows);
     const session = await prisma.webdkpSession.create({
       data: {
         originalLua: luaContent,
-        parsedRows: rows,
-        editedRows: rows,
+        parsedRows: rowsJson,
+        editedRows: rowsJson,
       },
     });
 
