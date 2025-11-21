@@ -1,0 +1,70 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { isAdmin, hasTeamPermission, getSession } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { buildImportPayload, buildUpdatedLua, buildWebdkpTable, WebdkpLogRow } from '@/lib/webdkp';
+import { runBatchImport } from '@/lib/dkpBatchImport';
+
+export const dynamic = 'force-dynamic';
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  try {
+    if (!(await isAdmin())) {
+      return NextResponse.json({ error: '权限不足' }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const teamId = String(body.teamId || '').trim();
+    if (!teamId) {
+      return NextResponse.json({ error: '请选择要导入的团队' }, { status: 400 });
+    }
+
+    if (!(await hasTeamPermission(teamId))) {
+      return NextResponse.json({ error: '您没有权限操作该团队' }, { status: 403 });
+    }
+
+    const sessionRecord = await prisma.webdkpSession.findUnique({
+      where: { id: params.id },
+    });
+
+    if (!sessionRecord) {
+      return NextResponse.json({ error: '会话不存在' }, { status: 404 });
+    }
+
+    const rows = (sessionRecord.editedRows as WebdkpLogRow[] | null) || (sessionRecord.parsedRows as WebdkpLogRow[]);
+    if (!rows || rows.length === 0) {
+      return NextResponse.json({ error: '没有可导入的数据' }, { status: 400 });
+    }
+
+    const importData = buildImportPayload(rows);
+    const session = await getSession();
+    const result = await runBatchImport({
+      teamId,
+      importData,
+      operator: session.username || 'admin',
+      ignoreDuplicates: body.ignoreDuplicates !== false,
+    });
+
+    const tableText = await buildWebdkpTable(session);
+    const updatedLua = buildUpdatedLua(sessionRecord.originalLua, tableText);
+
+    await prisma.webdkpSession.update({
+      where: { id: params.id },
+      data: {
+        finalLua: updatedLua,
+        teamId,
+        status: 'completed',
+      },
+    });
+
+    return NextResponse.json({
+      result,
+      downloadAvailable: true,
+    });
+  } catch (error) {
+    console.error('WebDKP import error:', error);
+    return NextResponse.json({ error: '导入失败' }, { status: 500 });
+  }
+}

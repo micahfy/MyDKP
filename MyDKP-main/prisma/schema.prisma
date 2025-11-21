@@ -123,3 +123,17 @@ model LootItem {
 
   @@map("loot_items")
 }
+
+model WebdkpSession {
+  id          String   @id @default(cuid())
+  originalLua String
+  parsedRows  Json
+  editedRows  Json?
+  finalLua    String?
+  teamId      String?
+  status      String   @default("uploaded")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("webdkp_sessions")
+}

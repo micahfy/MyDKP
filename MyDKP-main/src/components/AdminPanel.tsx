@@ -12,6 +12,7 @@ import { AdminManagement } from './AdminManagement';
 import { DkpLogManager } from './DkpLogManager';
 import { Shield, Lock } from 'lucide-react';
 import { LootLibrary } from './LootLibrary';
+import { WebdkpImportTab } from './WebdkpImportTab';
 
 interface AdminPanelProps {
   teamId: string;
@@ -93,7 +94,7 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
       </CardHeader>
       <CardContent className="pt-6">
         <Tabs defaultValue="operation" className="w-full">
-          <TabsList className={`grid w-full ${isSuperAdmin ? 'grid-cols-8' : 'grid-cols-5'} bg-slate-800/50`}>
+          <TabsList className={`grid w-full ${isSuperAdmin ? 'grid-cols-9' : 'grid-cols-6'} bg-slate-800/50`}>
             <TabsTrigger value="operation" className="data-[state=active]:bg-blue-950">
               DKP操作
             </TabsTrigger>
@@ -108,6 +109,9 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
             </TabsTrigger>
             <TabsTrigger value="logs" className="data-[state=active]:bg-blue-950">
               日志管理
+            </TabsTrigger>
+            <TabsTrigger value="webdkp" className="data-[state=active]:bg-blue-950">
+              WebDKP导入
             </TabsTrigger>
             {isSuperAdmin && (
               <TabsTrigger value="team" className="data-[state=active]:bg-blue-950">
@@ -144,6 +148,10 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
 
           <TabsContent value="logs" className="space-y-4">
             <DkpLogManager teams={teams} onChange={onUpdate} />
+          </TabsContent>
+
+          <TabsContent value="webdkp" className="space-y-4">
+            <WebdkpImportTab teams={teams} />
           </TabsContent>
 
           {isSuperAdmin && (
