@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+import { Download } from 'lucide-react';
 
 interface TeamOption {
   id: string;
@@ -24,6 +25,16 @@ interface LogRow {
   time: string;
 }
 
+function rowContains(row: LogRow, term: string) {
+  const value = term.toLowerCase();
+  return (
+    row.player.toLowerCase().includes(value) ||
+    row.reason.toLowerCase().includes(value) ||
+    row.date.toLowerCase().includes(value) ||
+    row.time.toLowerCase().includes(value)
+  );
+}
+
 export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
   const [rows, setRows] = useState<LogRow[]>([]);
   const [sessionId, setSessionId] = useState('');
@@ -33,6 +44,14 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
   const [downloadReady, setDownloadReady] = useState(false);
+  const [filterText, setFilterText] = useState('');
+  const [bulkSearch, setBulkSearch] = useState('');
+  const [bulkReplace, setBulkReplace] = useState('');
+
+  const filteredRows = useMemo(() => {
+    if (!filterText.trim()) return rows;
+    return rows.filter((row) => rowContains(row, filterText));
+  }, [rows, filterText]);
 
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -50,7 +69,6 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
         method: 'POST',
         body: formData,
       });
-
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || '上传失败');
@@ -71,10 +89,7 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
       const next = [...prev];
       next[index] = {
         ...next[index],
-        [field]:
-          field === 'change'
-            ? Number(value)
-            : value,
+        [field]: field === 'change' ? Number(value) : value,
       } as LogRow;
       return next;
     });
@@ -130,7 +145,6 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
       setImportResult(data.result);
       setDownloadReady(true);
       setRows([]);
-      setSessionId(sessionId);
       toast.success('导入完成');
     } catch (error: any) {
       toast.error(error?.message || '导入失败');
@@ -139,9 +153,42 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
     }
   };
 
+  const handleBulkReplace = () => {
+    if (!bulkSearch.trim()) {
+      toast.error('请输入要搜索的关键字');
+      return;
+    }
+    setRows((prev) =>
+      prev.map((row) => {
+        if (!rowContains(row, bulkSearch)) return row;
+        return {
+          ...row,
+          player: row.player.replaceAll(bulkSearch, bulkReplace),
+          reason: row.reason.replaceAll(bulkSearch, bulkReplace),
+          date: row.date.replaceAll(bulkSearch, bulkReplace),
+          time: row.time.replaceAll(bulkSearch, bulkReplace),
+        };
+      }),
+    );
+    toast.success('已替换匹配内容');
+  };
+
+  const handleBulkDelete = () => {
+    if (!bulkSearch.trim()) {
+      toast.error('请输入要搜索的关键字');
+      return;
+    }
+    setRows((prev) => prev.filter((row) => !rowContains(row, bulkSearch)));
+    toast.success('已删除匹配记录');
+  };
+
   const handleDownload = () => {
     if (!sessionId) return;
     window.open(`/api/webdkp/session/${sessionId}/download`, '_blank');
+  };
+
+  const handleExportLatest = () => {
+    window.open('/api/webdkp/export', '_blank');
   };
 
   return (
@@ -152,6 +199,10 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
             <label className="text-sm text-gray-300">上传 WebDKP.lua</label>
             <Input type="file" accept=".lua" onChange={handleUpload} disabled={uploading} />
             <p className="text-xs text-gray-500">系统会解析 WebDKP_Log 并生成可编辑的数据表。</p>
+            <Button variant="outline" onClick={handleExportLatest}>
+              <Download className="h-4 w-4 mr-1" />
+              直接导出最新 WebDKP.lua
+            </Button>
           </div>
           <div className="space-y-3">
             <label className="text-sm text-gray-300">选择导入团队</label>
@@ -167,7 +218,7 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
                 </option>
               ))}
             </select>
-            <div className="flex space-x-2">
+            <div className="flex flex-wrap gap-2">
               <Button onClick={handleSaveRows} disabled={!sessionId || saving}>
                 保存修改
               </Button>
@@ -189,12 +240,48 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
 
         {rows.length > 0 ? (
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm text-gray-300">
-                已解析 {rows.length} 条记录，可直接在下方表格中编辑
-              </h3>
-              <span className="text-xs text-gray-500">滚动区域可浏览全部记录</span>
+            <div className="flex flex-col gap-3 mb-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm text-gray-300">
+                  已解析 {rows.length} 条记录，当前显示 {filteredRows.length} 条
+                </h3>
+                <span className="text-xs text-gray-500">滚动区域可浏览全部记录</span>
+              </div>
+              <div className="grid md:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-xs text-gray-400">搜索并过滤显示</label>
+                  <Input
+                    placeholder="输入关键字过滤记录"
+                    value={filterText}
+                    onChange={(e) => setFilterText(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs text-gray-400">批量替换 / 删除匹配项</label>
+                  <div className="flex flex-col md:flex-row gap-2">
+                    <Input
+                      placeholder="搜索关键字"
+                      value={bulkSearch}
+                      onChange={(e) => setBulkSearch(e.target.value)}
+                    />
+                    <Input
+                      placeholder="替换为（可选）"
+                      value={bulkReplace}
+                      onChange={(e) => setBulkReplace(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="secondary" onClick={handleBulkReplace}>
+                      替换匹配
+                    </Button>
+                    <Button variant="destructive" onClick={handleBulkDelete}>
+                      删除匹配
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </div>
+
             <div className="max-h-[480px] overflow-auto border border-slate-700 rounded-lg">
               <table className="min-w-full text-sm text-gray-200">
                 <thead className="bg-slate-900/60 sticky top-0">
@@ -207,7 +294,7 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row, index) => (
+                  {filteredRows.map((row, index) => (
                     <tr key={`${row.player}-${index}`} className="odd:bg-slate-900/30">
                       <td className="px-3 py-1">
                         <Input
