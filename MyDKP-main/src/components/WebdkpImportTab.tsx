@@ -47,11 +47,17 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
   const [filterText, setFilterText] = useState('');
   const [bulkSearch, setBulkSearch] = useState('');
   const [bulkReplace, setBulkReplace] = useState('');
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
 
   const filteredRows = useMemo(() => {
-    if (!filterText.trim()) return rows;
-    return rows.filter((row) => rowContains(row, filterText));
+    const term = filterText.trim();
+    return rows
+      .map((row, index) => ({ row, index }))
+      .filter(({ row }) => (term ? rowContains(row, term) : true));
   }, [rows, filterText]);
+
+  const allFilteredSelected =
+    filteredRows.length > 0 && filteredRows.every(({ index }) => selectedIndices.has(index));
 
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -76,6 +82,7 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
 
       setSessionId(data.sessionId);
       setRows(data.rows || []);
+      setSelectedIndices(new Set());
       toast.success(`上传成功，共解析 ${data.rowCount} 条记录`);
     } catch (error: any) {
       toast.error(error?.message || '上传失败');
@@ -145,6 +152,7 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
       setImportResult(data.result);
       setDownloadReady(true);
       setRows([]);
+      setSelectedIndices(new Set());
       toast.success('导入完成');
     } catch (error: any) {
       toast.error(error?.message || '导入失败');
@@ -178,8 +186,45 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
       toast.error('请输入要搜索的关键字');
       return;
     }
-    setRows((prev) => prev.filter((row) => !rowContains(row, bulkSearch)));
+    setRows((prev) => {
+      const filtered = prev.filter((row) => !rowContains(row, bulkSearch));
+      const nextSelected = new Set<number>();
+      setSelectedIndices(nextSelected);
+      return filtered;
+    });
     toast.success('已删除匹配记录');
+  };
+
+  const toggleRowSelection = (index: number, checked: boolean) => {
+    setSelectedIndices((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(index);
+      } else {
+        next.delete(index);
+      }
+      return next;
+    });
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedIndices.size === 0) {
+      toast.error('请先勾选要删除的记录');
+      return;
+    }
+    setRows((prev) => prev.filter((_, index) => !selectedIndices.has(index)));
+    setSelectedIndices(new Set());
+    toast.success('已删除所选记录');
+  };
+
+  const selectAllFiltered = (checked: boolean) => {
+    if (!checked) {
+      setSelectedIndices(new Set());
+      return;
+    }
+    const next = new Set<number>();
+    filteredRows.forEach(({ index }) => next.add(index));
+    setSelectedIndices(next);
   };
 
   const handleDownload = () => {
@@ -277,6 +322,13 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
                     <Button variant="destructive" onClick={handleBulkDelete}>
                       删除匹配
                     </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={handleDeleteSelected}
+                      disabled={selectedIndices.size === 0}
+                    >
+                      删除勾选
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -286,6 +338,13 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
               <table className="min-w-full text-sm text-gray-200">
                 <thead className="bg-slate-900/60 sticky top-0">
                   <tr>
+                    <th className="px-3 py-2 text-left">
+                      <input
+                        type="checkbox"
+                        checked={allFilteredSelected}
+                        onChange={(e) => selectAllFiltered(e.target.checked)}
+                      />
+                    </th>
                     <th className="px-3 py-2 text-left">玩家</th>
                     <th className="px-3 py-2 text-left">分数</th>
                     <th className="px-3 py-2 text-left">原因</th>
@@ -294,8 +353,15 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRows.map((row, index) => (
+                  {filteredRows.map(({ row, index }) => (
                     <tr key={`${row.player}-${index}`} className="odd:bg-slate-900/30">
+                      <td className="px-3 py-1">
+                        <input
+                          type="checkbox"
+                          checked={selectedIndices.has(index)}
+                          onChange={(e) => toggleRowSelection(index, e.target.checked)}
+                        />
+                      </td>
                       <td className="px-3 py-1">
                         <Input
                           value={row.player}
