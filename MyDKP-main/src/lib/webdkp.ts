@@ -10,11 +10,11 @@ export interface WebdkpLogRow {
 }
 
 const LOG_SECTION_PATTERN = /WebDKP_Log\s*=\s*\{([\s\S]*?)\}\s*WebDKP_DkpTable/;
-const EVENT_PATTERN = /\["(.*?)"\]\s*=\s*\{([\s\S]*?)\n\s*\},/g;
+const EVENT_PATTERN = /\["(.*?)"\]\s*=\s*\{([\s\S]*?)\n\t\},/g;
 const POINTS_PATTERN = /\["points"\]\s*=\s*([-\d.]+)/;
 const REASON_PATTERN = /\["reason"\]\s*=\s*"([^"]*)"/;
 const DATE_PATTERN = /\["date"\]\s*=\s*"([^"]*)"/;
-const AWARDED_PATTERN = /\["awarded"\]\s*=\s*\{([\s\S]*?)\n\s*\},/;
+const AWARDED_PATTERN = /\["awarded"\]\s*=\s*\{([\s\S]*?)\n\t\t\},/;
 const PLAYER_PATTERN = /\["([^"]+)"\]\s*=\s*\{/g;
 
 export function parseWebdkpLogs(luaContent: string): WebdkpLogRow[] {
