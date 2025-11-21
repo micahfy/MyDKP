@@ -126,10 +126,10 @@ model LootItem {
 
 model WebdkpSession {
   id          String   @id @default(cuid())
-  originalLua String   @db.Text
-  parsedRows  String   @db.Text
-  editedRows  String?  @db.Text
-  finalLua    String?  @db.Text
+  originalLua String
+  parsedRows  String
+  editedRows  String?
+  finalLua    String?
   teamId      String?
   status      String   @default("uploaded")
   createdAt   DateTime @default(now())
