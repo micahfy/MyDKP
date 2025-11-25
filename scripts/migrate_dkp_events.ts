@@ -27,7 +27,7 @@ async function main() {
 
   for (const log of logs) {
     const key = buildKey(log);
-    let eventId = cache.get(key);
+    let eventId: string | undefined = cache.get(key);
 
     if (!eventId) {
       const event = await prisma.dkpEvent.create({
@@ -45,6 +45,10 @@ async function main() {
       eventId = event.id;
       cache.set(key, eventId);
       createdEvents += 1;
+    }
+
+    if (!eventId) {
+      throw new Error(`Failed to resolve event for log ${log.id}`);
     }
 
     await prisma.dkpLog.update({
