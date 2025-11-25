@@ -311,20 +311,18 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
                     </TableCell>
                     <TableCell>{formatDate(event.eventTime)}</TableCell>
                     <TableCell>
-                      <div className="max-w-xs truncate">{event.reason || '???'}</div>
-                      {inlinePlayers.length > 0 && (
-                        <div className="flex flex-wrap gap-3 text-xs mt-1">
-                          {inlinePlayers.map((player) => (
-                            <span
-                              key={player.id}
-                              className={`font-semibold ${getClassColor(player.playerClass || '')}`}
-                            >
-                              {player.playerName || '-'}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <div className="text-xs text-gray-500">????{event.operator}</div>
+                      <div className="flex flex-wrap items-center gap-2 max-w-2xl">
+                        <span className="truncate">{event.reason || '无原因'}</span>
+                        {inlinePlayers.map((player) => (
+                          <span
+                            key={player.id}
+                            className={`font-semibold ${getClassColor(player.playerClass || '')}`}
+                          >
+                            {player.playerName || '-'}
+                          </span>
+                        ))}
+                        <span className="text-xs text-gray-500">操作人：{event.operator}</span>
+                      </div>
                     </TableCell>
                     <TableCell>{event.teamName}</TableCell>
                     <TableCell>
