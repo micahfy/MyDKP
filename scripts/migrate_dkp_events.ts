@@ -3,10 +3,11 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 function buildKey(log: any) {
+  const change = log.change ?? 0;
   return [
     log.teamId,
     log.type,
-    log.change ?? 0,
+    change,
     log.reason ?? '',
     log.item ?? '',
     log.boss ?? '',
@@ -26,7 +27,8 @@ async function main() {
   let createdEvents = 0;
 
   for (const log of logs) {
-    const key = buildKey(log);
+    const change = log.change ?? 0;
+    const key = buildKey({ ...log, change });
     let eventId: string | undefined = cache.get(key);
 
     if (!eventId) {
@@ -34,11 +36,11 @@ async function main() {
         data: {
           teamId: log.teamId,
           type: log.type,
-          change: log.change ?? 0,
-          reason: log.reason,
-          item: log.item,
-          boss: log.boss,
-          operator: log.operator,
+          change,
+          reason: log.reason ?? null,
+          item: log.item ?? null,
+          boss: log.boss ?? null,
+          operator: log.operator ?? '',
           eventTime: log.createdAt,
         },
       });
@@ -55,10 +57,10 @@ async function main() {
       where: { id: log.id },
       data: {
         eventId,
-        change: null,
-        reason: null,
-        item: null,
-        boss: null,
+        change,
+        reason: log.reason ?? null,
+        item: log.item ?? null,
+        boss: log.boss ?? null,
       },
     });
   }
