@@ -267,6 +267,19 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
     toast.success(`已删除分组内 ${indices.length} 条记录`);
   };
 
+  const updateGroupField = (indices: number[], field: keyof LogRow, value: string) => {
+    setRows((prev) => {
+      const next = [...prev];
+      indices.forEach((i) => {
+        next[i] = {
+          ...next[i],
+          [field]: field === 'change' ? Number(value) || 0 : value,
+        } as LogRow;
+      });
+      return next;
+    });
+  };
+
   const handleDownload = () => {
     if (!sessionId) return;
     window.open(`/api/webdkp/session/${sessionId}/download`, '_blank');
@@ -471,12 +484,31 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
                       return (
                         <tr key={`${group.reason}-${group.date}-${group.time}-${group.change}-${idx}`} className="odd:bg-slate-900/30">
                           <td className="px-3 py-2 max-w-sm">
-                            <div className="truncate">{group.reason || '无原因'}</div>
+                            <Textarea
+                              value={group.reason}
+                              onChange={(e) => updateGroupField(indices, 'reason', e.target.value)}
+                              rows={2}
+                            />
                           </td>
                           <td className="px-3 py-2 whitespace-nowrap">
-                            {group.date} {group.time}
+                            <div className="flex flex-col gap-1">
+                              <Input
+                                value={group.date}
+                                onChange={(e) => updateGroupField(indices, 'date', e.target.value)}
+                              />
+                              <Input
+                                value={group.time}
+                                onChange={(e) => updateGroupField(indices, 'time', e.target.value)}
+                              />
+                            </div>
                           </td>
-                          <td className="px-3 py-2">{group.change}</td>
+                          <td className="px-3 py-2 w-28">
+                            <Input
+                              type="number"
+                              value={group.change}
+                              onChange={(e) => updateGroupField(indices, 'change', e.target.value)}
+                            />
+                          </td>
                           <td className="px-3 py-2">{group.items.length}</td>
                           <td className="px-3 py-2 max-w-xl">
                             <div className="flex flex-wrap gap-2">
