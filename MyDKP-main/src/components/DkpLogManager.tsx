@@ -20,7 +20,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { DkpEventLog, DkpLog, Team } from '@/types';
-import { formatDate } from '@/lib/utils';
+import { formatDate, getClassColor } from '@/lib/utils';
 
 interface ManageLog extends DkpLog {
   team?: {
@@ -292,11 +292,14 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
           ) : (
             events.map((event) => {
               const expanded = expandedEvents.has(event.id);
-              const activePlayers = event.players.filter((p) => !p.isDeleted).length;
+              const activePlayerList = event.players.filter((p) => !p.isDeleted);
+              const activePlayers = activePlayerList.length;
               const totalPlayers = event.players.length;
-              const selectable = event.players.filter((p) => !p.isDeleted).map((p) => p.id);
+              const selectable = activePlayerList.map((p) => p.id);
               const allSelected = selectable.length > 0 && selectable.every((id) => selectedIds.has(id));
               const selectedCount = selectable.filter((id) => selectedIds.has(id)).length;
+              const inlinePlayers =
+                activePlayers > 0 && activePlayers <= 3 ? activePlayerList.slice(0, 3) : [];
 
               return (
                 <Fragment key={event.id}>
@@ -308,8 +311,20 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
                     </TableCell>
                     <TableCell>{formatDate(event.eventTime)}</TableCell>
                     <TableCell>
-                      <div className="max-w-xs truncate">{event.reason || '无原因'}</div>
-                      <div className="text-xs text-gray-500">操作人：{event.operator}</div>
+                      <div className="max-w-xs truncate">{event.reason || '???'}</div>
+                      {inlinePlayers.length > 0 && (
+                        <div className="flex flex-wrap gap-3 text-xs mt-1">
+                          {inlinePlayers.map((player) => (
+                            <span
+                              key={player.id}
+                              className={`font-semibold ${getClassColor(player.playerClass || '')}`}
+                            >
+                              {player.playerName || '-'}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="text-xs text-gray-500">????{event.operator}</div>
                     </TableCell>
                     <TableCell>{event.teamName}</TableCell>
                     <TableCell>

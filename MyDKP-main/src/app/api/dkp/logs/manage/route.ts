@@ -231,7 +231,7 @@ async function handleEventView(options: {
         logs: {
           where: logFilter,
           include: {
-            player: { select: { name: true } },
+            player: { select: { name: true, class: true } },
           },
           orderBy: { createdAt: 'asc' },
         },
@@ -249,6 +249,7 @@ async function handleEventView(options: {
         id: log.id,
         playerId: log.playerId,
         playerName: log.player?.name || '',
+        playerClass: log.player?.class || null,
         isDeleted: log.isDeleted,
         change: log.change ?? event.change,
         reason: log.reason ?? event.reason,

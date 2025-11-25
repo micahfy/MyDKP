@@ -59,6 +59,7 @@ export interface DkpEventLog {
     id: string;
     playerId: string;
     playerName: string;
+    playerClass?: string | null;
     isDeleted: boolean;
     change: number;
     reason?: string | null;
