@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,6 +47,7 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pageInput, setPageInput] = useState('');
 
   const selectableIds = useMemo(() => {
     if (viewMode === 'events') {
@@ -58,6 +59,16 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
   }, [viewMode, events, logs]);
 
   const selectableCount = selectableIds.length;
+  const pageNumbers = useMemo(() => {
+    const windowSize = 5;
+    const pages: number[] = [];
+    const start = Math.max(1, page - Math.floor(windowSize / 2));
+    const end = Math.min(totalPages, start + windowSize - 1);
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }, [page, totalPages]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -181,6 +192,16 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
     });
   };
 
+  const handlePageJump = () => {
+    const target = parseInt(pageInput, 10);
+    if (Number.isNaN(target) || target < 1 || target > totalPages) {
+      toast.error('请输入有效的页码');
+      return;
+    }
+    setPage(target);
+    setPageInput('');
+  };
+
   const renderEntryTable = () => (
     <div className="border rounded-lg">
       <Table>
@@ -247,96 +268,124 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
   );
 
   const renderEventList = () => (
-    <div className="space-y-4">
-      {events.length === 0 ? (
-        <div className="text-center text-gray-500 py-10 border border-dashed border-slate-700 rounded-lg">
-          暂无事件记录
-        </div>
-      ) : (
-        events.map((event) => {
-          const expanded = expandedEvents.has(event.id);
-          const activePlayers = event.players.filter((p) => !p.isDeleted).length;
-          const totalPlayers = event.players.length;
-          const allSelectableIds = event.players.filter((p) => !p.isDeleted).map((p) => p.id);
-          const eventSelectedCount = allSelectableIds.filter((id) => selectedIds.has(id)).length;
+    <div className="border border-slate-700 rounded-lg overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-16">操作</TableHead>
+            <TableHead>时间</TableHead>
+            <TableHead>原因</TableHead>
+            <TableHead>团队</TableHead>
+            <TableHead>类型</TableHead>
+            <TableHead>分数</TableHead>
+            <TableHead>玩家数</TableHead>
+            <TableHead>全选</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {events.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={8} className="text-center text-gray-500">
+                暂无事件记录
+              </TableCell>
+            </TableRow>
+          ) : (
+            events.map((event) => {
+              const expanded = expandedEvents.has(event.id);
+              const activePlayers = event.players.filter((p) => !p.isDeleted).length;
+              const totalPlayers = event.players.length;
+              const selectable = event.players.filter((p) => !p.isDeleted).map((p) => p.id);
+              const allSelected = selectable.length > 0 && selectable.every((id) => selectedIds.has(id));
+              const selectedCount = selectable.filter((id) => selectedIds.has(id)).length;
 
-          return (
-            <div key={event.id} className="border border-slate-700 rounded-lg p-4 bg-slate-900/30">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <div className="text-sm text-gray-400">{formatDate(event.eventTime)}</div>
-                  <div className="text-lg text-gray-100">{event.reason || '无原因'}</div>
-                  <div className="text-xs text-gray-500">
-                    {event.teamName} · {event.operator}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={event.change >= 0 ? 'default' : 'destructive'}>
-                    {event.change >= 0 ? '+' : ''}
-                    {event.change.toFixed(2)}
-                  </Badge>
-                  <Button variant="outline" size="sm" onClick={() => selectAllInEvent(event.id, eventSelectedCount !== allSelectableIds.length)}>
-                    {eventSelectedCount === allSelectableIds.length ? '取消全选' : '全选玩家'}
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => toggleEventExpand(event.id)}>
-                    {expanded ? '收起' : '展开'}
-                  </Button>
-                </div>
-              </div>
-              <div className="text-xs text-gray-400 mt-1">
-                玩家 {activePlayers}/{totalPlayers}
-              </div>
-              {expanded && (
-                <div className="mt-3 border border-slate-700 rounded-md overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">
-                          <Checkbox
-                            checked={allSelectableIds.length > 0 && eventSelectedCount === allSelectableIds.length}
-                            onCheckedChange={(checked) => selectAllInEvent(event.id, Boolean(checked))}
-                          />
-                        </TableHead>
-                        <TableHead>玩家</TableHead>
-                        <TableHead>分数</TableHead>
-                        <TableHead>原因</TableHead>
-                        <TableHead>状态</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {event.players.map((player) => (
-                        <TableRow key={player.id} className={player.isDeleted ? 'opacity-60' : ''}>
-                          <TableCell>
-                            {!player.isDeleted && (
-                              <Checkbox
-                                checked={selectedIds.has(player.id)}
-                                onCheckedChange={() => toggleSelect(player.id)}
-                              />
-                            )}
-                          </TableCell>
-                          <TableCell>{player.playerName || '-'}</TableCell>
-                          <TableCell className={player.change >= 0 ? 'text-green-500' : 'text-red-400'}>
-                            {player.change >= 0 ? '+' : ''}
-                            {player.change.toFixed(2)}
-                          </TableCell>
-                          <TableCell>{player.reason || event.reason || '-'}</TableCell>
-                          <TableCell>
-                            {player.isDeleted ? (
-                              <Badge variant="destructive">已删除</Badge>
-                            ) : (
-                              <Badge variant="secondary">有效</Badge>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </div>
-          );
-        })
-      )}
+              return (
+                <Fragment key={event.id}>
+                  <TableRow>
+                    <TableCell>
+                      <Button variant="ghost" size="sm" onClick={() => toggleEventExpand(event.id)}>
+                        {expanded ? '收起' : '展开'}
+                      </Button>
+                    </TableCell>
+                    <TableCell>{formatDate(event.eventTime)}</TableCell>
+                    <TableCell>
+                      <div className="max-w-xs truncate">{event.reason || '无原因'}</div>
+                      <div className="text-xs text-gray-500">操作人：{event.operator}</div>
+                    </TableCell>
+                    <TableCell>{event.teamName}</TableCell>
+                    <TableCell>
+                      <Badge variant={event.change >= 0 ? 'default' : 'destructive'}>
+                        {event.type === 'earn' ? '加分' : event.type === 'spend' ? '扣分' : event.type}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className={event.change >= 0 ? 'text-green-500' : 'text-red-400'}>
+                      {event.change >= 0 ? '+' : ''}
+                      {event.change.toFixed(2)}
+                    </TableCell>
+                    <TableCell>
+                      {activePlayers}/{totalPlayers}
+                      {selectedCount > 0 && (
+                        <span className="text-xs text-purple-300 ml-2">已选 {selectedCount}</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Checkbox
+                        checked={allSelected}
+                        onCheckedChange={(checked) => selectAllInEvent(event.id, Boolean(checked))}
+                      />
+                    </TableCell>
+                  </TableRow>
+                  {expanded && (
+                    <TableRow>
+                      <TableCell colSpan={8}>
+                        <div className="border border-slate-700 rounded-md overflow-hidden">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-12" />
+                                <TableHead>玩家</TableHead>
+                                <TableHead>分数</TableHead>
+                                <TableHead>原因</TableHead>
+                                <TableHead>状态</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {event.players.map((player) => (
+                                <TableRow key={player.id} className={player.isDeleted ? 'opacity-60' : ''}>
+                                  <TableCell>
+                                    {!player.isDeleted && (
+                                      <Checkbox
+                                        checked={selectedIds.has(player.id)}
+                                        onCheckedChange={() => toggleSelect(player.id)}
+                                      />
+                                    )}
+                                  </TableCell>
+                                  <TableCell>{player.playerName || '-'}</TableCell>
+                                  <TableCell className={player.change >= 0 ? 'text-green-500' : 'text-red-400'}>
+                                    {player.change >= 0 ? '+' : ''}
+                                    {player.change.toFixed(2)}
+                                  </TableCell>
+                                  <TableCell>{player.reason || event.reason || '-'}</TableCell>
+                                  <TableCell>
+                                    {player.isDeleted ? (
+                                      <Badge variant="destructive">已删除</Badge>
+                                    ) : (
+                                      <Badge variant="secondary">有效</Badge>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
+              );
+            })
+          )}
+        </TableBody>
+      </Table>
     </div>
   );
 
