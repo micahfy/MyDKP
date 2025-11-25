@@ -58,16 +58,28 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        await tx.dkpLog.create({
+        const event = await tx.dkpEvent.create({
           data: {
-            playerId: player.id,
             teamId,
             type: 'decay',
             change: -decayAmount,
             reason: `衰减 ${(rate * 100).toFixed(1)}%`,
             operator: session.username || 'admin',
+            eventTime: executedAt,
+          },
+        });
+
+        await tx.dkpLog.create({
+          data: {
+            playerId: player.id,
+            teamId,
+            type: 'decay',
+            change: null,
+            reason: null,
+            operator: session.username || 'admin',
             createdAt: executedAt,
             decayHistoryId: history.id,
+            eventId: event.id,
           },
         });
       }

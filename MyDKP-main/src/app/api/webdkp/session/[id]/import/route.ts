@@ -36,7 +36,7 @@ export async function POST(
     const parsedRows = sessionRecord.parsedRows ? JSON.parse(sessionRecord.parsedRows) : [];
     const editedRows = sessionRecord.editedRows ? JSON.parse(sessionRecord.editedRows) : null;
     const rows: WebdkpLogRow[] = (editedRows && editedRows.length ? editedRows : parsedRows) || [];
-    if (!rows || rows.length === 0) {
+    if (rows.length === 0) {
       return NextResponse.json({ error: '没有可导入的数据' }, { status: 400 });
     }
 
@@ -90,14 +90,27 @@ export async function POST(
               },
             });
 
-            await tx.dkpLog.create({
+            const event = await tx.dkpEvent.create({
               data: {
-                playerId: newPlayer.id,
                 teamId: item.teamId,
                 type: 'earn',
                 change: 0,
                 reason: '创建玩家，初始DKP 0分',
                 operator: session.username || 'system',
+                eventTime: new Date(),
+              },
+            });
+
+            await tx.dkpLog.create({
+              data: {
+                playerId: newPlayer.id,
+                teamId: item.teamId,
+                type: 'earn',
+                change: null,
+                reason: null,
+                operator: session.username || 'system',
+                eventId: event.id,
+                createdAt: event.eventTime,
               },
             });
           }

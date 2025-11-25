@@ -52,9 +52,8 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      await tx.dkpLog.create({
+      const event = await tx.dkpEvent.create({
         data: {
-          playerId,
           teamId,
           type,
           change,
@@ -62,6 +61,22 @@ export async function POST(request: NextRequest) {
           item,
           boss,
           operator: session.username || 'admin',
+          eventTime: new Date(),
+        },
+      });
+
+      await tx.dkpLog.create({
+        data: {
+          playerId,
+          teamId,
+          type,
+          change: null,
+          reason: null,
+          item: null,
+          boss: null,
+          operator: session.username || 'admin',
+          eventId: event.id,
+          createdAt: event.eventTime,
         },
       });
     });

@@ -83,17 +83,44 @@ async function collectExistingHashes(teamId: string) {
     },
     include: {
       player: { select: { name: true } },
+      event: {
+        select: { change: true, reason: true, eventTime: true },
+      },
     },
   });
 
   const hashes = new Set<string>();
 
   for (const log of recentLogs) {
-    const { dateStr, timeStr } = formatBeijing(new Date(log.createdAt));
-    hashes.add(generateRecordHash(log.player.name, log.change, (log.reason || '').trim(), dateStr, timeStr));
+    const effectiveChange = log.change ?? log.event?.change ?? 0;
+    const effectiveReason = (log.reason ?? log.event?.reason ?? '').trim();
+    const timestamp = log.event?.eventTime ?? log.createdAt;
+    const { dateStr, timeStr } = formatBeijing(new Date(timestamp));
+    hashes.add(generateRecordHash(log.player.name, effectiveChange, effectiveReason, dateStr, timeStr));
   }
 
   return hashes;
+}
+
+async function createEvent(
+  teamId: string,
+  type: string,
+  change: number,
+  reason: string,
+  operator: string,
+  recordTime: Date,
+) {
+  const event = await prisma.dkpEvent.create({
+    data: {
+      teamId,
+      type,
+      change,
+      reason,
+      operator,
+      eventTime: recordTime,
+    },
+  });
+  return event.id;
 }
 
 export interface BatchImportResult {
@@ -134,6 +161,8 @@ export async function runBatchImport(params: BatchImportParams): Promise<BatchIm
   const lootItems = await fetchLootItems();
   const processedHashes = new Set<string>();
   const existingHashes = ignoreDuplicates ? await collectExistingHashes(teamId) : new Set<string>();
+
+  const eventCache = new Map<string, string>();
 
   for (const line of lines) {
     try {
@@ -180,9 +209,23 @@ export async function runBatchImport(params: BatchImportParams): Promise<BatchIm
       }
 
       const operationType = changeValue >= 0 ? 'earn' : 'spend';
+      const eventKey = [
+        teamId,
+        operationType,
+        changeValue,
+        highlightedReason,
+        dateStr,
+        timeStr,
+      ].join('|');
 
-        await prisma.$transaction(async (tx) => {
-          const updatedPlayer = await tx.player.update({
+      let eventId = eventCache.get(eventKey);
+      if (!eventId) {
+        eventId = await createEvent(teamId, operationType, changeValue, highlightedReason, operator, recordTime);
+        eventCache.set(eventKey, eventId);
+      }
+
+      await prisma.$transaction(async (tx) => {
+        const updatedPlayer = await tx.player.update({
           where: { id: player.id },
           data: {
             currentDkp: { increment: changeValue },
@@ -191,17 +234,18 @@ export async function runBatchImport(params: BatchImportParams): Promise<BatchIm
           },
         });
 
-          await tx.dkpLog.create({
-            data: {
-              playerId: player.id,
-              teamId,
-              type: operationType,
-              change: changeValue,
-              reason: highlightedReason,
-              operator,
-              createdAt: recordTime,
-            },
-          });
+        await tx.dkpLog.create({
+          data: {
+            playerId: player.id,
+            teamId,
+            type: operationType,
+            change: null,
+            reason: null,
+            operator,
+            createdAt: recordTime,
+            eventId,
+          },
+        });
 
         player.currentDkp = updatedPlayer.currentDkp;
         player.totalEarned = updatedPlayer.totalEarned;

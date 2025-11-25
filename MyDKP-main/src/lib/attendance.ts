@@ -20,13 +20,18 @@ export async function recalculateTeamAttendance(teamId: string) {
         OR: [
           { type: 'attendance' },
           {
-            reason: {
-              contains: '集合分',
-            },
+            OR: [
+              { reason: { contains: '集合' } },
+              { event: { reason: { contains: '集合' } } },
+            ],
           },
         ],
       },
-      select: { playerId: true, createdAt: true },
+      select: {
+        playerId: true,
+        createdAt: true,
+        event: { select: { eventTime: true } },
+      },
     }),
     prisma.player.findMany({
       where: { teamId },
@@ -49,7 +54,8 @@ export async function recalculateTeamAttendance(teamId: string) {
   const dayToPlayers = new Map<string, Set<string>>();
 
   for (const log of attendanceLogs) {
-    const dateStr = toBeijingDate(new Date(log.createdAt));
+    const timestamp = log.event?.eventTime ? new Date(log.event.eventTime) : new Date(log.createdAt);
+    const dateStr = toBeijingDate(timestamp);
     if (!dayToPlayers.has(dateStr)) {
       dayToPlayers.set(dateStr, new Set());
     }
@@ -71,6 +77,6 @@ export async function recalculateTeamAttendance(teamId: string) {
         where: { id },
         data: { attendance },
       });
-    })
+    }),
   );
 }

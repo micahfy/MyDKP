@@ -58,10 +58,31 @@ export async function GET(request: NextRequest) {
       include: {
         player: { select: { name: true } },
         deletedByAdmin: { select: { username: true } },
+        event: true,
       },
     });
 
-    return NextResponse.json(logs);
+    const formatted = logs.map((log) => {
+      const { event, ...rest } = log;
+      const effectiveChange = log.change ?? log.event?.change ?? 0;
+      const effectiveReason = log.reason ?? log.event?.reason ?? null;
+      const effectiveItem = log.item ?? log.event?.item ?? null;
+      const effectiveBoss = log.boss ?? log.event?.boss ?? null;
+      const effectiveCreatedAt = log.event?.eventTime ?? log.createdAt;
+      const effectiveOperator = log.operator || log.event?.operator || '';
+
+      return {
+        ...rest,
+        change: effectiveChange,
+        reason: effectiveReason,
+        item: effectiveItem,
+        boss: effectiveBoss,
+        createdAt: effectiveCreatedAt,
+        operator: effectiveOperator,
+      };
+    });
+
+    return NextResponse.json(formatted);
   } catch (error) {
     return NextResponse.json({ error: '获取日志失败' }, { status: 500 });
   }

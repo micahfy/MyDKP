@@ -51,6 +51,7 @@ model Team {
   dkpLogs         DkpLog[]
   decayHistory    DecayHistory[]
   teamPermissions TeamPermission[]
+  dkpEvents       DkpEvent[]
 
   @@map("teams")
 }
@@ -80,7 +81,7 @@ model DkpLog {
   playerId  String
   teamId    String
   type      String
-  change    Float
+  change    Float?
   reason    String?
   item      String?
   boss      String?
@@ -90,13 +91,34 @@ model DkpLog {
   deletedAt DateTime?
   deletedByAdminId String?
   decayHistoryId String?
+  eventId   String?
 
   player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
   team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
   deletedByAdmin Admin? @relation("DeletedByAdmin", fields: [deletedByAdminId], references: [id])
   decayHistory DecayHistory? @relation(fields: [decayHistoryId], references: [id])
+  event DkpEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
 
   @@map("dkp_logs")
+}
+
+model DkpEvent {
+  id        String   @id @default(cuid())
+  teamId    String
+  type      String
+  change    Float
+  reason    String?
+  item      String?
+  boss      String?
+  operator  String
+  eventTime DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  logs DkpLog[]
+
+  @@index([teamId, eventTime])
+  @@map("dkp_events")
 }
 
 model DecayHistory {

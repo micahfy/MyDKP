@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdmin, hasTeamPermission, getSession } from '@/lib/auth';
 import Papa from 'papaparse';
+
 export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
-    const adminStatus = await isAdmin();
-    
-    if (!adminStatus) {
+    if (!(await isAdmin())) {
       return NextResponse.json({ error: '权限不足，请先登录管理员账号' }, { status: 403 });
     }
 
@@ -18,7 +18,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
     }
 
-    // 检查团队权限
     const hasPermission = await hasTeamPermission(teamId);
     if (!hasPermission) {
       return NextResponse.json({ error: '您没有权限操作该团队' }, { status: 403 });
@@ -47,9 +46,7 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        // 使用事务确保玩家创建和日志记录同时成功
         await prisma.$transaction(async (tx) => {
-          // 创建玩家
           const player = await tx.player.create({
             data: {
               name: name.trim(),
@@ -60,31 +57,29 @@ export async function POST(request: NextRequest) {
             },
           });
 
-          // 如果初始DKP大于0，创建一条日志记录
-          if (dkp > 0) {
-            await tx.dkpLog.create({
-              data: {
-                playerId: player.id,
-                teamId,
-                type: 'earn',
-                change: dkp,
-                reason: `创建玩家，初始DKP ${dkp.toFixed(1)} 分`,
-                operator: session.username || 'admin',
-              },
-            });
-          } else if (dkp === 0) {
-            // 即使DKP为0也记录创建日志
-            await tx.dkpLog.create({
-              data: {
-                playerId: player.id,
-                teamId,
-                type: 'earn',
-                change: 0,
-                reason: '创建玩家',
-                operator: session.username || 'admin',
-              },
-            });
-          }
+          const event = await tx.dkpEvent.create({
+            data: {
+              teamId,
+              type: 'earn',
+              change: dkp,
+              reason: dkp > 0 ? `创建玩家，初始DKP ${dkp.toFixed(1)} 分` : '创建玩家',
+              operator: session.username || 'admin',
+              eventTime: new Date(),
+            },
+          });
+
+          await tx.dkpLog.create({
+            data: {
+              playerId: player.id,
+              teamId,
+              type: 'earn',
+              change: null,
+              reason: null,
+              operator: session.username || 'admin',
+              eventId: event.id,
+              createdAt: event.eventTime,
+            },
+          });
         });
 
         successCount++;
@@ -102,7 +97,7 @@ export async function POST(request: NextRequest) {
       success: true,
       imported: successCount,
       failed: errorCount,
-      errors: errors.slice(0, 10), // 只返回前10个错误
+      errors: errors.slice(0, 10),
     });
   } catch (error) {
     console.error('Import error:', error);

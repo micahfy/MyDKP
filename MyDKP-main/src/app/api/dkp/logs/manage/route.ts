@@ -52,6 +52,15 @@ export async function GET(request: NextRequest) {
         },
         { reason: { contains: search } },
         { operator: { contains: search } },
+        {
+          event: {
+            is: {
+              reason: {
+                contains: search,
+              },
+            },
+          },
+        },
       ];
     }
 
@@ -89,6 +98,7 @@ export async function GET(request: NextRequest) {
           player: { select: { name: true } },
           team: { select: { name: true } },
           deletedByAdmin: { select: { username: true } },
+          event: true,
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
@@ -97,8 +107,28 @@ export async function GET(request: NextRequest) {
       prisma.dkpLog.count({ where }),
     ]);
 
+    const normalizedLogs = logs.map((log) => {
+      const { event, ...rest } = log;
+      const effectiveChange = log.change ?? log.event?.change ?? 0;
+      const effectiveReason = log.reason ?? log.event?.reason ?? null;
+      const effectiveItem = log.item ?? log.event?.item ?? null;
+      const effectiveBoss = log.boss ?? log.event?.boss ?? null;
+      const effectiveCreatedAt = log.event?.eventTime ?? log.createdAt;
+      const effectiveOperator = log.operator || log.event?.operator || '';
+
+      return {
+        ...rest,
+        change: effectiveChange,
+        reason: effectiveReason,
+        item: effectiveItem,
+        boss: effectiveBoss,
+        createdAt: effectiveCreatedAt,
+        operator: effectiveOperator,
+      };
+    });
+
     return NextResponse.json({
-      logs,
+      logs: normalizedLogs,
       total,
       page,
       pageSize,
@@ -133,6 +163,7 @@ export async function DELETE(request: NextRequest) {
         change: true,
         type: true,
         isDeleted: true,
+        event: { select: { change: true } },
       },
     });
 
@@ -158,16 +189,17 @@ export async function DELETE(request: NextRequest) {
 
     await prisma.$transaction(async (tx) => {
       for (const log of logsToDelete) {
+        const effectiveChange = log.change ?? log.event?.change ?? 0;
         const playerUpdate: any = {
-          currentDkp: { increment: -log.change },
+          currentDkp: { increment: -effectiveChange },
         };
 
         if (log.type === 'decay') {
-          playerUpdate.totalDecay = { decrement: Math.abs(log.change) };
-        } else if (log.change > 0) {
-          playerUpdate.totalEarned = { decrement: log.change };
-        } else if (log.change < 0) {
-          playerUpdate.totalSpent = { decrement: Math.abs(log.change) };
+          playerUpdate.totalDecay = { decrement: Math.abs(effectiveChange) };
+        } else if (effectiveChange > 0) {
+          playerUpdate.totalEarned = { decrement: effectiveChange };
+        } else if (effectiveChange < 0) {
+          playerUpdate.totalSpent = { decrement: Math.abs(effectiveChange) };
         }
 
         await tx.player.update({
