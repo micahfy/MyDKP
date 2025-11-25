@@ -73,17 +73,32 @@ export async function POST(
         });
 
       if (toCreate.length > 0) {
-        await prisma.player.createMany({
-          data: toCreate.map((item) => ({
-            name: item.name,
-            class: item.class,
-            teamId: item.teamId,
-            currentDkp: 0,
-            totalEarned: 0,
-            totalSpent: 0,
-            totalDecay: 0,
-            attendance: 0,
-          })),
+        await prisma.$transaction(async (tx) => {
+          for (const item of toCreate) {
+            const newPlayer = await tx.player.create({
+              data: {
+                name: item.name,
+                class: item.class,
+                teamId: item.teamId,
+                currentDkp: 0,
+                totalEarned: 0,
+                totalSpent: 0,
+                totalDecay: 0,
+                attendance: 0,
+              },
+            });
+
+            await tx.dkpLog.create({
+              data: {
+                playerId: newPlayer.id,
+                teamId: item.teamId,
+                type: 'earn',
+                change: 0,
+                reason: '创建玩家，初始DKP 0分',
+                operator: session.username || 'system',
+              },
+            });
+          }
         });
       }
     }
