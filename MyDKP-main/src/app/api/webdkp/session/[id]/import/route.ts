@@ -40,6 +40,54 @@ export async function POST(
       return NextResponse.json({ error: '没有可导入的数据' }, { status: 400 });
     }
 
+    const playerNames = Array.from(
+      new Set(rows.map((row) => (row.player || '').trim()).filter((name) => !!name)),
+    );
+
+    if (playerNames.length > 0) {
+      const existing = await prisma.player.findMany({
+        where: {
+          teamId,
+          name: { in: playerNames },
+        },
+        select: { name: true },
+      });
+
+      const existingNames = new Set(existing.map((player) => player.name));
+      const rowsByPlayer = new Map<string, WebdkpLogRow>();
+      rows.forEach((row) => {
+        if (row.player && !rowsByPlayer.has(row.player)) {
+          rowsByPlayer.set(row.player, row);
+        }
+      });
+
+      const toCreate = playerNames
+        .filter((name) => !existingNames.has(name))
+        .map((name) => {
+          const source = rowsByPlayer.get(name);
+          return {
+            name,
+            class: source?.className || 'Unknown',
+            teamId,
+          };
+        });
+
+      if (toCreate.length > 0) {
+        await prisma.player.createMany({
+          data: toCreate.map((item) => ({
+            name: item.name,
+            class: item.class,
+            teamId: item.teamId,
+            currentDkp: 0,
+            totalEarned: 0,
+            totalSpent: 0,
+            totalDecay: 0,
+            attendance: 0,
+          })),
+        });
+      }
+    }
+
     const importData = buildImportPayload(rows);
     const session = await getSession();
     const result = await runBatchImport({

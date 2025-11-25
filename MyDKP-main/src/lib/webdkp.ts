@@ -7,6 +7,7 @@ export interface WebdkpLogRow {
   reason: string;
   date: string;
   time: string;
+  className?: string;
 }
 
 const LOG_SECTION_PATTERN = /WebDKP_Log\s*=\s*\{([\s\S]*?)\}\s*WebDKP_DkpTable/;
@@ -15,7 +16,8 @@ const POINTS_PATTERN = /\["points"\]\s*=\s*([-\d.]+)/;
 const REASON_PATTERN = /\["reason"\]\s*=\s*"([^"]*)"/;
 const DATE_PATTERN = /\["date"\]\s*=\s*"([^"]*)"/;
 const AWARDED_PATTERN = /\["awarded"\]\s*=\s*\{([\s\S]*?)\n\t\t\},/;
-const PLAYER_PATTERN = /\["([^"]+)"\]\s*=\s*\{/g;
+const PLAYER_ENTRY_PATTERN = /\["([^"]+)"\]\s*=\s*\{([\s\S]*?)\n\s*\},/g;
+const CLASS_PATTERN = /\["class"\]\s*=\s*"([^"]*)"/;
 
 export function parseWebdkpLogs(luaContent: string): WebdkpLogRow[] {
   const match = LOG_SECTION_PATTERN.exec(luaContent);
@@ -45,10 +47,14 @@ export function parseWebdkpLogs(luaContent: string): WebdkpLogRow[] {
 
     const awardedBlock = awardedMatch[1];
     let playerMatch: RegExpExecArray | null;
-    PLAYER_PATTERN.lastIndex = 0;
-    while ((playerMatch = PLAYER_PATTERN.exec(awardedBlock)) !== null) {
+    PLAYER_ENTRY_PATTERN.lastIndex = 0;
+    while ((playerMatch = PLAYER_ENTRY_PATTERN.exec(awardedBlock)) !== null) {
       const player = playerMatch[1].trim();
       if (!player) continue;
+
+      const entryBlock = playerMatch[2];
+      const classMatch = CLASS_PATTERN.exec(entryBlock);
+      const className = classMatch ? classMatch[1] : '';
 
       rows.push({
         player,
@@ -56,6 +62,7 @@ export function parseWebdkpLogs(luaContent: string): WebdkpLogRow[] {
         reason,
         date,
         time,
+        className,
       });
     }
   }
