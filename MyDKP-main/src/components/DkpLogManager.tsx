@@ -495,14 +495,21 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
 
       {viewMode === 'events' ? renderEventList() : renderEntryTable()}
 
-      <div className="flex items-center justify-between text-sm text-gray-400">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-400">
         <div>
           共 {total} {viewMode === 'events' ? '个事件' : '条记录'} · 第 {page}/{totalPages} 页
         </div>
-        <div className="space-x-2">
+        <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
             上一页
           </Button>
+          <div className="flex items-center gap-1">
+            {pageNumbers.map((p) => (
+              <Button key={p} size="sm" variant={p === page ? 'default' : 'ghost'} onClick={() => setPage(p)}>
+                {p}
+              </Button>
+            ))}
+          </div>
           <Button
             variant="outline"
             size="sm"
@@ -511,6 +518,23 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
           >
             下一页
           </Button>
+          <div className="flex items-center gap-2 ml-4">
+            <span>跳转</span>
+            <Input
+              value={pageInput}
+              onChange={(e) => setPageInput(e.target.value.replace(/[^0-9]/g, ''))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handlePageJump();
+                }
+              }}
+              className="w-16 h-8 text-center"
+              placeholder="页码"
+            />
+            <Button size="sm" variant="secondary" onClick={handlePageJump}>
+              Go
+            </Button>
+          </div>
         </div>
       </div>
     </div>
