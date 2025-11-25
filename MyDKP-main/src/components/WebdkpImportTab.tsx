@@ -25,6 +25,8 @@ interface LogRow {
   time: string;
 }
 
+type ViewMode = 'flat' | 'grouped';
+
 function rowContains(row: LogRow, term: string) {
   const value = term.toLowerCase();
   return (
@@ -48,6 +50,7 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
   const [bulkSearch, setBulkSearch] = useState('');
   const [bulkReplace, setBulkReplace] = useState('');
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+  const [viewMode, setViewMode] = useState<ViewMode>('flat');
 
   const filteredRows = useMemo(() => {
     const term = filterText.trim();
@@ -55,6 +58,18 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
       .map((row, index) => ({ row, index }))
       .filter(({ row }) => (term ? rowContains(row, term) : true));
   }, [rows, filterText]);
+
+  const groupedRows = useMemo(() => {
+    const groups = new Map<string, { reason: string; date: string; time: string; change: number; items: { row: LogRow; index: number }[] }>();
+    filteredRows.forEach(({ row, index }) => {
+      const key = `${row.reason}||${row.date}||${row.time}||${row.change}`;
+      if (!groups.has(key)) {
+        groups.set(key, { reason: row.reason, date: row.date, time: row.time, change: row.change, items: [] });
+      }
+      groups.get(key)!.items.push({ row, index });
+    });
+    return Array.from(groups.values());
+  }, [filteredRows]);
 
   const allFilteredSelected =
     filteredRows.length > 0 && filteredRows.every(({ index }) => selectedIndices.has(index));
@@ -227,6 +242,31 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
     setSelectedIndices(next);
   };
 
+  const toggleGroupSelection = (indices: number[], checked: boolean) => {
+    setSelectedIndices((prev) => {
+      const next = new Set(prev);
+      indices.forEach((i) => {
+        if (checked) {
+          next.add(i);
+        } else {
+          next.delete(i);
+        }
+      });
+      return next;
+    });
+  };
+
+  const deleteGroup = (indices: number[]) => {
+    if (indices.length === 0) return;
+    setRows((prev) => prev.filter((_, idx) => !indices.includes(idx)));
+    setSelectedIndices((prev) => {
+      const next = new Set(prev);
+      indices.forEach((i) => next.delete(i));
+      return next;
+    });
+    toast.success(`已删除分组内 ${indices.length} 条记录`);
+  };
+
   const handleDownload = () => {
     if (!sessionId) return;
     window.open(`/api/webdkp/session/${sessionId}/download`, '_blank');
@@ -332,73 +372,138 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
                   </div>
                 </div>
               </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400">预览模式</span>
+                <div className="rounded-md border border-slate-700 p-1 flex gap-1">
+                  <Button size="sm" variant={viewMode === 'flat' ? 'default' : 'ghost'} onClick={() => setViewMode('flat')}>
+                    原始列表
+                  </Button>
+                  <Button size="sm" variant={viewMode === 'grouped' ? 'default' : 'ghost'} onClick={() => setViewMode('grouped')}>
+                    合并预览
+                  </Button>
+                </div>
+              </div>
             </div>
 
-            <div className="max-h-[480px] overflow-auto border border-slate-700 rounded-lg">
-              <table className="min-w-full text-sm text-gray-200">
-                <thead className="bg-slate-900/60 sticky top-0">
-                  <tr>
-                    <th className="px-3 py-2 text-left">
-                      <input
-                        type="checkbox"
-                        checked={allFilteredSelected}
-                        onChange={(e) => selectAllFiltered(e.target.checked)}
-                      />
-                    </th>
-                    <th className="px-3 py-2 text-left">玩家</th>
-                    <th className="px-3 py-2 text-left">分数</th>
-                    <th className="px-3 py-2 text-left">原因</th>
-                    <th className="px-3 py-2 text-left">日期</th>
-                    <th className="px-3 py-2 text-left">时间</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRows.map(({ row, index }) => (
-                    <tr key={`${row.player}-${index}`} className="odd:bg-slate-900/30">
-                      <td className="px-3 py-1">
+            {viewMode === 'flat' ? (
+              <div className="max-h-[480px] overflow-auto border border-slate-700 rounded-lg">
+                <table className="min-w-full text-sm text-gray-200">
+                  <thead className="bg-slate-900/60 sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2 text-left">
                         <input
                           type="checkbox"
-                          checked={selectedIndices.has(index)}
-                          onChange={(e) => toggleRowSelection(index, e.target.checked)}
+                          checked={allFilteredSelected}
+                          onChange={(e) => selectAllFiltered(e.target.checked)}
                         />
-                      </td>
-                      <td className="px-3 py-1">
-                        <Input
-                          value={row.player}
-                          onChange={(e) => updateRow(index, 'player', e.target.value)}
-                        />
-                      </td>
-                      <td className="px-3 py-1 w-24">
-                        <Input
-                          type="number"
-                          value={row.change}
-                          onChange={(e) => updateRow(index, 'change', e.target.value)}
-                        />
-                      </td>
-                      <td className="px-3 py-1">
-                        <Textarea
-                          value={row.reason}
-                          onChange={(e) => updateRow(index, 'reason', e.target.value)}
-                          rows={2}
-                        />
-                      </td>
-                      <td className="px-3 py-1 w-32">
-                        <Input
-                          value={row.date}
-                          onChange={(e) => updateRow(index, 'date', e.target.value)}
-                        />
-                      </td>
-                      <td className="px-3 py-1 w-32">
-                        <Input
-                          value={row.time}
-                          onChange={(e) => updateRow(index, 'time', e.target.value)}
-                        />
-                      </td>
+                      </th>
+                      <th className="px-3 py-2 text-left">玩家</th>
+                      <th className="px-3 py-2 text-left">分数</th>
+                      <th className="px-3 py-2 text-left">原因</th>
+                      <th className="px-3 py-2 text-left">日期</th>
+                      <th className="px-3 py-2 text-left">时间</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {filteredRows.map(({ row, index }) => (
+                      <tr key={`${row.player}-${index}`} className="odd:bg-slate-900/30">
+                        <td className="px-3 py-1">
+                          <input
+                            type="checkbox"
+                            checked={selectedIndices.has(index)}
+                            onChange={(e) => toggleRowSelection(index, e.target.checked)}
+                          />
+                        </td>
+                        <td className="px-3 py-1">
+                          <Input
+                            value={row.player}
+                            onChange={(e) => updateRow(index, 'player', e.target.value)}
+                          />
+                        </td>
+                        <td className="px-3 py-1 w-24">
+                          <Input
+                            type="number"
+                            value={row.change}
+                            onChange={(e) => updateRow(index, 'change', e.target.value)}
+                          />
+                        </td>
+                        <td className="px-3 py-1">
+                          <Textarea
+                            value={row.reason}
+                            onChange={(e) => updateRow(index, 'reason', e.target.value)}
+                            rows={2}
+                          />
+                        </td>
+                        <td className="px-3 py-1 w-32">
+                          <Input
+                            value={row.date}
+                            onChange={(e) => updateRow(index, 'date', e.target.value)}
+                          />
+                        </td>
+                        <td className="px-3 py-1 w-32">
+                          <Input
+                            value={row.time}
+                            onChange={(e) => updateRow(index, 'time', e.target.value)}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="max-h-[480px] overflow-auto border border-slate-700 rounded-lg">
+                <table className="min-w-full text-sm text-gray-200">
+                  <thead className="bg-slate-900/60 sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2 text-left">原因</th>
+                      <th className="px-3 py-2 text-left">时间</th>
+                      <th className="px-3 py-2 text-left">分数</th>
+                      <th className="px-3 py-2 text-left">人数</th>
+                      <th className="px-3 py-2 text-left">玩家列表</th>
+                      <th className="px-3 py-2 text-left">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {groupedRows.map((group, idx) => {
+                      const indices = group.items.map((item) => item.index);
+                      const allGroupSelected = indices.every((i) => selectedIndices.has(i));
+                      return (
+                        <tr key={`${group.reason}-${group.date}-${group.time}-${group.change}-${idx}`} className="odd:bg-slate-900/30">
+                          <td className="px-3 py-2 max-w-sm">
+                            <div className="truncate">{group.reason || '无原因'}</div>
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap">
+                            {group.date} {group.time}
+                          </td>
+                          <td className="px-3 py-2">{group.change}</td>
+                          <td className="px-3 py-2">{group.items.length}</td>
+                          <td className="px-3 py-2 max-w-xl">
+                            <div className="flex flex-wrap gap-2">
+                              {group.items.map(({ row }) => (
+                                <span key={row.player + row.time} className="px-2 py-1 bg-slate-800 rounded text-xs">
+                                  {row.player}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 space-x-2">
+                            <input
+                              type="checkbox"
+                              checked={allGroupSelected}
+                              onChange={(e) => toggleGroupSelection(indices, e.target.checked)}
+                            />
+                            <Button size="sm" variant="destructive" onClick={() => deleteGroup(indices)}>
+                              删除分组
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center text-gray-500 py-10 border border-dashed border-slate-700 rounded-lg">
