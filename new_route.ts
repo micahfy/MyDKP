@@ -30,7 +30,7 @@ export async function POST(
     });
 
     if (!sessionRecord) {
-      return NextResponse.json({ error: '会话不存在' }, { status: 404 });
+      return NextResponse.json({ error: '会话不存�? }, { status: 404 });
     }
 
     const parsedRows = sessionRecord.parsedRows ? JSON.parse(sessionRecord.parsedRows) : [];
@@ -40,14 +40,12 @@ export async function POST(
       return NextResponse.json({ error: '没有可导入的数据' }, { status: 400 });
     }
 
-    const session = await getSession();
-
     const playerNames = Array.from(
       new Set(rows.map((row) => (row.player || '').trim()).filter((name) => !!name)),
     );
 
     if (playerNames.length > 0) {
-      const existingPlayers = await prisma.player.findMany({
+      const existing = await prisma.player.findMany({
         where: {
           teamId,
           name: { in: playerNames },
@@ -55,7 +53,7 @@ export async function POST(
         select: { name: true },
       });
 
-      const existingNames = new Set(existingPlayers.map((player) => player.name));
+      const existingNames = new Set(existing.map((player) => player.name));
       const rowsByPlayer = new Map<string, WebdkpLogRow>();
       rows.forEach((row) => {
         if (row.player && !rowsByPlayer.has(row.player)) {
@@ -96,7 +94,7 @@ export async function POST(
                 teamId: item.teamId,
                 type: 'earn',
                 change: 0,
-                reason: '创建玩家，初始DKP 0分',
+                reason: '创建玩家，初始DKP 0�?,
                 operator: session.username || 'system',
               },
             });
@@ -106,6 +104,7 @@ export async function POST(
     }
 
     const importData = buildImportPayload(rows);
+    const session = await getSession();
     const result = await runBatchImport({
       teamId,
       importData,
@@ -134,3 +133,4 @@ export async function POST(
     return NextResponse.json({ error: '导入失败' }, { status: 500 });
   }
 }
+
