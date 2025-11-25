@@ -11,9 +11,28 @@ function parsePageParams(searchParams: URLSearchParams) {
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
   const pageSize = Math.min(
     MAX_PAGE_SIZE,
-    Math.max(5, parseInt(searchParams.get('pageSize') || `${DEFAULT_PAGE_SIZE}`, 10))
+    Math.max(5, parseInt(searchParams.get('pageSize') || `${DEFAULT_PAGE_SIZE}`, 10)),
   );
   return { page, pageSize };
+}
+
+function emptyResponse(view: 'entries' | 'events', page: number, pageSize: number) {
+  if (view === 'events') {
+    return NextResponse.json({
+      events: [],
+      total: 0,
+      page,
+      pageSize,
+      totalPages: 0,
+    });
+  }
+  return NextResponse.json({
+    logs: [],
+    total: 0,
+    page,
+    pageSize,
+    totalPages: 0,
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -30,114 +49,239 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search')?.trim() || '';
     const teamId = searchParams.get('teamId');
     const includeDeleted = searchParams.get('includeDeleted') === 'true';
-
-    const where: any = {};
-    if (!includeDeleted) {
-      where.isDeleted = false;
-    }
-    if (teamId) {
-      where.teamId = teamId;
-    }
-
-    if (search) {
-      where.OR = [
-        {
-          player: {
-            is: {
-              name: {
-                contains: search,
-              },
-            },
-          },
-        },
-        { reason: { contains: search } },
-        { operator: { contains: search } },
-        {
-          event: {
-            is: {
-              reason: {
-                contains: search,
-              },
-            },
-          },
-        },
-      ];
-    }
+    const view = searchParams.get('view') === 'events' ? 'events' : 'entries';
 
     if (!superAdmin) {
       const adminTeams = await getAdminTeams();
       if (adminTeams.length === 0) {
-        return NextResponse.json({
-          logs: [],
-          total: 0,
-          page,
-          pageSize,
-          totalPages: 0,
-        });
+        return emptyResponse(view, page, pageSize);
       }
-      const allowed = new Set(adminTeams);
-      if (teamId) {
-        if (!allowed.has(teamId)) {
-          return NextResponse.json({
-            logs: [],
-            total: 0,
-            page,
-            pageSize,
-            totalPages: 0,
-          });
-        }
-      } else {
-        where.teamId = { in: adminTeams };
+      if (teamId && !adminTeams.includes(teamId)) {
+        return emptyResponse(view, page, pageSize);
       }
     }
 
-    const [logs, total] = await prisma.$transaction([
-      prisma.dkpLog.findMany({
-        where,
-        include: {
-          player: { select: { name: true } },
-          team: { select: { name: true } },
-          deletedByAdmin: { select: { username: true } },
-          event: true,
-        },
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      prisma.dkpLog.count({ where }),
-    ]);
+    if (view === 'events') {
+      return handleEventView({
+        page,
+        pageSize,
+        search,
+        teamId,
+        includeDeleted,
+        superAdmin,
+      });
+    }
 
-    const normalizedLogs = logs.map((log) => {
-      const { event, ...rest } = log;
-      const effectiveChange = log.change ?? log.event?.change ?? 0;
-      const effectiveReason = log.reason ?? log.event?.reason ?? null;
-      const effectiveItem = log.item ?? log.event?.item ?? null;
-      const effectiveBoss = log.boss ?? log.event?.boss ?? null;
-      const effectiveCreatedAt = log.event?.eventTime ?? log.createdAt;
-      const effectiveOperator = log.operator || log.event?.operator || '';
-
-      return {
-        ...rest,
-        change: effectiveChange,
-        reason: effectiveReason,
-        item: effectiveItem,
-        boss: effectiveBoss,
-        createdAt: effectiveCreatedAt,
-        operator: effectiveOperator,
-      };
-    });
-
-    return NextResponse.json({
-      logs: normalizedLogs,
-      total,
+    return handleEntryView({
       page,
       pageSize,
-      totalPages: Math.ceil(total / pageSize),
+      search,
+      teamId,
+      includeDeleted,
+      superAdmin,
     });
   } catch (error) {
     console.error('GET /api/dkp/logs/manage error', error);
     return NextResponse.json({ error: '获取日志失败' }, { status: 500 });
   }
+}
+
+async function handleEntryView(options: {
+  page: number;
+  pageSize: number;
+  search: string;
+  teamId: string | null;
+  includeDeleted: boolean;
+  superAdmin: boolean;
+}) {
+  const { page, pageSize, search, teamId, includeDeleted, superAdmin } = options;
+
+  const where: any = {};
+  if (!includeDeleted) {
+    where.isDeleted = false;
+  }
+  if (teamId) {
+    where.teamId = teamId;
+  } else if (!superAdmin) {
+    const adminTeams = await getAdminTeams();
+    where.teamId = { in: adminTeams };
+  }
+
+  if (search) {
+    where.OR = [
+      {
+        player: {
+          is: {
+            name: {
+              contains: search,
+            },
+          },
+        },
+      },
+      { reason: { contains: search } },
+      { operator: { contains: search } },
+      {
+        event: {
+          is: {
+            reason: {
+              contains: search,
+            },
+          },
+        },
+      },
+    ];
+  }
+
+  const [logs, total] = await prisma.$transaction([
+    prisma.dkpLog.findMany({
+      where,
+      include: {
+        player: { select: { name: true } },
+        team: { select: { name: true } },
+        deletedByAdmin: { select: { username: true } },
+        event: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.dkpLog.count({ where }),
+  ]);
+
+  const normalizedLogs = logs.map((log) => {
+    const { event, ...rest } = log;
+    const effectiveChange = log.change ?? event?.change ?? 0;
+    const effectiveReason = log.reason ?? event?.reason ?? null;
+    const effectiveItem = log.item ?? event?.item ?? null;
+    const effectiveBoss = log.boss ?? event?.boss ?? null;
+    const effectiveCreatedAt = event?.eventTime ?? log.createdAt;
+    const effectiveOperator = log.operator || event?.operator || '';
+
+    return {
+      ...rest,
+      change: effectiveChange,
+      reason: effectiveReason,
+      item: effectiveItem,
+      boss: effectiveBoss,
+      createdAt: effectiveCreatedAt,
+      operator: effectiveOperator,
+    };
+  });
+
+  return NextResponse.json({
+    logs: normalizedLogs,
+    total,
+    page,
+    pageSize,
+    totalPages: Math.ceil(total / pageSize),
+  });
+}
+
+async function handleEventView(options: {
+  page: number;
+  pageSize: number;
+  search: string;
+  teamId: string | null;
+  includeDeleted: boolean;
+  superAdmin: boolean;
+}) {
+  const { page, pageSize, search, teamId, includeDeleted, superAdmin } = options;
+
+  const filters: any[] = [];
+  const logFilter = includeDeleted ? {} : { isDeleted: false };
+
+  if (teamId) {
+    filters.push({ teamId });
+  } else if (!superAdmin) {
+    const adminTeams = await getAdminTeams();
+    filters.push({ teamId: { in: adminTeams } });
+  }
+
+  if (!includeDeleted) {
+    filters.push({ logs: { some: logFilter } });
+  }
+
+  if (search) {
+    filters.push({
+      OR: [
+        { reason: { contains: search } },
+        {
+          logs: {
+            some: {
+              ...logFilter,
+              player: {
+                name: {
+                  contains: search,
+                },
+              },
+            },
+          },
+        },
+      ],
+    });
+  }
+
+  const where = filters.length ? { AND: filters } : {};
+
+  const [events, total] = await prisma.$transaction([
+    prisma.dkpEvent.findMany({
+      where,
+      include: {
+        team: { select: { name: true } },
+        logs: {
+          where: logFilter,
+          include: {
+            player: { select: { name: true } },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+      orderBy: { eventTime: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.dkpEvent.count({ where }),
+  ]);
+
+  const normalizedEvents = events
+    .map((event) => {
+      const players = event.logs.map((log) => ({
+        id: log.id,
+        playerId: log.playerId,
+        playerName: log.player?.name || '',
+        isDeleted: log.isDeleted,
+        change: log.change ?? event.change,
+        reason: log.reason ?? event.reason,
+        operator: log.operator || event.operator,
+      }));
+
+      if (!includeDeleted && players.length === 0) {
+        return null;
+      }
+
+      return {
+        id: event.id,
+        teamId: event.teamId,
+        teamName: event.team.name,
+        type: event.type,
+        change: event.change,
+        reason: event.reason,
+        item: event.item,
+        boss: event.boss,
+        operator: event.operator,
+        eventTime: event.eventTime,
+        players,
+      };
+    })
+    .filter(Boolean);
+
+  return NextResponse.json({
+    events: normalizedEvents,
+    total,
+    page,
+    pageSize,
+    totalPages: Math.ceil(total / pageSize),
+  });
 }
 
 export async function DELETE(request: NextRequest) {

@@ -44,6 +44,28 @@ export interface DkpLog {
   };
 }
 
+export interface DkpEventLog {
+  id: string;
+  teamId: string;
+  teamName: string;
+  type: string;
+  change: number;
+  reason?: string | null;
+  item?: string | null;
+  boss?: string | null;
+  operator: string;
+  eventTime: string;
+  players: Array<{
+    id: string;
+    playerId: string;
+    playerName: string;
+    isDeleted: boolean;
+    change: number;
+    reason?: string | null;
+    operator: string;
+  }>;
+}
+
 export interface DecayHistory {
   id: string;
   teamId: string;
