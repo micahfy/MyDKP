@@ -1,0 +1,6 @@
+﻿{
+  "appid": "YOUR_APPID",
+  "compileType": "miniprogram",
+  "miniprogramRoot": "./",
+  "setting": { "urlCheck": false, "es6": true }
+}

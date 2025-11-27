@@ -1,0 +1,5 @@
+﻿<view class="section">
+  <view class="card" wx:for="{{teams}}" wx:key="id" bindtap="onSelect" data-id="{{item.id}}">
+    <view>{{item.name}}</view>
+  </view>
+</view>

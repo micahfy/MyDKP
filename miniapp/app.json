@@ -1,0 +1,16 @@
+﻿{
+  "pages": [
+    "pages/login/index",
+    "pages/teams/index",
+    "pages/dashboard/index",
+    "pages/players/index",
+    "pages/logs/index",
+    "pages/me/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "DKP",
+    "navigationBarBackgroundColor": "#0f172a",
+    "navigationBarTextStyle": "white"
+  },
+  "sitemapLocation": "sitemap.json"
+}

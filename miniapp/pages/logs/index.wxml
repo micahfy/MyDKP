@@ -1,0 +1,17 @@
+﻿<view class="section">
+  <view class="card">
+    <picker mode="selector" range="{{['事件','逐条']}}" value="{{viewIndex}}" bindchange="onViewChange">
+      <view>模式：{{viewIndex==0?'事件':'逐条'}}</view>
+    </picker>
+  </view>
+  <scroll-view scroll-y style="height: 70vh" bindscrolltolower="onReachBottom">
+    <view class="card" wx:for="{{list}}" wx:key="id">
+      <view>{{item.reason || '无原因'}}</view>
+      <view>{{item.eventTime || item.createdAt}}</view>
+      <view>分数：{{item.change || (item.change===0?0:'')}} / 玩家数：{{item.players ? item.players.length : 1}}</view>
+      <view wx:if="{{item.players}}">
+        <text wx:for="{{item.players}}" wx:key="id" class="mr-1">{{item.playerName}}</text>
+      </view>
+    </view>
+  </scroll-view>
+</view>

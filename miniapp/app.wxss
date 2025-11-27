@@ -1,0 +1,4 @@
+﻿page { background: #0b1220; color: #e5e7eb; }
+.section { padding: 12px; }
+.card { background: #111827; border: 1px solid #1f2937; border-radius: 8px; padding: 12px; }
+.btn { background: #2563eb; color: #fff; border-radius: 6px; padding: 8px 12px; }

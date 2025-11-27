@@ -1,0 +1,8 @@
+﻿<view class="section">
+  <view class="card">
+    <view>团队：{{teamId}}</view>
+    <view>玩家数：{{stats.players}}</view>
+    <view>事件数：{{stats.events}}</view>
+    <view>最近加分：{{stats.last}}</view>
+  </view>
+</view>
