@@ -340,9 +340,9 @@ export async function DELETE(request: NextRequest) {
         let decayAdjustedChange = effectiveChange;
         let decayPortionToRevert = 0;
 
-        // 对非衰减日志，需要把后续衰减对该条记录的影响一并回滚，保证最终分值正确
+        // 对非衰减日志，仅计算该日志之后执行的衰减对它的影响
         if (!isDecayLog) {
-          const anchorTime = log.event?.eventTime ?? (log as any).createdAt ?? new Date(0);
+          const anchorTime = log.event?.eventTime ?? log.createdAt;
           const decayHistories = await tx.decayHistory.findMany({
             where: {
               teamId: log.teamId,
