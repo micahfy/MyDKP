@@ -308,7 +308,8 @@ export async function DELETE(request: NextRequest) {
         change: true,
         type: true,
         isDeleted: true,
-        event: { select: { change: true } },
+        createdAt: true,
+        event: { select: { change: true, eventTime: true } },
       },
     });
 
@@ -335,16 +336,42 @@ export async function DELETE(request: NextRequest) {
     await prisma.$transaction(async (tx) => {
       for (const log of logsToDelete) {
         const effectiveChange = log.change ?? log.event?.change ?? 0;
+        const isDecayLog = log.type === 'decay';
+        let decayAdjustedChange = effectiveChange;
+        let decayPortionToRevert = 0;
+
+        // 对非衰减日志，需要把后续衰减对该条记录的影响一并回滚，保证最终分值正确
+        if (!isDecayLog) {
+          const anchorTime = log.event?.eventTime ?? (log as any).createdAt ?? new Date(0);
+          const decayHistories = await tx.decayHistory.findMany({
+            where: {
+              teamId: log.teamId,
+              executedAt: { gt: anchorTime },
+            },
+            select: { rate: true },
+          });
+
+          const decayFactor = decayHistories.reduce((acc, h) => acc * (1 - h.rate), 1);
+          decayAdjustedChange = effectiveChange * decayFactor;
+          decayPortionToRevert = Math.abs(effectiveChange) * (1 - decayFactor);
+        }
+
         const playerUpdate: any = {
-          currentDkp: { increment: -effectiveChange },
+          // 移除当前仍然生效的分值贡献（已考虑后续衰减的影响）
+          currentDkp: { increment: -decayAdjustedChange },
         };
 
-        if (log.type === 'decay') {
+        if (isDecayLog) {
           playerUpdate.totalDecay = { decrement: Math.abs(effectiveChange) };
-        } else if (effectiveChange > 0) {
-          playerUpdate.totalEarned = { decrement: effectiveChange };
-        } else if (effectiveChange < 0) {
-          playerUpdate.totalSpent = { decrement: Math.abs(effectiveChange) };
+        } else {
+          if (effectiveChange > 0) {
+            playerUpdate.totalEarned = { decrement: effectiveChange };
+          } else if (effectiveChange < 0) {
+            playerUpdate.totalSpent = { decrement: Math.abs(effectiveChange) };
+          }
+          if (decayPortionToRevert > 0) {
+            playerUpdate.totalDecay = { decrement: decayPortionToRevert };
+          }
         }
 
         await tx.player.update({
