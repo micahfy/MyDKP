@@ -49,6 +49,8 @@ export async function POST(request: NextRequest) {
       for (const player of players) {
         const decayAmount = player.currentDkp * rate;
         const newDkp = player.currentDkp - decayAmount;
+        const changeValue = -decayAmount;
+        const eventReason = `衰减 ${(rate * 100).toFixed(1)}%`;
 
         await tx.player.update({
           where: { id: player.id },
@@ -62,8 +64,8 @@ export async function POST(request: NextRequest) {
           data: {
             teamId,
             type: 'decay',
-            change: -decayAmount,
-            reason: `衰减 ${(rate * 100).toFixed(1)}%`,
+            change: changeValue,
+            reason: eventReason,
             operator: session.username || 'admin',
             eventTime: executedAt,
           },
@@ -74,8 +76,8 @@ export async function POST(request: NextRequest) {
             playerId: player.id,
             teamId,
             type: 'decay',
-            change: null,
-            reason: null,
+            change: changeValue,
+            reason: eventReason,
             operator: session.username || 'admin',
             createdAt: executedAt,
             decayHistoryId: history.id,
