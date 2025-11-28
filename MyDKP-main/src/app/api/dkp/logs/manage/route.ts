@@ -337,7 +337,7 @@ export async function DELETE(request: NextRequest) {
       for (const log of logsToDelete) {
         const effectiveChange = log.change ?? log.event?.change ?? 0;
         const isDecayLog = log.type === 'decay';
-        let decayAdjustedChange = effectiveChange;
+        let currentDelta = -effectiveChange; // 默认完全回滚该条日志的影响
         let decayPortionToRevert = 0;
 
         // 对非衰减日志，仅计算该日志之后执行的衰减对它的影响
@@ -351,14 +351,18 @@ export async function DELETE(request: NextRequest) {
             select: { rate: true },
           });
 
-          const decayFactor = decayHistories.reduce((acc, h) => acc * (1 - h.rate), 1);
-          decayAdjustedChange = effectiveChange * decayFactor;
-          decayPortionToRevert = Math.abs(effectiveChange) * (1 - decayFactor);
+          const decayMultiplier = decayHistories.reduce((acc, h) => acc * (1 - Number(h.rate)), 1);
+          // 这条日志在当前分数中的实际贡献 = 原始变动 *（后续衰减乘积）
+          const decayAdjustedChange = effectiveChange * decayMultiplier;
+          // currentDelta 是需要加/减回去的量（去掉这条日志的实际贡献）
+          currentDelta = -decayAdjustedChange;
+          // totalDecay 需要扣掉因这条日志而产生的衰减份额
+          decayPortionToRevert = Math.abs(effectiveChange - decayAdjustedChange);
         }
 
         const playerUpdate: any = {
           // 移除当前仍然生效的分值贡献（已考虑后续衰减的影响）
-          currentDkp: { increment: -decayAdjustedChange },
+          currentDkp: { increment: currentDelta },
         };
 
         if (isDecayLog) {
