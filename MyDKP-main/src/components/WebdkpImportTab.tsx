@@ -50,7 +50,8 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
   const [bulkSearch, setBulkSearch] = useState('');
   const [bulkReplace, setBulkReplace] = useState('');
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
-  const [viewMode, setViewMode] = useState<ViewMode>('flat');
+  const [viewMode, setViewMode] = useState<ViewMode>('grouped');
+  const [groupAddInputs, setGroupAddInputs] = useState<Record<string, string>>({});
 
   const filteredRows = useMemo(() => {
     const term = filterText.trim();
@@ -60,11 +61,14 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
   }, [rows, filterText]);
 
   const groupedRows = useMemo(() => {
-    const groups = new Map<string, { reason: string; date: string; time: string; change: number; items: { row: LogRow; index: number }[] }>();
+    const groups = new Map<
+      string,
+      { key: string; reason: string; date: string; time: string; change: number; items: { row: LogRow; index: number }[] }
+    >();
     filteredRows.forEach(({ row, index }) => {
       const key = `${row.reason}||${row.date}||${row.time}||${row.change}`;
       if (!groups.has(key)) {
-        groups.set(key, { reason: row.reason, date: row.date, time: row.time, change: row.change, items: [] });
+        groups.set(key, { key, reason: row.reason, date: row.date, time: row.time, change: row.change, items: [] });
       }
       groups.get(key)!.items.push({ row, index });
     });
@@ -97,6 +101,7 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
 
       setSessionId(data.sessionId);
       setRows(data.rows || []);
+      setViewMode('grouped');
       setSelectedIndices(new Set());
       toast.success(`上传成功，共解析 ${data.rowCount} 条记录`);
     } catch (error: any) {
@@ -267,6 +272,40 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
     toast.success(`已删除分组内 ${indices.length} 条记录`);
   };
 
+  const cloneRow = (index: number) => {
+    setRows((prev) => {
+      const next = [...prev];
+      const source = prev[index];
+      next.splice(index + 1, 0, { ...source });
+      return next;
+    });
+  };
+
+  const addPlayersToGroup = (groupKey: string, group: { reason: string; date: string; time: string; change: number }) => {
+    const raw = groupAddInputs[groupKey] || '';
+    const names = raw
+      .split(/[\n,，]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    if (names.length === 0) {
+      toast.error('请输入要添加的玩家名称');
+      return;
+    }
+
+    const newRows = names.map<LogRow>((player) => ({
+      player,
+      change: Number(group.change) || 0,
+      reason: group.reason,
+      date: group.date,
+      time: group.time,
+    }));
+
+    setRows((prev) => [...prev, ...newRows]);
+    setGroupAddInputs((prev) => ({ ...prev, [groupKey]: '' }));
+    toast.success(`已添加 ${names.length} 名玩家到该分组`);
+  };
+
   const updateGroupField = (indices: number[], field: keyof LogRow, value: string) => {
     setRows((prev) => {
       const next = [...prev];
@@ -415,6 +454,7 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
                       <th className="px-3 py-2 text-left">原因</th>
                       <th className="px-3 py-2 text-left">日期</th>
                       <th className="px-3 py-2 text-left">时间</th>
+                      <th className="px-3 py-2 text-left">操作</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -459,6 +499,11 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
                             onChange={(e) => updateRow(index, 'time', e.target.value)}
                           />
                         </td>
+                        <td className="px-3 py-1 w-28">
+                          <Button size="sm" variant="secondary" onClick={() => cloneRow(index)}>
+                            克隆
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -481,6 +526,7 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
                     {groupedRows.map((group, idx) => {
                       const indices = group.items.map((item) => item.index);
                       const allGroupSelected = indices.every((i) => selectedIndices.has(i));
+                      const groupKey = group.key;
                       return (
                         <tr key={`${group.reason}-${group.date}-${group.time}-${group.change}-${idx}`} className="odd:bg-slate-900/30">
                           <td className="px-3 py-2 max-w-sm">
@@ -511,12 +557,35 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
                           </td>
                           <td className="px-3 py-2">{group.items.length}</td>
                           <td className="px-3 py-2 max-w-xl">
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-2 mb-2">
                               {group.items.map(({ row }) => (
                                 <span key={row.player + row.time} className="px-2 py-1 bg-slate-800 rounded text-xs">
                                   {row.player}
                                 </span>
                               ))}
+                            </div>
+                            <div className="flex gap-2">
+                              <Input
+                                placeholder="输入玩家名，支持逗号/换行分隔"
+                                value={groupAddInputs[groupKey] || ''}
+                                onChange={(e) =>
+                                  setGroupAddInputs((prev) => ({ ...prev, [groupKey]: e.target.value }))
+                                }
+                              />
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() =>
+                                  addPlayersToGroup(groupKey, {
+                                    reason: group.reason,
+                                    date: group.date,
+                                    time: group.time,
+                                    change: group.change,
+                                  })
+                                }
+                              >
+                                添加玩家
+                              </Button>
                             </div>
                           </td>
                           <td className="px-3 py-2 space-x-2">
