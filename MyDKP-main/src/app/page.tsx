@@ -7,14 +7,11 @@ import { PlayerTable } from '@/components/PlayerTable';
 import { Toaster } from 'sonner';
 import { useSearchParams } from 'next/navigation';
 
-const AdminPanel = dynamic(() =>
-  import('@/components/AdminPanel').then((mod) => mod.AdminPanel),
-  {
-    ssr: false,
-  }
-);
+const AdminPanel = dynamic(() => import('@/components/AdminPanel').then((mod) => mod.AdminPanel), {
+  ssr: false,
+});
 
-export default function Home() {
+function HomeContent() {
   const [selectedTeam, setSelectedTeam] = useState<string>('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminRole, setAdminRole] = useState<string>('');
@@ -177,5 +174,22 @@ export default function Home() {
 
       <Toaster position="top-right" richColors />
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mb-4"></div>
+            <div className="text-xl text-gray-300">加载中...</div>
+          </div>
+        </div>
+      }
+    >
+      <HomeContent />
+    </Suspense>
   );
 }
