@@ -42,6 +42,7 @@ model TeamPermission {
 model Team {
   id          String   @id @default(cuid())
   name        String   @unique
+  slug        String?  @unique
   description String?
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())

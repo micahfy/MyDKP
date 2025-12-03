@@ -25,12 +25,14 @@ interface TeamEditDialogProps {
 
 export function TeamEditDialog({ team, open, onOpenChange, onSuccess }: TeamEditDialogProps) {
   const [name, setName] = useState(team.name);
+  const [slug, setSlug] = useState(team.slug || '');
   const [description, setDescription] = useState(team.description || '');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (open) {
       setName(team.name);
+      setSlug(team.slug || '');
       setDescription(team.description || '');
     }
   }, [open, team]);
@@ -48,7 +50,7 @@ export function TeamEditDialog({ team, open, onOpenChange, onSuccess }: TeamEdit
       const res = await fetch(`/api/teams/${team.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), description: description.trim() }),
+        body: JSON.stringify({ name: name.trim(), slug: slug.trim(), description: description.trim() }),
       });
 
       const data = await res.json();
@@ -85,6 +87,16 @@ export function TeamEditDialog({ team, open, onOpenChange, onSuccess }: TeamEdit
               onChange={(e) => setName(e.target.value)}
               placeholder="例如: 乌龟公会"
               required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="teamSlug">短链接（可选）</Label>
+            <Input
+              id="teamSlug"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              placeholder="例如: a 或 group-2，留空则自动生成/保持不变"
             />
           </div>
 

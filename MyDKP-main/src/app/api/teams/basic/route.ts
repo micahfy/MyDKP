@@ -10,6 +10,7 @@ export async function GET() {
       select: {
         id: true,
         name: true,
+        slug: true,
         description: true,
         sortOrder: true,
         // 不查询 _count，节省数据库查询

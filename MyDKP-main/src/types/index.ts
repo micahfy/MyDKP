@@ -1,6 +1,7 @@
 export interface Team {
   id: string;
   name: string;
+  slug?: string | null;
   description?: string;
   _count?: {
     players: number;

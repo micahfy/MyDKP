@@ -28,6 +28,7 @@ interface TeamManagementProps {
 
 export function TeamManagement({ onUpdate }: TeamManagementProps) {
   const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -72,7 +73,7 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
       const res = await fetch('/api/teams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, description }),
+        body: JSON.stringify({ name, description, slug }),
       });
 
       const data = await res.json();
@@ -80,6 +81,7 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
       if (res.ok) {
         toast.success('团队创建成功！');
         setName('');
+        setSlug('');
         setDescription('');
         fetchTeams();
         onUpdate();
@@ -167,6 +169,16 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="例如: 乌龟公会"
                 required
+                className="bg-slate-800/80 border-slate-600 text-gray-200"
+              />
+            </div>
+
+            <div>
+              <Label className="text-gray-200">短链接（可选）</Label>
+              <Input
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
+                placeholder="例如: a 或 group-2，留空则自动生成"
                 className="bg-slate-800/80 border-slate-600 text-gray-200"
               />
             </div>

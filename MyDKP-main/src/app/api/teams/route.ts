@@ -5,7 +5,14 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const teams = await prisma.team.findMany({
-      include: {
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        sortOrder: true,
+        createdAt: true,
+        updatedAt: true,
         _count: {
           select: { players: true },
         },
@@ -36,7 +43,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, description } = await request.json();
+    const { name, description, slug } = await request.json();
     
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -63,9 +70,22 @@ export async function POST(request: NextRequest) {
       select: { sortOrder: true },
     });
     
+    if (slug && slug.trim()) {
+      const duplicateSlug = await prisma.team.findUnique({
+        where: { slug: slug.trim() },
+      });
+      if (duplicateSlug) {
+        return NextResponse.json(
+          { error: '短链接已被占用' },
+          { status: 409 }
+        );
+      }
+    }
+
     const team = await prisma.team.create({
       data: { 
         name: name.trim(), 
+        slug: slug?.trim() || null,
         description: description?.trim() || null,
         sortOrder: (maxSortOrder?.sortOrder ?? -1) + 1,
       },

@@ -10,7 +10,14 @@ export async function GET(
   try {
     const team = await prisma.team.findUnique({
       where: { id: params.id },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        sortOrder: true,
+        createdAt: true,
+        updatedAt: true,
         _count: {
           select: {
             players: true,
@@ -51,7 +58,7 @@ export async function PATCH(
       );
     }
 
-    const { name, description } = await request.json();
+    const { name, description, slug } = await request.json();
 
     if (!name || name.trim().length === 0) {
       return NextResponse.json(
@@ -86,10 +93,20 @@ export async function PATCH(
       }
     }
 
+    if (slug && slug.trim().length > 0 && slug !== existingTeam.slug) {
+      const duplicateSlug = await prisma.team.findUnique({
+        where: { slug },
+      });
+      if (duplicateSlug) {
+        return NextResponse.json({ error: '短链接已被占用' }, { status: 409 });
+      }
+    }
+
     const team = await prisma.team.update({
       where: { id: params.id },
       data: {
         name: name.trim(),
+        slug: slug?.trim() || null,
         description: description?.trim() || null,
       },
     });

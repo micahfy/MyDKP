@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { Navbar } from '@/components/Navbar';
 import { PlayerTable } from '@/components/PlayerTable';
 import { Toaster } from 'sonner';
+import { useSearchParams } from 'next/navigation';
 
 const AdminPanel = dynamic(() =>
   import('@/components/AdminPanel').then((mod) => mod.AdminPanel),
@@ -20,6 +21,7 @@ export default function Home() {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [playerRefreshKey, setPlayerRefreshKey] = useState(0);
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     checkAuth();
@@ -73,7 +75,9 @@ export default function Home() {
       const data = await res.json();
       setTeams(data);
       if (data.length > 0 && !selectedTeam) {
-        setSelectedTeam(data[0].id);
+        const slugParam = searchParams?.get('teamSlug');
+        const matched = slugParam ? data.find((t: any) => t.slug === slugParam) : null;
+        setSelectedTeam((matched || data[0]).id);
       }
     } catch (error) {
       console.error('Fetch basic teams failed:', error);
@@ -90,7 +94,9 @@ export default function Home() {
       const data = await res.json();
       setTeams(data);
       if (data.length > 0 && !selectedTeam) {
-        setSelectedTeam(data[0].id);
+        const slugParam = searchParams?.get('teamSlug');
+        const matched = slugParam ? data.find((t: any) => t.slug === slugParam) : null;
+        setSelectedTeam((matched || data[0]).id);
       }
     } catch (error) {
       console.error('Fetch teams failed:', error);
