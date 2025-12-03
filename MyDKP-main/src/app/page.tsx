@@ -6,6 +6,7 @@ import { Navbar } from '@/components/Navbar';
 import { PlayerTable } from '@/components/PlayerTable';
 import { Toaster } from 'sonner';
 import { useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 
 const AdminPanel = dynamic(() => import('@/components/AdminPanel').then((mod) => mod.AdminPanel), {
   ssr: false,
@@ -19,6 +20,19 @@ function HomeContent() {
   const [loading, setLoading] = useState(true);
   const [playerRefreshKey, setPlayerRefreshKey] = useState(0);
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  const slugParam = (() => {
+    const fromQuery = searchParams?.get('teamSlug');
+    if (fromQuery) return fromQuery;
+    const path = pathname || '';
+    const segments = path.split('/').filter(Boolean);
+    const reserved = ['api', '_next', 'favicon.ico', 'robots.txt', 'sitemap.xml', 'assets', 'public'];
+    if (segments.length === 1 && !reserved.includes(segments[0])) {
+      return segments[0];
+    }
+    return null;
+  })();
 
   useEffect(() => {
     checkAuth();
@@ -72,7 +86,6 @@ function HomeContent() {
       const data = await res.json();
       setTeams(data);
       if (data.length > 0 && !selectedTeam) {
-        const slugParam = searchParams?.get('teamSlug');
         const matched = slugParam ? data.find((t: any) => t.slug === slugParam) : null;
         setSelectedTeam((matched || data[0]).id);
       }
@@ -91,7 +104,6 @@ function HomeContent() {
       const data = await res.json();
       setTeams(data);
       if (data.length > 0 && !selectedTeam) {
-        const slugParam = searchParams?.get('teamSlug');
         const matched = slugParam ? data.find((t: any) => t.slug === slugParam) : null;
         setSelectedTeam((matched || data[0]).id);
       }
