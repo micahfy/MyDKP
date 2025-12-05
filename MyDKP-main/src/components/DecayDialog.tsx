@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,33 +21,44 @@ import {
 
 interface DecayDialogProps {
   teamId: string;
+  teams?: Array<{ id: string; name: string }>;
   onSuccess: () => void;
 }
 
-export function DecayDialog({ teamId, onSuccess }: DecayDialogProps) {
-  const [decayRate, setDecayRate] = useState('');
+export function DecayDialog({ teamId, teams = [], onSuccess }: DecayDialogProps) {
+  const [decayRate, setDecayRate] = useState('15');
+  const [selectedTeamId, setSelectedTeamId] = useState(teamId || '');
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    setSelectedTeamId(teamId || '');
+  }, [teamId]);
+
   const handleDecay = async () => {
-    const rate = parseFloat(decayRate);
-    if (isNaN(rate) || rate <= 0 || rate >= 1) {
-      toast.error('请输入有效的衰减比例（0-1之间）');
+    const ratePercent = parseFloat(decayRate);
+    if (isNaN(ratePercent) || ratePercent <= 0 || ratePercent >= 100) {
+      toast.error('请输入有效的衰减比例（1-99之间的数字，例如 15 表示15%）');
       return;
     }
+    if (!selectedTeamId) {
+      toast.error('请选择要衰减的团队');
+      return;
+    }
+    const rate = ratePercent / 100;
 
     setLoading(true);
     try {
       const res = await fetch('/api/dkp/decay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ teamId, rate }),
+        body: JSON.stringify({ teamId: selectedTeamId, rate }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
         toast.success(`衰减执行成功！影响 ${data.affected} 名玩家`);
-        setDecayRate('');
+        setDecayRate('15');
         onSuccess();
       } else {
         toast.error(data.error || '衰减失败');
@@ -69,20 +80,36 @@ export function DecayDialog({ teamId, onSuccess }: DecayDialogProps) {
           </div>
 
           <div>
+            <Label>选择团队</Label>
+            <select
+              value={selectedTeamId}
+              onChange={(e) => setSelectedTeamId(e.target.value)}
+              className="w-full rounded-md bg-slate-900/70 border border-slate-700 px-3 py-2 text-gray-100"
+            >
+              <option value="">请选择团队</option>
+              {(teams.length > 0 ? teams : [{ id: teamId, name: '当前团队' }]).map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <Label>衰减比例</Label>
             <Input
               type="number"
               value={decayRate}
               onChange={(e) => setDecayRate(e.target.value)}
-              placeholder="输入衰减比例（例如: 0.1 表示衰减10%）"
-              step="0.01"
-              min="0"
-              max="1"
+              placeholder="输入衰减比例（例如: 15 表示衰减15%）"
+              step="0.1"
+              min="1"
+              max="99"
             />
             <p className="text-sm text-gray-500 mt-2">
               {decayRate &&
                 !isNaN(parseFloat(decayRate)) &&
-                `将对所有玩家执行 ${(parseFloat(decayRate) * 100).toFixed(1)}% 的衰减`}
+                `将对所有玩家执行 ${parseFloat(decayRate).toFixed(1)}% 的衰减`}
             </p>
           </div>
 
@@ -92,10 +119,9 @@ export function DecayDialog({ teamId, onSuccess }: DecayDialogProps) {
               <div className="text-sm text-yellow-900">
                 <p className="font-semibold mb-2">⚠️ 注意事项：</p>
                 <ul className="space-y-1 list-disc list-inside">
-                  <li>衰减将应用于当前团队的所有玩家</li>
-                  <li>每个玩家的当前DKP将减少对应比例</li>
-                  <li>操作会记录到日志中</li>
-                  <li>如需撤销，请使用日志管理中的删除功能</li>
+                  <li>请选择正确的团队，衰减将应用于该团队的所有玩家</li>
+                  <li>输入为百分比，例如 15 表示衰减 15%</li>
+                  <li>操作会记录到日志中，如需撤销请在日志管理删除衰减记录</li>
                 </ul>
               </div>
             </div>

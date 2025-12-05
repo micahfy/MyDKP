@@ -143,7 +143,7 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
           </TabsContent>
 
           <TabsContent value="decay" className="space-y-4">
-            <DecayDialog teamId={teamId} onSuccess={onUpdate} />
+            <DecayDialog teamId={teamId} teams={teams} onSuccess={onUpdate} />
           </TabsContent>
 
           <TabsContent value="logs" className="space-y-4">
