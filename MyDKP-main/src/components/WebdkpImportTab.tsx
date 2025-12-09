@@ -281,6 +281,16 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
     });
   };
 
+  const cloneGroup = (group: { reason: string; date: string; time: string; change: number; items: { row: LogRow; index: number }[] }) => {
+    const suffix = ' - 克隆';
+    const nextReason = group.reason.includes(suffix) ? group.reason : `${group.reason}${suffix}`;
+    const clones = group.items.map(({ row }) => ({
+      ...row,
+      reason: nextReason,
+    }));
+    setRows((prev) => [...prev, ...clones]);
+  };
+
   const addPlayersToGroup = (groupKey: string, group: { reason: string; date: string; time: string; change: number }) => {
     const raw = groupAddInputs[groupKey] || '';
     const names = raw
@@ -606,7 +616,7 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
                               checked={allGroupSelected}
                               onChange={(e) => toggleGroupSelection(indices, e.target.checked)}
                             />
-                            <Button size="sm" variant="secondary" onClick={() => indices.forEach((i) => cloneRow(i))}>
+                            <Button size="sm" variant="secondary" onClick={() => cloneGroup(group)}>
                               克隆分组
                             </Button>
                             <Button size="sm" variant="destructive" onClick={() => deleteGroup(indices)}>
