@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const { page, pageSize } = parsePageParams(searchParams);
     const search = searchParams.get('search')?.trim() || '';
+    const type = searchParams.get('type')?.trim() || '';
     const teamId = searchParams.get('teamId');
     const includeDeleted = searchParams.get('includeDeleted') === 'true';
     const view = searchParams.get('view') === 'events' ? 'events' : 'entries';
@@ -66,6 +67,7 @@ export async function GET(request: NextRequest) {
         page,
         pageSize,
         search,
+        type,
         teamId,
         includeDeleted,
         superAdmin,
@@ -76,6 +78,7 @@ export async function GET(request: NextRequest) {
       page,
       pageSize,
       search,
+      type,
       teamId,
       includeDeleted,
       superAdmin,
@@ -90,11 +93,12 @@ async function handleEntryView(options: {
   page: number;
   pageSize: number;
   search: string;
+  type: string;
   teamId: string | null;
   includeDeleted: boolean;
   superAdmin: boolean;
 }) {
-  const { page, pageSize, search, teamId, includeDeleted, superAdmin } = options;
+  const { page, pageSize, search, type, teamId, includeDeleted, superAdmin } = options;
 
   const where: any = {};
   if (!includeDeleted) {
@@ -130,6 +134,9 @@ async function handleEntryView(options: {
         },
       },
     ];
+  }
+  if (type) {
+    where.type = type;
   }
 
   const [logs, total] = await prisma.$transaction([
@@ -181,11 +188,12 @@ async function handleEventView(options: {
   page: number;
   pageSize: number;
   search: string;
+  type: string;
   teamId: string | null;
   includeDeleted: boolean;
   superAdmin: boolean;
 }) {
-  const { page, pageSize, search, teamId, includeDeleted, superAdmin } = options;
+  const { page, pageSize, search, type, teamId, includeDeleted, superAdmin } = options;
 
   const filters: any[] = [];
   const logFilter = includeDeleted ? {} : { isDeleted: false };
@@ -219,6 +227,9 @@ async function handleEventView(options: {
         },
       ],
     });
+  }
+  if (type) {
+    filters.push({ type });
   }
 
   const where = filters.length ? { AND: filters } : {};

@@ -44,6 +44,7 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -85,6 +86,9 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
       if (search.trim()) {
         params.set('search', search.trim());
       }
+      if (typeFilter !== 'all') {
+        params.set('type', typeFilter);
+      }
       const res = await fetch(`/api/dkp/logs/manage?${params.toString()}`);
       const data = await res.json();
       if (!res.ok) {
@@ -113,7 +117,7 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
       setLoading(false);
       setSelectedIds(new Set());
     }
-  }, [page, search, teamFilter, includeDeleted, viewMode]);
+  }, [page, search, teamFilter, includeDeleted, viewMode, typeFilter]);
 
   useEffect(() => {
     fetchData();
@@ -414,6 +418,25 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
           }}
           className="w-64"
         />
+        <Select
+          value={typeFilter}
+          onValueChange={(value) => {
+            setTypeFilter(value);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="类型筛选" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全部类型</SelectItem>
+            <SelectItem value="earn">加分</SelectItem>
+            <SelectItem value="spend">扣分</SelectItem>
+            <SelectItem value="decay">衰减</SelectItem>
+            <SelectItem value="attendance">出勤</SelectItem>
+            <SelectItem value="other">其他</SelectItem>
+          </SelectContent>
+        </Select>
         <Select
           value={teamFilter}
           onValueChange={(value) => {
