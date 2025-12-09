@@ -558,9 +558,21 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
                           <td className="px-3 py-2">{group.items.length}</td>
                           <td className="px-3 py-2 max-w-xl">
                             <div className="flex flex-wrap gap-2 mb-2">
-                              {group.items.map(({ row }) => (
-                                <span key={row.player + row.time} className="px-2 py-1 bg-slate-800 rounded text-xs">
-                                  {row.player}
+                              {group.items.map(({ row, index: rowIndex }) => (
+                                <span
+                                  key={row.player + row.time + rowIndex}
+                                  className="px-2 py-1 bg-slate-800 rounded text-xs flex items-center gap-1"
+                                >
+                                  <span>{row.player}</span>
+                                  <button
+                                    className="text-red-300 hover:text-red-200"
+                                    onClick={() => {
+                                      setRows((prev) => prev.filter((_, idx) => idx !== rowIndex));
+                                    }}
+                                    title="移除该玩家"
+                                  >
+                                    ×
+                                  </button>
                                 </span>
                               ))}
                             </div>
@@ -594,6 +606,9 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
                               checked={allGroupSelected}
                               onChange={(e) => toggleGroupSelection(indices, e.target.checked)}
                             />
+                            <Button size="sm" variant="secondary" onClick={() => indices.forEach((i) => cloneRow(i))}>
+                              克隆分组
+                            </Button>
                             <Button size="sm" variant="destructive" onClick={() => deleteGroup(indices)}>
                               删除分组
                             </Button>
