@@ -36,6 +36,15 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   attendance: { label: '出勤', color: 'bg-cyan-500' },
 };
 
+const TYPE_TEXT_COLOR: Record<string, string> = {
+  earn: 'text-green-600',
+  spend: 'text-red-600',
+  decay: 'text-orange-600',
+  undo: 'text-blue-600',
+  penalty: 'text-purple-600',
+  attendance: 'text-cyan-600',
+};
+
 const EQUIP_REGEX = /\[([^\]]+)\]/g;
 
 function renderReasonText(reason: string): ReactNode[] {
@@ -273,7 +282,11 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
                                 <div className="flex flex-col gap-1">
                                   {log.item && <span className="text-purple-600">[装备] {log.item}</span>}
                                   {log.boss && <span className="text-orange-600">[Boss] {log.boss}</span>}
-                                  {log.reason && <span className="text-gray-600">{renderReasonText(log.reason)}</span>}
+                                  {log.reason && (
+                                    <span className={TYPE_TEXT_COLOR[log.type] || 'text-gray-600'}>
+                                      {renderReasonText(log.reason)}
+                                    </span>
+                                  )}
                                   {log.isDeleted && (
                                     <span className="text-sm text-red-500">
                                       已由 {log.deletedByAdmin?.username || '管理员'} 在{' '}
@@ -311,7 +324,11 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
                           <div className="flex flex-col gap-1">
                             {row.log.item && <span className="text-purple-600">[装备] {row.log.item}</span>}
                             {row.log.boss && <span className="text-orange-600">[Boss] {row.log.boss}</span>}
-                            {row.log.reason && <span className="text-gray-600">{renderReasonText(row.log.reason)}</span>}
+                            {row.log.reason && (
+                              <span className={TYPE_TEXT_COLOR[row.log.type] || 'text-gray-600'}>
+                                {renderReasonText(row.log.reason)}
+                              </span>
+                            )}
                             {row.log.isDeleted && (
                               <span className="text-sm text-red-500">
                                 已由 {row.log.deletedByAdmin?.username || '管理员'} 在{' '}
