@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
     const teamId = searchParams.get('teamId');
     const includeDeleted = searchParams.get('includeDeleted') === 'true';
     const view = searchParams.get('view') === 'events' ? 'events' : 'entries';
+    const format = searchParams.get('format')?.trim();
 
     if (!superAdmin) {
       const adminTeams = await getAdminTeams();
@@ -60,6 +61,16 @@ export async function GET(request: NextRequest) {
       if (teamId && !adminTeams.includes(teamId)) {
         return emptyResponse(view, page, pageSize);
       }
+    }
+
+    if (format === 'csv') {
+      return exportEntriesCsv({
+        search,
+        type,
+        teamId,
+        includeDeleted,
+        superAdmin,
+      });
     }
 
     if (view === 'events') {
@@ -410,4 +421,92 @@ export async function DELETE(request: NextRequest) {
     console.error('DELETE /api/dkp/logs/manage error', error);
     return NextResponse.json({ error: '删除日志失败' }, { status: 500 });
   }
+}
+
+async function exportEntriesCsv(options: {
+  search: string;
+  type: string;
+  teamId: string | null;
+  includeDeleted: boolean;
+  superAdmin: boolean;
+}) {
+  const { search, type, teamId, includeDeleted, superAdmin } = options;
+
+  const where: any = {};
+  if (!includeDeleted) {
+    where.isDeleted = false;
+  }
+  if (teamId) {
+    where.teamId = teamId;
+  } else if (!superAdmin) {
+    const adminTeams = await getAdminTeams();
+    where.teamId = { in: adminTeams };
+  }
+
+  if (search) {
+    where.OR = [
+      {
+        player: {
+          is: {
+            name: {
+              contains: search,
+            },
+          },
+        },
+      },
+      { reason: { contains: search } },
+      { operator: { contains: search } },
+      {
+        event: {
+          is: {
+            reason: {
+              contains: search,
+            },
+          },
+        },
+      },
+    ];
+  }
+  if (type) {
+    where.type = type;
+  }
+
+  const logs = await prisma.dkpLog.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      player: { select: { name: true } },
+      team: { select: { name: true } },
+      event: true,
+    },
+  });
+
+  const rows = logs.map((log) => {
+    const effectiveChange = log.change ?? log.event?.change ?? 0;
+    const effectiveReason = log.reason ?? log.event?.reason ?? '';
+    const effectiveCreatedAt = log.event?.eventTime ?? log.createdAt;
+    const date = new Date(effectiveCreatedAt);
+    const dateStr = date.toISOString().slice(0, 10);
+    const timeStr = date.toTimeString().slice(0, 8);
+    return {
+      player: log.player?.name || '',
+      change: effectiveChange,
+      reason: effectiveReason.replace(/"/g, '""'),
+      date: dateStr,
+      time: timeStr,
+      team: log.team?.name || '',
+    };
+  });
+
+  const header = '玩家,分数,原因,日期,时间,团队';
+  const lines = rows.map(
+    (r) =>
+      `"${r.player.replace(/"/g, '""')}",${r.change},"${r.reason}","${r.date}","${r.time}","${r.team.replace(/"/g, '""')}"`
+  );
+  const csv = [header, ...lines].join('\n');
+
+  const response = new NextResponse(csv);
+  response.headers.set('Content-Type', 'text/csv; charset=utf-8');
+  response.headers.set('Content-Disposition', 'attachment; filename="dkp_logs.csv"');
+  return response;
 }

@@ -437,41 +437,58 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
             <SelectItem value="other">其他</SelectItem>
           </SelectContent>
         </Select>
-        <Select
-          value={teamFilter}
-          onValueChange={(value) => {
-            setTeamFilter(value);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="选择团队" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部团队</SelectItem>
-            {teams.map((team) => (
-              <SelectItem key={team.id} value={team.id}>
-                {team.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <label className="flex items-center space-x-2 text-sm text-gray-400">
-          <Checkbox
-            checked={includeDeleted}
-            onCheckedChange={(checked) => {
-              setIncludeDeleted(Boolean(checked));
+          <Select
+            value={teamFilter}
+            onValueChange={(value) => {
+              setTeamFilter(value);
               setPage(1);
             }}
-          />
-          <span>显示已删除记录</span>
-        </label>
-        <div className="flex items-center gap-2 ml-auto">
-          <div className="rounded-md border border-slate-700 p-1 flex gap-1">
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="选择团队" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部团队</SelectItem>
+              {teams.map((team) => (
+                <SelectItem key={team.id} value={team.id}>
+                  {team.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <label className="flex items-center space-x-2 text-sm text-gray-400">
+            <Checkbox
+              checked={includeDeleted}
+              onCheckedChange={(checked) => {
+                setIncludeDeleted(Boolean(checked));
+                setPage(1);
+              }}
+            />
+            <span>显示已删除记录</span>
+          </label>
+          <div className="flex items-center gap-2 ml-auto">
             <Button
-              variant={viewMode === 'entries' ? 'default' : 'ghost'}
+              variant="secondary"
               size="sm"
               onClick={() => {
+                const params = new URLSearchParams({
+                  includeDeleted: String(includeDeleted),
+                  view: viewMode,
+                  format: 'csv',
+                });
+                if (search.trim()) params.set('search', search.trim());
+                if (teamFilter !== 'all') params.set('teamId', teamFilter);
+                if (typeFilter !== 'all') params.set('type', typeFilter);
+                window.open(`/api/dkp/logs/manage?${params.toString()}`, '_blank');
+              }}
+            >
+              导出 CSV
+            </Button>
+            <div className="rounded-md border border-slate-700 p-1 flex gap-1">
+              <Button
+                variant={viewMode === 'entries' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => {
                 setViewMode('entries');
                 setPage(1);
                 setExpandedEvents(new Set());
