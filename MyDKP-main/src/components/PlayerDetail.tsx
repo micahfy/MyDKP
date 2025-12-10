@@ -230,7 +230,7 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
                   {groupedRows.map((row) =>
                     row.kind === 'group' ? (
                       <Fragment key={`group-${row.dateKey}`}>
-                        <TableRow className="bg-slate-50">
+                        <TableRow>
                           <TableCell className="text-sm font-semibold">
                             {row.dateKey}
                           </TableCell>
