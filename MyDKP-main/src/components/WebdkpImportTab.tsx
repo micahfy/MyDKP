@@ -52,6 +52,7 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>('grouped');
   const [groupAddInputs, setGroupAddInputs] = useState<Record<string, string>>({});
+  const [exportTeamId, setExportTeamId] = useState<string>('all');
 
   const filteredRows = useMemo(() => {
     const term = filterText.trim();
@@ -335,7 +336,12 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
   };
 
   const handleExportLatest = () => {
-    window.open('/api/webdkp/export', '_blank');
+    const params = new URLSearchParams();
+    if (exportTeamId && exportTeamId !== 'all') {
+      params.set('teamId', exportTeamId);
+    }
+    const url = params.toString() ? `/api/export/webdkp?${params.toString()}` : '/api/export/webdkp';
+    window.open(url, '_blank');
   };
 
   return (
@@ -346,10 +352,26 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
             <label className="text-sm text-gray-300">上传 WebDKP.lua</label>
             <Input type="file" accept=".lua" onChange={handleUpload} disabled={uploading} />
             <p className="text-xs text-gray-500">系统会解析 WebDKP_Log 并生成可编辑的数据表。</p>
-            <Button variant="outline" onClick={handleExportLatest}>
-              <Download className="h-4 w-4 mr-1" />
-              直接导出最新 WebDKP.lua
-            </Button>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <select
+                  className="flex-1 rounded-md bg-slate-900/70 border border-slate-700 px-3 py-2 text-gray-100"
+                  value={exportTeamId}
+                  onChange={(e) => setExportTeamId(e.target.value)}
+                >
+                  <option value="all">导出全部团队</option>
+                  {teams.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      导出 {team.name}
+                    </option>
+                  ))}
+                </select>
+                <Button variant="outline" onClick={handleExportLatest}>
+                  <Download className="h-4 w-4 mr-1" />
+                  导出 WebDKP.lua
+                </Button>
+              </div>
+            </div>
           </div>
           <div className="space-y-3">
             <label className="text-sm text-gray-300">选择导入团队</label>

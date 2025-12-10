@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdmin, getSession, getAdminTeams } from '@/lib/auth';
 
@@ -11,10 +11,13 @@ function luaEscape(value: string | null | undefined): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: '权限不足' }, { status: 403 });
   }
+
+  const { searchParams } = new URL(request.url);
+  const teamIdFilter = searchParams.get('teamId') || '';
 
   const session = await getSession();
   const isSuperAdmin = session.role === 'super_admin';
@@ -45,6 +48,9 @@ export async function GET() {
     filteredPlayers = players.filter(
       (player) => player.team && adminTeams.includes(player.team.id)
     );
+  }
+  if (teamIdFilter) {
+    filteredPlayers = filteredPlayers.filter((p) => p.team && p.team.id === teamIdFilter);
   }
 
   const lines: string[] = [];
