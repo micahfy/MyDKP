@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, ReactNode } from 'react';
+import { useEffect, useMemo, useState, ReactNode, Fragment } from 'react';
 import { Player, DkpLog } from '@/types';
 import {
   Dialog,
@@ -17,6 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { formatDate } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -27,12 +28,12 @@ interface PlayerDetailProps {
 }
 
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  earn: { label: '获得', color: 'bg-green-500' },
-  spend: { label: '消耗', color: 'bg-red-500' },
+  earn: { label: '加分', color: 'bg-green-500' },
+  spend: { label: '扣分', color: 'bg-red-500' },
   decay: { label: '衰减', color: 'bg-orange-500' },
   undo: { label: '撤销', color: 'bg-blue-500' },
-  penalty: { label: '扣分', color: 'bg-purple-500' },
-  attendance: { label: '出席', color: 'bg-cyan-500' },
+  penalty: { label: '惩罚', color: 'bg-purple-500' },
+  attendance: { label: '出勤', color: 'bg-cyan-500' },
 };
 
 const EQUIP_REGEX = /\[([^\]]+)\]/g;
@@ -56,7 +57,7 @@ function renderReasonText(reason: string): ReactNode[] {
         style={{ color: '#a335ee' }}
       >
         [{match[1]}]
-      </span>
+      </span>,
     );
 
     lastIndex = EQUIP_REGEX.lastIndex;
@@ -73,11 +74,13 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
   const [logs, setLogs] = useState<DkpLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (open && player) {
       setErrorMessage(null);
       fetchLogs();
+      setExpandedDates(new Set());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, player?.id]);
@@ -85,9 +88,7 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const res = await fetch(
-        `/api/dkp/logs?playerId=${player.id}&includeDeleted=true`
-      );
+      const res = await fetch(`/api/dkp/logs?playerId=${player.id}&includeDeleted=true`);
       const data = await res.json();
       if (!res.ok) {
         const message = data?.error || '获取日志失败';
@@ -121,6 +122,47 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
     }
   };
 
+  const groupedRows = useMemo(() => {
+    type Row =
+      | { kind: 'group'; dateKey: string; total: number; items: DkpLog[] }
+      | { kind: 'single'; log: DkpLog };
+
+    const rows: Row[] = [];
+    const groupMap = new Map<string, { kind: 'group'; dateKey: string; total: number; items: DkpLog[] }>();
+
+    logs.forEach((log) => {
+      const dateKey = new Date(log.createdAt).toISOString().slice(0, 10);
+      const isGain = log.change > 0 && log.type !== 'decay' && log.type !== 'spend';
+
+      if (isGain) {
+        let group = groupMap.get(dateKey);
+        if (!group) {
+          group = { kind: 'group', dateKey, total: 0, items: [] };
+          groupMap.set(dateKey, group);
+          rows.push(group);
+        }
+        group.total += log.change;
+        group.items.push(log);
+      } else {
+        rows.push({ kind: 'single', log });
+      }
+    });
+
+    return rows;
+  }, [logs]);
+
+  const toggleDateExpand = (dateKey: string) => {
+    setExpandedDates((prev) => {
+      const next = new Set(prev);
+      if (next.has(dateKey)) {
+        next.delete(dateKey);
+      } else {
+        next.add(dateKey);
+      }
+      return next;
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
@@ -138,32 +180,32 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
             </div>
           </div>
           <div className="bg-green-50 p-4 rounded-lg">
-            <div className="text-sm text-gray-600">总获得</div>
+            <div className="text-sm text-gray-600">累计获得</div>
             <div className="text-2xl font-bold text-green-600">
               {player.totalEarned.toFixed(1)}
             </div>
           </div>
           <div className="bg-red-50 p-4 rounded-lg">
-            <div className="text-sm text-gray-600">总消耗</div>
+            <div className="text-sm text-gray-600">累计支出</div>
             <div className="text-2xl font-bold text-red-600">
               {player.totalSpent.toFixed(1)}
             </div>
           </div>
           <div className="bg-purple-50 p-4 rounded-lg">
-            <div className="text-sm text-gray-600">出席率</div>
+            <div className="text-sm text-gray-600">出勤率</div>
             <div className="text-2xl font-bold text-purple-600">
               {(player.attendance * 100).toFixed(0)}%
             </div>
           </div>
           <div className="bg-orange-50 p-4 rounded-lg">
-            <div className="text-sm text-gray-600">总衰减</div>
+            <div className="text-sm text-gray-600">累计衰减</div>
             <div className="text-2xl font-bold text-orange-600">
               {player.totalDecay.toFixed(1)}
             </div>
           </div>
         </div>
 
-  <div>
+        <div>
           <h3 className="text-lg font-semibold mb-4">DKP 变动记录</h3>
           {loading ? (
             <div className="text-center py-10 text-gray-500">加载中...</div>
@@ -184,63 +226,103 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {logs.map((log) => (
-                    <TableRow
-                      key={log.id}
-                      className={log.isDeleted ? 'opacity-70' : undefined}
-                    >
-                      <TableCell className="text-sm">
-                        {formatDate(log.createdAt)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={TYPE_LABELS[log.type]?.color || 'bg-gray-500'}
-                        >
-                          {TYPE_LABELS[log.type]?.label || log.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className={
-                            log.change > 0
-                              ? 'text-green-600 font-semibold'
-                              : 'text-red-600 font-semibold'
-                          }
-                        >
-                          {log.change > 0 ? '+' : ''}
-                          {log.change.toFixed(1)}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          {log.item && (
-                            <span className="text-purple-600">
-                              [装备] {log.item}
-                            </span>
-                          )}
-                          {log.boss && (
-                            <span className="text-orange-600">
-                              [Boss] {log.boss}
-                            </span>
-                          )}
-                          {log.reason && (
-                            <span className="text-gray-600">
-                              {renderReasonText(log.reason)}
-                            </span>
-                          )}
-                          {log.isDeleted && (
-                            <span className="text-sm text-red-500">
-                              已由 {log.deletedByAdmin?.username || '管理员'} 在{' '}
-                              {log.deletedAt ? formatDate(log.deletedAt) : '未知时间'} 删除
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-500">
-                        {log.operator}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {groupedRows.map((row) =>
+                    row.kind === 'group' ? (
+                      <Fragment key={`group-${row.dateKey}`}>
+                        <TableRow className="bg-slate-50">
+                          <TableCell className="text-sm font-semibold">
+                            {row.dateKey}
+                          </TableCell>
+                          <TableCell>
+                            <Badge className="bg-green-600">加分汇总</Badge>
+                          </TableCell>
+                          <TableCell className="text-green-600 font-semibold">
+                            +{row.total.toFixed(1)}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => toggleDateExpand(row.dateKey)}
+                              className="text-blue-600"
+                            >
+                              {expandedDates.has(row.dateKey) ? '收起明细' : '展开明细'}（{row.items.length} 条）
+                            </Button>
+                          </TableCell>
+                          <TableCell />
+                        </TableRow>
+                        {expandedDates.has(row.dateKey) &&
+                          row.items.map((log) => (
+                            <TableRow
+                              key={log.id}
+                              className={log.isDeleted ? 'opacity-70' : undefined}
+                            >
+                              <TableCell className="text-sm">
+                                {formatDate(log.createdAt)}
+                              </TableCell>
+                              <TableCell>
+                                <Badge className={TYPE_LABELS[log.type]?.color || 'bg-gray-500'}>
+                                  {TYPE_LABELS[log.type]?.label || log.type}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-green-600 font-semibold">
+                                +{log.change.toFixed(1)}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-col gap-1">
+                                  {log.item && <span className="text-purple-600">[装备] {log.item}</span>}
+                                  {log.boss && <span className="text-orange-600">[Boss] {log.boss}</span>}
+                                  {log.reason && <span className="text-gray-600">{renderReasonText(log.reason)}</span>}
+                                  {log.isDeleted && (
+                                    <span className="text-sm text-red-500">
+                                      已由 {log.deletedByAdmin?.username || '管理员'} 在{' '}
+                                      {log.deletedAt ? formatDate(log.deletedAt) : '未知时间'} 删除
+                                    </span>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-sm text-gray-500">{log.operator}</TableCell>
+                            </TableRow>
+                          ))}
+                      </Fragment>
+                    ) : (
+                      <TableRow
+                        key={row.log.id}
+                        className={row.log.isDeleted ? 'opacity-70' : undefined}
+                      >
+                        <TableCell className="text-sm">{formatDate(row.log.createdAt)}</TableCell>
+                        <TableCell>
+                          <Badge className={TYPE_LABELS[row.log.type]?.color || 'bg-gray-500'}>
+                            {TYPE_LABELS[row.log.type]?.label || row.log.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className={
+                              row.log.change > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'
+                            }
+                          >
+                            {row.log.change > 0 ? '+' : ''}
+                            {row.log.change.toFixed(1)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            {row.log.item && <span className="text-purple-600">[装备] {row.log.item}</span>}
+                            {row.log.boss && <span className="text-orange-600">[Boss] {row.log.boss}</span>}
+                            {row.log.reason && <span className="text-gray-600">{renderReasonText(row.log.reason)}</span>}
+                            {row.log.isDeleted && (
+                              <span className="text-sm text-red-500">
+                                已由 {row.log.deletedByAdmin?.username || '管理员'} 在{' '}
+                                {row.log.deletedAt ? formatDate(row.log.deletedAt) : '未知时间'} 删除
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-500">{row.log.operator}</TableCell>
+                      </TableRow>
+                    ),
+                  )}
                 </TableBody>
               </Table>
             </div>
