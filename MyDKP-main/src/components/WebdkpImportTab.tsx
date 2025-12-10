@@ -645,20 +645,25 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
               <li>重复：{importResult.duplicate}</li>
               <li>失败：{importResult.failed}</li>
             </ul>
-            {importResult.errors && importResult.errors.length > 0 && (
-              <div className="mt-3">
-                <div className="text-sm text-red-300 mb-1">错误示例：</div>
-                <ul className="text-xs text-gray-400 space-y-1 max-h-32 overflow-auto">
-                  {importResult.errors.slice(0, 5).map((item: any, idx: number) => (
-                    <li key={idx}>
-                      {item.line} → {item.error}
-                    </li>
-                  ))}
-                </ul>
+          {importResult.errors && importResult.errors.length > 0 && (
+            <div className="mt-3">
+              <div className="text-sm text-red-300 mb-1">
+                错误明细（最多显示 {importResult.errors.length} 条）：
               </div>
-            )}
-          </div>
-        )}
+              <ul className="text-xs text-gray-400 space-y-1 max-h-48 overflow-auto bg-slate-900/60 border border-slate-700/60 rounded p-2">
+                {importResult.errors.map((item: any, idx: number) => (
+                  <li key={idx} className="leading-snug">
+                    <span className="text-red-300 mr-1">[第 {idx + 1} 条]</span>
+                    <span className="text-gray-200">{item.line}</span>
+                    <span className="text-gray-500"> → </span>
+                    <span className="text-orange-300">{item.error}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
       </CardContent>
     </Card>
   );
