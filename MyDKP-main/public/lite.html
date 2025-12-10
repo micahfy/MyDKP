@@ -277,27 +277,103 @@
             detailStatusMessage('该玩家暂无日志记录');
             return;
           }
-          detailBody.innerHTML = '';
-          data.forEach((log) => {
-            const tr = document.createElement('tr');
-            const changeValue =
-              (log.change > 0 ? '+' : '') +
-              Number(log.change || 0).toFixed(1);
-            tr.innerHTML = `
-              <td>${new Date(log.createdAt).toLocaleString()}</td>
-              <td>${log.type || ''}</td>
-              <td>${changeValue}</td>
-              <td>${log.reason || ''}</td>
-              <td>${log.operator || ''}</td>
-            `;
-            detailBody.appendChild(tr);
-          });
+          renderGroupedLogs(data);
           detailStatusMessage(`共 ${data.length} 条记录（最多显示 50 条）`);
         } catch (error) {
           detailBody.innerHTML =
             '<tr><td colspan="5">无法获取该玩家记录</td></tr>';
           detailStatusMessage('获取记录失败');
         }
+      }
+
+      function renderGroupedLogs(logs) {
+        detailBody.innerHTML = '';
+        const expanded = new Set();
+        const groups = [];
+        const map = new Map();
+
+        logs.forEach((log) => {
+          const dateKey = new Date(log.createdAt).toISOString().slice(0, 10);
+          const isGain =
+            Number(log.change || 0) > 0 &&
+            log.type !== 'decay' &&
+            log.type !== 'spend';
+
+          if (isGain) {
+            if (!map.has(dateKey)) {
+              const group = { kind: 'group', dateKey, total: 0, items: [] };
+              map.set(dateKey, group);
+              groups.push(group);
+            }
+            const group = map.get(dateKey);
+            group.total += Number(log.change || 0);
+            group.items.push(log);
+          } else {
+            groups.push({ kind: 'single', log });
+          }
+        });
+
+        const groupRows = new Map();
+
+        groups.forEach((item) => {
+          if (item.kind === 'group') {
+            const summary = document.createElement('tr');
+            summary.style.cursor = 'pointer';
+            summary.dataset.groupKey = item.dateKey;
+            summary.innerHTML = `
+              <td>${item.dateKey}</td>
+              <td>加分汇总</td>
+              <td style="color:#16a34a;font-weight:600;">+${item.total.toFixed(1)}</td>
+              <td class="summary-label" style="color:#2563eb;">展开明细（${item.items.length} 条）</td>
+              <td></td>
+            `;
+            detailBody.appendChild(summary);
+            const detailList = [];
+            item.items.forEach((log) => {
+              const tr = document.createElement('tr');
+              tr.dataset.parent = item.dateKey;
+              tr.style.display = 'none';
+              const changeValue = '+' + Number(log.change || 0).toFixed(1);
+              tr.innerHTML = `
+                <td>${new Date(log.createdAt).toLocaleString()}</td>
+                <td>${log.type || ''}</td>
+                <td style="color:#16a34a;font-weight:600;">${changeValue}</td>
+                <td style="color:#2563eb;">${log.reason || ''}</td>
+                <td>${log.operator || ''}</td>
+              `;
+              detailList.push(tr);
+              detailBody.appendChild(tr);
+            });
+            groupRows.set(item.dateKey, { summary, detailList });
+
+            summary.addEventListener('click', () => {
+              const isOpen = expanded.has(item.dateKey);
+              if (isOpen) {
+                expanded.delete(item.dateKey);
+                detailList.forEach((tr) => (tr.style.display = 'none'));
+                summary.querySelector('.summary-label').textContent = `展开明细（${item.items.length} 条）`;
+              } else {
+                expanded.add(item.dateKey);
+                detailList.forEach((tr) => (tr.style.display = 'table-row'));
+                summary.querySelector('.summary-label').textContent = `收起明细（${item.items.length} 条）`;
+              }
+            });
+          } else {
+            const log = item.log;
+            const tr = document.createElement('tr');
+            const changeValue =
+              (log.change > 0 ? '+' : '') + Number(log.change || 0).toFixed(1);
+            const color = log.change > 0 ? '#16a34a' : '#dc2626';
+            tr.innerHTML = `
+              <td>${new Date(log.createdAt).toLocaleString()}</td>
+              <td>${log.type || ''}</td>
+              <td style="color:${color};font-weight:600;">${changeValue}</td>
+              <td>${log.reason || ''}</td>
+              <td>${log.operator || ''}</td>
+            `;
+            detailBody.appendChild(tr);
+          }
+        });
       }
 
       refreshBtn.addEventListener('click', loadPlayers);
