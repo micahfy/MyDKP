@@ -88,7 +88,7 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/dkp/logs?playerId=${player.id}&includeDeleted=true`);
+      const res = await fetch(`/api/dkp/logs?playerId=${player.id}`);
       const data = await res.json();
       if (!res.ok) {
         const message = data?.error || '获取日志失败';
