@@ -63,13 +63,11 @@ function HomeContent() {
       const res = await fetch('/api/auth/check');
       const data = await res.json();
       
-      // 如果角色发生变化且不是初始加载，刷新页面
+      // 如果角色发生变化，不再强制刷新页面，直接更新状态即可，避免正在查看的导入结果被刷掉
       if (data.isAdmin && data.role && adminRole && data.role !== adminRole) {
-        console.log('Role changed from', adminRole, 'to', data.role, '- reloading...');
-        window.location.reload();
-        return;
+        console.log('Role changed from', adminRole, 'to', data.role, '- updating state');
       }
-      
+
       setIsAdmin(data.isAdmin === true);
       setAdminRole(data.role || '');
     } catch (error) {
