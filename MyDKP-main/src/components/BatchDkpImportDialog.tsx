@@ -135,7 +135,7 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
     }
   };
 
-  useEffect(() => {
+useEffect(() => {
     if (importResult) {
       setSummaryOpen(true);
     }
@@ -411,7 +411,7 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
         </Card>
       )}
 
-      <AlertDialog open={summaryOpen && !!importResult} onOpenChange={setSummaryOpen}>
+      <AlertDialog open={summaryOpen} onOpenChange={setSummaryOpen}>
         <AlertDialogContent className="max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>导入完成小结</AlertDialogTitle>
