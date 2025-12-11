@@ -25,6 +25,22 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
   const isSuperAdmin = adminRole === 'super_admin';
   const [hasPermission, setHasPermission] = useState(false);
   const [checkingPermission, setCheckingPermission] = useState(true);
+  const [activeTab, setActiveTab] = useState('operation');
+
+  useEffect(() => {
+    // 记住上一次选择的标签，避免组件重渲染后跳回默认
+    const stored = typeof window !== 'undefined' ? window.localStorage.getItem('admin_panel_active_tab') : null;
+    if (stored) {
+      setActiveTab(stored);
+    }
+  }, []);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('admin_panel_active_tab', value);
+    }
+  };
 
   useEffect(() => {
     checkTeamPermission();
@@ -93,7 +109,7 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-6">
-        <Tabs defaultValue="operation" className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className={`grid w-full ${isSuperAdmin ? 'grid-cols-9' : 'grid-cols-6'} bg-slate-800/50`}>
             <TabsTrigger value="operation" className="data-[state=active]:bg-blue-950">
               DKP操作
