@@ -35,7 +35,6 @@ interface ImportResult {
 }
 
 export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkpImportDialogProps) {
-  const LAST_RESULT_KEY = 'batch_dkp_import_last_result';
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [importData, setImportData] = useState('');
   const [ignoreDuplicates, setIgnoreDuplicates] = useState(true);
@@ -55,23 +54,11 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
   }, [teamId, selectedTeamId]);
 
   useEffect(() => {
-    // 恢复上次导入结果，避免刷新/重渲染后丢失摘要
-    if (typeof window === 'undefined') return;
-    const cached = window.localStorage.getItem(LAST_RESULT_KEY);
-    if (cached) {
-      try {
-        const parsed: ImportResult = JSON.parse(cached);
-        setImportResult(parsed);
-      } catch {
-        window.localStorage.removeItem(LAST_RESULT_KEY);
-      }
+    // 清理旧缓存，刷新后不再保留导入结果
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('batch_dkp_import_last_result');
     }
   }, []);
-
-  const cacheResult = (result: ImportResult) => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(LAST_RESULT_KEY, JSON.stringify(result));
-  };
 
   const availableTeams = teams.length > 0 ? teams : teamId ? [{ id: teamId, name: '当前团队' }] : [];
   const selectedTeamName = availableTeams.find((t) => t.id === selectedTeamId)?.name || '未选择团队';
@@ -119,7 +106,6 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
           duplicateList: data.duplicateList || [],
         };
         setImportResult(nextResult);
-        cacheResult(nextResult);
         setTimeout(() => {
           resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 50);
