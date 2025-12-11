@@ -175,8 +175,9 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                 variant="outline"
                 size="sm"
                 onClick={() => setShowDecayRank(true)}
-                className="btn-glow border-orange-500 text-orange-300 hover:bg-orange-950"
+                className="bg-gradient-to-r from-orange-500/80 to-red-500/80 text-white border-none shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:from-orange-500 hover:to-red-500"
               >
+                <Crown className="h-4 w-4 mr-1" />
                 帅神榜
               </Button>
               {isAdmin && (
