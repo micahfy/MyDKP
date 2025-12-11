@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Player } from '@/types';
 import {
   Table,
@@ -23,6 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Search, Download, Edit2, Trash2, Crown } from 'lucide-react';
 import { PlayerDetail } from './PlayerDetail';
 import { PlayerEditDialog } from './PlayerEditDialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,6 +67,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showDecayRank, setShowDecayRank] = useState(false);
 
   useEffect(() => {
     if (teamId) {
@@ -77,6 +79,11 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
   useEffect(() => {
     filterPlayers();
   }, [players, search, classFilter]);
+
+  const decayRanking = useMemo(
+    () => [...players].sort((a, b) => b.totalDecay - a.totalDecay),
+    [players],
+  );
 
   const fetchPlayers = async () => {
     setLoading(true);
@@ -164,15 +171,25 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
               </span>
             </CardTitle>
             {isAdmin && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleExport}
-                className="btn-glow border-blue-500 text-blue-400 hover:bg-blue-950"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                导出 CSV
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowDecayRank(true)}
+                  className="btn-glow border-orange-500 text-orange-300 hover:bg-orange-950"
+                >
+                  衰神排行榜
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleExport}
+                  className="btn-glow border-blue-500 text-blue-400 hover:bg-blue-950"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  导出 CSV
+                </Button>
+              </div>
             )}
           </div>
         </CardHeader>
@@ -324,6 +341,51 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={showDecayRank} onOpenChange={setShowDecayRank}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>衰神排行榜</DialogTitle>
+          </DialogHeader>
+          <div className="border border-orange-900/50 rounded-lg overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-900/60">
+                  <TableHead className="w-16 text-gray-300">名次</TableHead>
+                  <TableHead className="text-gray-300">角色</TableHead>
+                  <TableHead className="text-gray-300">职业</TableHead>
+                  <TableHead className="text-right text-gray-300">累计衰减</TableHead>
+                  <TableHead className="text-right text-gray-300">当前DKP</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {decayRanking.map((p, idx) => (
+                  <TableRow key={p.id} className="hover:bg-orange-950/30">
+                    <TableCell className="text-gray-400">
+                      {idx === 0 && <Crown className="inline h-4 w-4 text-yellow-400 mr-1" />}
+                      {idx + 1}
+                    </TableCell>
+                    <TableCell className={`font-semibold ${getClassColor(p.class)}`}>
+                      {p.name}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`class-badge ${getClassColor(p.class, 'bg')} ${getClassColor(p.class)} border ${getClassColor(p.class, 'border')}`}>
+                        {p.class}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right text-orange-400 font-semibold">
+                      -{formatDkp(p.totalDecay)}
+                    </TableCell>
+                    <TableCell className="text-right text-blue-300">
+                      {formatDkp(p.currentDkp)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {selectedPlayer && (
         <PlayerDetail
