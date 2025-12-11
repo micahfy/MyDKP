@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -34,6 +34,7 @@ interface ImportResult {
 }
 
 export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkpImportDialogProps) {
+  const LAST_RESULT_KEY = 'batch_dkp_import_last_result';
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [importData, setImportData] = useState('');
   const [ignoreDuplicates, setIgnoreDuplicates] = useState(true);
@@ -41,6 +42,32 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const resultRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    // 默认选择当前团队
+    if (!selectedTeamId && teamId) {
+      setSelectedTeamId(teamId);
+    }
+  }, [teamId, selectedTeamId]);
+
+  useEffect(() => {
+    // 恢复上次导入结果，避免刷新/重渲染后丢失摘要
+    if (typeof window === 'undefined') return;
+    const cached = window.localStorage.getItem(LAST_RESULT_KEY);
+    if (cached) {
+      try {
+        const parsed: ImportResult = JSON.parse(cached);
+        setImportResult(parsed);
+      } catch {
+        window.localStorage.removeItem(LAST_RESULT_KEY);
+      }
+    }
+  }, []);
+
+  const cacheResult = (result: ImportResult) => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(LAST_RESULT_KEY, JSON.stringify(result));
+  };
 
   const availableTeams = teams.length > 0 ? teams : teamId ? [{ id: teamId, name: '当前团队' }] : [];
   const selectedTeamName = availableTeams.find((t) => t.id === selectedTeamId)?.name || '未选择团队';
@@ -78,13 +105,15 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
       const data = await res.json();
 
       if (res.ok) {
-        setImportResult({
+        const nextResult: ImportResult = {
           success: data.success,
           failed: data.failed,
           duplicate: data.duplicate || 0,
           successList: data.successList || [],
           errorList: data.errors || [],
-        });
+        };
+        setImportResult(nextResult);
+        cacheResult(nextResult);
         setTimeout(() => {
           resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 50);
