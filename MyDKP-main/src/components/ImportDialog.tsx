@@ -7,17 +7,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { Upload, FileText } from 'lucide-react';
 import { toast } from 'sonner';
-import { getClassColor } from '@/lib/utils';
 
 interface ImportDialogProps {
   teamId: string;
   onSuccess: () => void;
 }
-
-const WOW_CLASSES = [
-  '战士', '圣骑士', '猎人', '盗贼', '牧师',
-  '萨满祭司', '法师', '术士', '德鲁伊'
-];
 
 export function ImportDialog({ teamId, onSuccess }: ImportDialogProps) {
   const [playerData, setPlayerData] = useState('');
@@ -100,32 +94,6 @@ export function ImportDialog({ teamId, onSuccess }: ImportDialogProps) {
           >
             {loading ? '导入中...' : '开始导入'}
           </Button>
-        </div>
-      </Card>
-
-      <Card className="p-6 bg-gradient-to-br from-green-900/30 to-emerald-900/30 border-green-700/50">
-        <div className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <Upload className="h-5 w-5 text-green-400" />
-            <h3 className="text-lg font-semibold text-gray-100">支持的职业列表</h3>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            {WOW_CLASSES.map((cls) => (
-              <div
-                key={cls}
-                className="px-4 py-3 rounded-lg text-sm text-center font-bold border-2 transition-all hover:scale-105"
-                style={{
-                  backgroundColor: `${getClassColor(cls, 'hex')}20`,
-                  borderColor: getClassColor(cls, 'hex'),
-                  color: getClassColor(cls, 'hex'),
-                  textShadow: `0 0 8px ${getClassColor(cls, 'hex')}80`,
-                }}
-              >
-                {cls}
-              </div>
-            ))}
-          </div>
         </div>
       </Card>
     </div>
