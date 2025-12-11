@@ -29,6 +29,8 @@ export function DecayDialog({ teamId, teams = [], onSuccess }: DecayDialogProps)
   const [decayRate, setDecayRate] = useState('15');
   const [selectedTeamId, setSelectedTeamId] = useState(teamId || '');
   const [loading, setLoading] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [summary, setSummary] = useState<{ rate: number; affected: number } | null>(null);
 
   useEffect(() => {
     setSelectedTeamId(teamId || '');
@@ -58,6 +60,8 @@ export function DecayDialog({ teamId, teams = [], onSuccess }: DecayDialogProps)
 
       if (res.ok) {
         toast.success(`衰减执行成功！影响 ${data.affected} 名玩家`);
+        setSummary({ rate: ratePercent, affected: data.affected });
+        setSummaryOpen(true);
         setDecayRate('15');
         onSuccess();
       } else {
@@ -159,6 +163,20 @@ export function DecayDialog({ teamId, teams = [], onSuccess }: DecayDialogProps)
           </AlertDialog>
         </div>
       </Card>
+
+      <AlertDialog open={summaryOpen} onOpenChange={setSummaryOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>衰减完成小结</AlertDialogTitle>
+            <AlertDialogDescription>
+              已对当前团队 {summary?.affected ?? 0} 名玩家执行 {summary ? summary.rate.toFixed(1) : decayRate}% 衰减。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setSummaryOpen(false)}>确认</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
