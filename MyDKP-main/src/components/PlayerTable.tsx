@@ -346,7 +346,10 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
       <Dialog open={showDecayRank} onOpenChange={setShowDecayRank}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>帅神榜</DialogTitle>
+            <DialogTitle className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-amber-300 to-yellow-400 flex items-center space-x-2">
+              <Crown className="h-5 w-5 text-amber-300 drop-shadow" />
+              <span>帅神榜</span>
+            </DialogTitle>
           </DialogHeader>
           <div className="border border-orange-900/50 rounded-lg overflow-hidden max-h-[70vh] overflow-y-auto">
             <Table>
@@ -355,7 +358,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                   <TableHead className="w-16 text-gray-300">名次</TableHead>
                   <TableHead className="text-gray-300">角色</TableHead>
                   <TableHead className="text-gray-300">职业</TableHead>
-                  <TableHead className="text-right text-gray-300">累计衰减</TableHead>
+                  <TableHead className="text-right text-gray-300">帅气值</TableHead>
                   <TableHead className="text-right text-gray-300">当前DKP</TableHead>
                 </TableRow>
               </TableHeader>
@@ -375,7 +378,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                       </span>
                     </TableCell>
                     <TableCell className="text-right text-orange-400 font-semibold">
-                      -{formatDkp(p.totalDecay)}
+                      {formatDkp(p.totalDecay)}
                     </TableCell>
                     <TableCell className="text-right text-blue-300">
                       {formatDkp(p.currentDkp)}
