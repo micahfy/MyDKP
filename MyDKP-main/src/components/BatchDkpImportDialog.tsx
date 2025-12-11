@@ -275,6 +275,20 @@ Aviere,3,孟菲斯托斯 替补,${dateStr},${timeStr},战士
               {loading ? '导入中...' : '开始批量导入'}
             </Button>
           </AlertDialog>
+
+          {importResult && (
+            <div className="rounded-lg border border-blue-800/50 bg-blue-900/30 p-4 text-sm text-gray-100">
+              <div className="font-semibold mb-1">最新导入摘要</div>
+              <div className="space-x-4 text-gray-200">
+                <span>成功：<strong className="text-green-400">{importResult.success}</strong></span>
+                <span>失败：<strong className="text-red-400">{importResult.failed}</strong></span>
+                <span>重复：<strong className="text-yellow-400">{importResult.duplicate}</strong></span>
+              </div>
+              {importResult.failed > 0 && (
+                <div className="text-xs text-red-200 mt-2">详细失败原因见下方列表</div>
+              )}
+            </div>
+          )}
         </div>
       </Card>
 
