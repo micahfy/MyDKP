@@ -49,6 +49,7 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
   const [deleting, setDeleting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pageInput, setPageInput] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   const selectableIds = useMemo(() => {
     if (viewMode === 'events') {
@@ -204,6 +205,67 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
     }
     setPage(target);
     setPageInput('');
+  };
+
+  const buildExportFilename = () => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const dateStr = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(
+      now.getMinutes(),
+    )}${pad(now.getSeconds())}`;
+    const teamName = teamFilter === 'all' ? 'all' : teams.find((t) => t.id === teamFilter)?.name || teamFilter;
+    const typeName =
+      typeFilter === 'all'
+        ? 'all'
+        : typeFilter === 'earn'
+        ? 'earn'
+        : typeFilter === 'spend'
+        ? 'spend'
+        : typeFilter === 'decay'
+        ? 'decay'
+        : typeFilter === 'attendance'
+        ? 'attendance'
+        : 'other';
+    const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9\u4e00-\u9fa5_-]+/g, '-');
+    const searchPart = search.trim() ? sanitize(search.trim()) : 'all';
+    const deletedPart = includeDeleted ? 'with-deleted' : 'no-deleted';
+    return `dkp-logs_${viewMode}_team-${sanitize(teamName)}_type-${typeName}_search-${searchPart}_${deletedPart}_${dateStr}.csv`;
+  };
+
+  const handleExportCsv = async () => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams({
+        includeDeleted: String(includeDeleted),
+        view: viewMode,
+        format: 'csv',
+      });
+      if (search.trim()) params.set('search', search.trim());
+      if (teamFilter !== 'all') params.set('teamId', teamFilter);
+      if (typeFilter !== 'all') params.set('type', typeFilter);
+
+      const res = await fetch(`/api/dkp/logs/manage?${params.toString()}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || '导出失败');
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = buildExportFilename();
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast.success('CSV 导出完成');
+    } catch (error) {
+      console.error(error);
+      toast.error('导出失败');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const renderEntryTable = () => (
@@ -470,19 +532,10 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => {
-                const params = new URLSearchParams({
-                  includeDeleted: String(includeDeleted),
-                  view: viewMode,
-                  format: 'csv',
-                });
-                if (search.trim()) params.set('search', search.trim());
-                if (teamFilter !== 'all') params.set('teamId', teamFilter);
-                if (typeFilter !== 'all') params.set('type', typeFilter);
-                window.open(`/api/dkp/logs/manage?${params.toString()}`, '_blank');
-              }}
+              onClick={handleExportCsv}
+              disabled={exporting}
             >
-              导出 CSV
+              {exporting ? '导出中...' : '导出 CSV'}
             </Button>
             <div className="rounded-md border border-slate-700 p-1 flex gap-1">
               <Button
