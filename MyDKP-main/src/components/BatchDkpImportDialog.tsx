@@ -172,9 +172,6 @@ Aviere,3,孟菲斯托斯 替补,${dateStr},${timeStr},战士
                 <SelectValue placeholder="未选择团队" />
               </SelectTrigger>
               <SelectContent className="bg-slate-900 border-blue-800 text-gray-100">
-                <SelectItem value="" disabled>
-                  未选择团队
-                </SelectItem>
                 {availableTeams.map((team) => (
                   <SelectItem key={team.id} value={team.id}>
                     {team.name}
