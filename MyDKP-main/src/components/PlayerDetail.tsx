@@ -47,6 +47,10 @@ const TYPE_TEXT_COLOR: Record<string, string> = {
 
 const EQUIP_REGEX = /\[([^\]]+)\]/g;
 
+function formatDkp(value: number): string {
+  return Number(value.toFixed(2)).toString();
+}
+
 function renderReasonText(reason: string): ReactNode[] {
   EQUIP_REGEX.lastIndex = 0;
   const nodes: ReactNode[] = [];
@@ -186,19 +190,19 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
           <div className="bg-blue-50 p-4 rounded-lg">
             <div className="text-sm text-gray-600">当前 DKP</div>
             <div className="text-2xl font-bold text-blue-600">
-              {player.currentDkp.toFixed(2)}
+              {formatDkp(player.currentDkp)}
             </div>
           </div>
           <div className="bg-green-50 p-4 rounded-lg">
             <div className="text-sm text-gray-600">累计获得</div>
             <div className="text-2xl font-bold text-green-600">
-              {player.totalEarned.toFixed(2)}
+              {formatDkp(player.totalEarned)}
             </div>
           </div>
           <div className="bg-red-50 p-4 rounded-lg">
             <div className="text-sm text-gray-600">累计支出</div>
             <div className="text-2xl font-bold text-red-600">
-              {player.totalSpent.toFixed(2)}
+              {formatDkp(player.totalSpent)}
             </div>
           </div>
           <div className="bg-purple-50 p-4 rounded-lg">
@@ -210,7 +214,7 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
           <div className="bg-orange-50 p-4 rounded-lg">
             <div className="text-sm text-gray-600">累计衰减</div>
             <div className="text-2xl font-bold text-orange-600">
-              {player.totalDecay.toFixed(2)}
+              {formatDkp(player.totalDecay)}
             </div>
           </div>
         </div>
@@ -247,7 +251,7 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
                             <Badge className="bg-green-600">加分汇总</Badge>
                           </TableCell>
                           <TableCell className="text-green-600 font-semibold">
-                            +{row.total.toFixed(2)}
+                            +{formatDkp(row.total)}
                           </TableCell>
                           <TableCell>
                             <Button
@@ -276,7 +280,7 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
                                 </Badge>
                               </TableCell>
                               <TableCell className="text-green-600 font-semibold">
-                                +{log.change.toFixed(2)}
+                                +{formatDkp(log.change)}
                               </TableCell>
                               <TableCell>
                                 <div className="flex flex-col gap-1">
@@ -317,7 +321,7 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
                             }
                           >
                             {row.log.change > 0 ? '+' : ''}
-                            {row.log.change.toFixed(2)}
+                            {formatDkp(row.log.change)}
                           </span>
                         </TableCell>
                         <TableCell>
