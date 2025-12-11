@@ -3,6 +3,7 @@ import { recalculateTeamAttendance } from '@/lib/attendance';
 import { applyLootHighlight, fetchLootItems, normalizeReason } from '@/lib/loot';
 
 const DUPLICATE_LOOKBACK_DAYS = 30;
+const DEFAULT_NEW_PLAYER_CLASS = '待指派';
 
 function generateRecordHash(playerName: string, change: number, reason: string, date: string, time: string): string {
   return `${playerName}-${change}-${normalizeReason(reason)}-${date}-${time}`;
@@ -71,6 +72,37 @@ function normalizeDateTime(rawDate?: string, rawTime?: string) {
     recordTime: fallback,
     ...formatBeijing(fallback),
   };
+}
+
+function parseCsvLine(line: string): string[] {
+  const values: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+        continue;
+      }
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (char === ',' && !inQuotes) {
+      values.push(current.trim());
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  values.push(current.trim());
+  return values;
 }
 
 async function collectExistingHashes(teamId: string) {
@@ -154,7 +186,7 @@ export async function runBatchImport(params: BatchImportParams): Promise<BatchIm
 
   const teamPlayers = await prisma.player.findMany({
     where: { teamId },
-    select: { id: true, name: true, currentDkp: true, totalEarned: true, totalSpent: true },
+    select: { id: true, name: true, class: true, currentDkp: true, totalEarned: true, totalSpent: true },
   });
   const playerMap = new Map(teamPlayers.map((player) => [player.name, { ...player }]));
 
@@ -166,7 +198,7 @@ export async function runBatchImport(params: BatchImportParams): Promise<BatchIm
 
   for (const line of lines) {
     try {
-      const parts = line.split(',').map((part: string) => part.trim());
+      const parts = parseCsvLine(line);
 
       if (parts.length < 3) {
         failedCount++;
@@ -174,10 +206,11 @@ export async function runBatchImport(params: BatchImportParams): Promise<BatchIm
         continue;
       }
 
-      const [playerNameRaw, changeRaw, reasonRaw, dateRaw, timeRaw] = parts;
+      const [playerNameRaw, changeRaw, reasonRaw, dateRaw, timeRaw, classRaw] = parts;
       const playerName = playerNameRaw?.trim() ?? '';
       const changeValue = parseFloat(changeRaw);
       const trimmedReason = reasonRaw?.trim() ?? '';
+      const playerClassValue = classRaw?.trim() ?? '';
 
       if (!playerName) {
         failedCount++;
@@ -191,11 +224,44 @@ export async function runBatchImport(params: BatchImportParams): Promise<BatchIm
         continue;
       }
 
-      const player = playerMap.get(playerName);
+      let player = playerMap.get(playerName);
+      let playerWasCreated = false;
+
       if (!player) {
-        failedCount++;
-        errors.push({ line, error: `未找到角色：${playerName}` });
-        continue;
+        const playerClass = playerClassValue || DEFAULT_NEW_PLAYER_CLASS;
+        try {
+          const createdPlayer = await prisma.player.create({
+            data: {
+              name: playerName,
+              class: playerClass,
+              teamId,
+              currentDkp: 0,
+              totalEarned: 0,
+              totalSpent: 0,
+              attendance: 0,
+            },
+          });
+          player = { ...createdPlayer };
+          playerMap.set(playerName, player);
+          playerWasCreated = true;
+        } catch (creationError: any) {
+          if (creationError instanceof Error && creationError.message.includes('Unique constraint')) {
+            const existingPlayer = await prisma.player.findFirst({
+              where: { name: playerName, teamId },
+              select: { id: true, name: true, class: true, currentDkp: true, totalEarned: true, totalSpent: true },
+            });
+            if (existingPlayer) {
+              player = { ...existingPlayer };
+              playerMap.set(playerName, player);
+            }
+          }
+
+          if (!player) {
+            failedCount++;
+            errors.push({ line, error: `创建角色失败：${playerName}` });
+            continue;
+          }
+        }
       }
 
       const { recordTime, dateStr, timeStr } = normalizeDateTime(dateRaw, timeRaw);
@@ -226,7 +292,7 @@ export async function runBatchImport(params: BatchImportParams): Promise<BatchIm
 
       await prisma.$transaction(async (tx) => {
         const updatedPlayer = await tx.player.update({
-          where: { id: player.id },
+          where: { id: player!.id },
           data: {
             currentDkp: { increment: changeValue },
             ...(changeValue > 0 ? { totalEarned: { increment: changeValue } } : {}),
@@ -236,7 +302,7 @@ export async function runBatchImport(params: BatchImportParams): Promise<BatchIm
 
         await tx.dkpLog.create({
           data: {
-            playerId: player.id,
+            playerId: player!.id,
             teamId,
             type: operationType,
             change: changeValue,
@@ -247,18 +313,20 @@ export async function runBatchImport(params: BatchImportParams): Promise<BatchIm
           },
         });
 
-        player.currentDkp = updatedPlayer.currentDkp;
-        player.totalEarned = updatedPlayer.totalEarned;
-        player.totalSpent = updatedPlayer.totalSpent;
+        player!.currentDkp = updatedPlayer.currentDkp;
+        player!.totalEarned = updatedPlayer.totalEarned;
+        player!.totalSpent = updatedPlayer.totalSpent;
       });
 
       processedHashes.add(recordHash);
       successCount++;
-      successList.push(
-        `${playerName}: ${changeValue >= 0 ? '+' : ''}${changeValue} ${
-          trimmedReason ? `(${trimmedReason})` : ''
-        } [${dateStr} ${timeStr}]`,
-      );
+      const successParts = [
+        `${playerName}: ${changeValue >= 0 ? '+' : ''}${changeValue}`,
+        trimmedReason ? `(${trimmedReason})` : '',
+        `[${dateStr} ${timeStr}]`,
+        playerWasCreated ? `【新建角色：${player!.class || playerClassValue || DEFAULT_NEW_PLAYER_CLASS}】` : '',
+      ].filter(Boolean);
+      successList.push(successParts.join(' '));
     } catch (error: any) {
       failedCount++;
       errors.push({ line: line.substring(0, 80), error: error?.message || '未知错误' });

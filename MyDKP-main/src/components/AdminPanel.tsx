@@ -135,7 +135,7 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
           </TabsContent>
 
           <TabsContent value="batch-import" className="space-y-4">
-            <BatchDkpImportDialog teamId={teamId} onSuccess={onUpdate} />
+            <BatchDkpImportDialog teamId={teamId} teams={teams} onSuccess={onUpdate} />
           </TabsContent>
 
           <TabsContent value="import" className="space-y-4">
