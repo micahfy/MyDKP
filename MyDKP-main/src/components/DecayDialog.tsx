@@ -142,7 +142,10 @@ export function DecayDialog({ teamId, teams = [], onSuccess }: DecayDialogProps)
                 <AlertDialogTitle>确认执行衰减？</AlertDialogTitle>
                 <AlertDialogDescription>
                   此操作将对当前团队所有玩家执行{' '}
-                  {decayRate && (parseFloat(decayRate) * 100).toFixed(1)}%
+                  {decayRate && !isNaN(parseFloat(decayRate))
+                    ? parseFloat(decayRate).toFixed(1)
+                    : 0}
+                  %
                   的DKP衰减。此操作可以撤销。
                 </AlertDialogDescription>
               </AlertDialogHeader>

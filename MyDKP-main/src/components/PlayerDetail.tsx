@@ -186,19 +186,19 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
           <div className="bg-blue-50 p-4 rounded-lg">
             <div className="text-sm text-gray-600">当前 DKP</div>
             <div className="text-2xl font-bold text-blue-600">
-              {player.currentDkp.toFixed(1)}
+              {player.currentDkp.toFixed(2)}
             </div>
           </div>
           <div className="bg-green-50 p-4 rounded-lg">
             <div className="text-sm text-gray-600">累计获得</div>
             <div className="text-2xl font-bold text-green-600">
-              {player.totalEarned.toFixed(1)}
+              {player.totalEarned.toFixed(2)}
             </div>
           </div>
           <div className="bg-red-50 p-4 rounded-lg">
             <div className="text-sm text-gray-600">累计支出</div>
             <div className="text-2xl font-bold text-red-600">
-              {player.totalSpent.toFixed(1)}
+              {player.totalSpent.toFixed(2)}
             </div>
           </div>
           <div className="bg-purple-50 p-4 rounded-lg">
@@ -210,7 +210,7 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
           <div className="bg-orange-50 p-4 rounded-lg">
             <div className="text-sm text-gray-600">累计衰减</div>
             <div className="text-2xl font-bold text-orange-600">
-              {player.totalDecay.toFixed(1)}
+              {player.totalDecay.toFixed(2)}
             </div>
           </div>
         </div>
@@ -247,7 +247,7 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
                             <Badge className="bg-green-600">加分汇总</Badge>
                           </TableCell>
                           <TableCell className="text-green-600 font-semibold">
-                            +{row.total.toFixed(1)}
+                            +{row.total.toFixed(2)}
                           </TableCell>
                           <TableCell>
                             <Button
@@ -255,10 +255,10 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
                               size="sm"
                               onClick={() => toggleDateExpand(row.dateKey)}
                               className="text-blue-600"
-                            >
-                              {expandedDates.has(row.dateKey) ? '收起明细' : '展开明细'}（{row.items.length} 条）
-                            </Button>
-                          </TableCell>
+                          >
+                            {expandedDates.has(row.dateKey) ? '收起明细' : '展开明细'}（{row.items.length} 条）
+                          </Button>
+                        </TableCell>
                           <TableCell />
                         </TableRow>
                         {expandedDates.has(row.dateKey) &&
@@ -276,7 +276,7 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
                                 </Badge>
                               </TableCell>
                               <TableCell className="text-green-600 font-semibold">
-                                +{log.change.toFixed(1)}
+                                +{log.change.toFixed(2)}
                               </TableCell>
                               <TableCell>
                                 <div className="flex flex-col gap-1">
@@ -317,7 +317,7 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
                             }
                           >
                             {row.log.change > 0 ? '+' : ''}
-                            {row.log.change.toFixed(1)}
+                            {row.log.change.toFixed(2)}
                           </span>
                         </TableCell>
                         <TableCell>

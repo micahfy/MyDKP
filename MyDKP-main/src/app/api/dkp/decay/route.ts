@@ -48,7 +48,8 @@ export async function POST(request: NextRequest) {
 
       for (const player of players) {
         const beforeDkp = Number(player.currentDkp.toFixed(2));
-        const decayAmount = player.currentDkp * rate;
+        const baseForDecay = player.currentDkp > 0 ? player.currentDkp : 0;
+        const decayAmount = baseForDecay * rate;
         const newDkp = player.currentDkp - decayAmount;
         const changeValue = -decayAmount;
         const eventReason = `衰减 ${(rate * 100).toFixed(1)}%，衰减前DKP为 ${beforeDkp.toFixed(2)}`;
