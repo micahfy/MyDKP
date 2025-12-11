@@ -39,6 +39,7 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [importData, setImportData] = useState('');
   const [ignoreDuplicates, setIgnoreDuplicates] = useState(true);
+  const [createMissingPlayers, setCreateMissingPlayers] = useState(false);
   const [loading, setLoading] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -102,6 +103,7 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
           teamId: selectedTeamId,
           importData: importData.trim(),
           ignoreDuplicates,
+          createMissingPlayers,
         }),
       });
 
@@ -227,6 +229,19 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
             />
             <Label htmlFor="ignoreDuplicates" className="text-gray-200 cursor-pointer">
               自动跳过重复记录（同一玩家、分数、原因、日期、时间）
+            </Label>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="createMissingPlayers"
+              checked={createMissingPlayers}
+              onChange={(e) => setCreateMissingPlayers(e.target.checked)}
+              className="rounded"
+            />
+            <Label htmlFor="createMissingPlayers" className="text-gray-200 cursor-pointer">
+              导入时自动创建不存在的玩家（默认关闭，缺职业将用“待指派”）
             </Label>
           </div>
 

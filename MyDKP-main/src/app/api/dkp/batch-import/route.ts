@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const session = await getSession();
-    const { teamId, importData, ignoreDuplicates = true } = await request.json();
+    const { teamId, importData, ignoreDuplicates = true, createMissingPlayers = false } = await request.json();
 
     if (!teamId || !importData) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
       teamId,
       importData,
       ignoreDuplicates,
+      createMissingPlayers,
       operator: session.username || 'admin',
     });
 

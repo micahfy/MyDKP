@@ -169,10 +169,11 @@ export interface BatchImportParams {
   importData: string;
   ignoreDuplicates?: boolean;
   operator: string;
+  createMissingPlayers?: boolean;
 }
 
 export async function runBatchImport(params: BatchImportParams): Promise<BatchImportResult> {
-  const { teamId, importData, ignoreDuplicates = true, operator } = params;
+  const { teamId, importData, ignoreDuplicates = true, operator, createMissingPlayers = false } = params;
 
   const lines = importData
     .split('\n')
@@ -228,6 +229,12 @@ export async function runBatchImport(params: BatchImportParams): Promise<BatchIm
 
       let player = playerMap.get(playerName);
       let playerWasCreated = false;
+
+      if (!player && !createMissingPlayers) {
+        failedCount++;
+        errors.push({ line, error: `未找到角色：${playerName}（未启用自动创建）` });
+        continue;
+      }
 
       if (!player) {
         const playerClass = playerClassValue || DEFAULT_NEW_PLAYER_CLASS;
