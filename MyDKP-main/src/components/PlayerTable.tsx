@@ -43,6 +43,8 @@ interface PlayerTableProps {
   refreshKey?: number;
 }
 
+const formatDkp = (value: number) => Number(value.toFixed(2)).toString();
+
 const WOW_CLASSES = [
   '全部',
   '战士',
@@ -244,17 +246,17 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                           {player.class}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <span className="dkp-number text-blue-400">
-                          {player.currentDkp.toFixed(1)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right text-green-400 font-semibold">
-                        +{player.totalEarned.toFixed(1)}
-                      </TableCell>
-                      <TableCell className="text-right text-red-400 font-semibold">
-                        -{player.totalSpent.toFixed(1)}
-                      </TableCell>
+                    <TableCell className="text-right">
+                      <span className="dkp-number text-blue-400">
+                          {formatDkp(player.currentDkp)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right text-green-400 font-semibold">
+                        +{formatDkp(player.totalEarned)}
+                    </TableCell>
+                    <TableCell className="text-right text-red-400 font-semibold">
+                        -{formatDkp(player.totalSpent)}
+                    </TableCell>
                       <TableCell className="text-right">
                         <span className={`font-semibold ${
                           player.attendance >= 0.8 ? 'text-green-400' :
