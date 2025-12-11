@@ -340,6 +340,6 @@ export async function runBatchImport(params: BatchImportParams): Promise<BatchIm
     failed: failedCount,
     duplicate: duplicateCount,
     successList,
-    errors: errors.slice(0, 50),
+    errors,
   };
 }

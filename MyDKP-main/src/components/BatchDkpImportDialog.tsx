@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -40,6 +40,7 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
   const [loading, setLoading] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const resultRef = useRef<HTMLDivElement | null>(null);
 
   const availableTeams = teams.length > 0 ? teams : teamId ? [{ id: teamId, name: '当前团队' }] : [];
   const selectedTeamName = availableTeams.find((t) => t.id === selectedTeamId)?.name || '未选择团队';
@@ -84,6 +85,9 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
           successList: data.successList || [],
           errorList: data.errors || [],
         });
+        setTimeout(() => {
+          resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 50);
 
         if (data.failed === 0 && (data.duplicate || 0) === 0) {
           toast.success(`批量导入成功！共处理 ${data.success} 条记录`);
@@ -275,7 +279,10 @@ Aviere,3,孟菲斯托斯 替补,${dateStr},${timeStr},战士
       </Card>
 
       {importResult && (
-        <Card className="p-6 bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700">
+        <Card
+          ref={resultRef}
+          className="p-6 bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700"
+        >
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-100 flex items-center space-x-2">
               <FileSpreadsheet className="h-5 w-5 text-blue-400" />
