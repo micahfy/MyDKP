@@ -42,6 +42,7 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
   const [loading, setLoading] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const [showExamples, setShowExamples] = useState(false);
   const [showSuccessList, setShowSuccessList] = useState(false);
   const resultRef = useRef<HTMLDivElement | null>(null);
@@ -106,6 +107,7 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
           duplicateList: data.duplicateList || [],
         };
         setImportResult(nextResult);
+        setSummaryOpen(true);
         setTimeout(() => {
           resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 50);
@@ -399,23 +401,65 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
                 )}
               </div>
             )}
-
-            {importResult.errorList.length > 0 && (
-              <div className="bg-red-900/10 border border-red-700/30 p-4 rounded-lg">
-                <h4 className="text-sm font-semibold text-red-400 mb-2">❌ 失败的记录：</h4>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {importResult.errorList.map((item, index) => (
-                    <div key={index} className="bg-slate-900/50 p-2 rounded">
-                      <div className="text-sm text-gray-400 font-mono mb-1">原始数据: {item.line}</div>
-                      <div className="text-sm text-red-400">错误: {item.error}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </Card>
       )}
+
+      <AlertDialog open={summaryOpen} onOpenChange={setSummaryOpen}>
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>导入完成小结</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-gray-200">
+                <div className="flex space-x-6 text-sm">
+                  <span>成功：<strong className="text-green-400 text-base">{importResult?.success ?? 0}</strong></span>
+                  <span>失败：<strong className="text-red-400 text-base">{importResult?.failed ?? 0}</strong></span>
+                  <span>重复：<strong className="text-yellow-400 text-base">{importResult?.duplicate ?? 0}</strong></span>
+                </div>
+
+                {importResult?.errorList?.length ? (
+                  <div className="bg-red-900/10 border border-red-700/30 p-3 rounded">
+                    <div className="text-sm font-semibold text-red-300 mb-2">失败明细</div>
+                    <div className="space-y-2 max-h-48 overflow-y-auto text-sm">
+                      {importResult.errorList.map((item, idx) => (
+                        <div key={idx} className="bg-slate-900/50 p-2 rounded">
+                          <div className="text-gray-400 font-mono">原始: {item.line}</div>
+                          <div className="text-red-400">原因: {item.error}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {importResult?.duplicateList?.length ? (
+                  <div className="bg-amber-900/10 border border-amber-700/40 p-3 rounded">
+                    <div className="text-sm font-semibold text-amber-300 mb-2">重复记录（已跳过）</div>
+                    <div className="space-y-1 max-h-36 overflow-y-auto text-sm text-amber-100 font-mono">
+                      {importResult.duplicateList.map((item, idx) => (
+                        <div key={idx}>{item}</div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {importResult?.successList?.length ? (
+                  <details className="bg-green-900/10 border border-green-700/30 p-3 rounded text-sm" open={false}>
+                    <summary className="cursor-pointer text-green-300">成功记录（可展开查看）</summary>
+                    <div className="space-y-1 max-h-36 overflow-y-auto mt-2 text-gray-200 font-mono">
+                      {importResult.successList.map((item, idx) => (
+                        <div key={idx}>{item}</div>
+                      ))}
+                    </div>
+                  </details>
+                ) : null}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setSummaryOpen(false)}>确认</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* 底部示例卡片已合并到上方快速说明中，避免页面过长 */}
     </div>
