@@ -170,16 +170,16 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                 DKP 排行榜
               </span>
             </CardTitle>
-            {isAdmin && (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowDecayRank(true)}
-                  className="btn-glow border-orange-500 text-orange-300 hover:bg-orange-950"
-                >
-                  衰神排行榜
-                </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDecayRank(true)}
+                className="btn-glow border-orange-500 text-orange-300 hover:bg-orange-950"
+              >
+                帅神榜
+              </Button>
+              {isAdmin && (
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -189,8 +189,8 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                   <Download className="h-4 w-4 mr-2" />
                   导出 CSV
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="pt-6">
@@ -345,9 +345,9 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
       <Dialog open={showDecayRank} onOpenChange={setShowDecayRank}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>衰神排行榜</DialogTitle>
+            <DialogTitle>帅神榜</DialogTitle>
           </DialogHeader>
-          <div className="border border-orange-900/50 rounded-lg overflow-hidden">
+          <div className="border border-orange-900/50 rounded-lg overflow-hidden max-h-[70vh] overflow-y-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-900/60">
