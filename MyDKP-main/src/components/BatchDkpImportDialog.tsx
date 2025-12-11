@@ -122,8 +122,6 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
             }`,
           );
         }
-
-        onSuccess();
       } else {
         toast.error(data.error || '导入失败');
       }
@@ -133,6 +131,11 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
       setLoading(false);
       setConfirmOpen(false);
     }
+  };
+
+  const handleSummaryConfirm = () => {
+    setSummaryOpen(false);
+    onSuccess();
   };
 
 useEffect(() => {
@@ -462,7 +465,7 @@ useEffect(() => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setSummaryOpen(false)}>确认</AlertDialogAction>
+            <AlertDialogAction onClick={handleSummaryConfirm}>确认</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
