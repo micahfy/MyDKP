@@ -229,7 +229,7 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
     const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9\u4e00-\u9fa5_-]+/g, '-');
     const searchPart = search.trim() ? sanitize(search.trim()) : 'all';
     const deletedPart = includeDeleted ? 'with-deleted' : 'no-deleted';
-    return `dkp-logs_${viewMode}_team-${sanitize(teamName)}_type-${typeName}_search-${searchPart}_${deletedPart}_${dateStr}.csv`;
+    return `dkp-logs_${viewMode}_${sanitize(teamName)}_${typeName}_${searchPart}_${deletedPart}_${dateStr}.csv`;
   };
 
   const handleExportCsv = async () => {
