@@ -41,6 +41,7 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
   const [loading, setLoading] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [showExamples, setShowExamples] = useState(false);
   const resultRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -241,38 +242,39 @@ Aviere,3,孟菲斯托斯 替补,${dateStr},${timeStr},战士
             />
           </div>
 
-          <div className="bg-blue-900/30 border border-blue-700/50 p-4 rounded-lg">
+          <div className="bg-blue-900/30 border border-blue-700/50 p-4 rounded-lg space-y-3">
             <div className="flex items-start space-x-2">
               <FileSpreadsheet className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-gray-200">
-                <p className="font-semibold mb-2 text-blue-300">📋 格式说明</p>
+              <div className="text-sm text-gray-200 space-y-2">
+                <p className="font-semibold text-blue-300">快速说明</p>
                 <ul className="space-y-1 list-disc list-inside text-gray-300">
-                  <li>
-                    <strong>标准格式</strong>：角色名,分数,原因,日期,时间,职业
-                  </li>
-                  <li>
-                    <strong>支持双引号</strong>：可以使用 <code>"字段值"</code> 包裹，便于原因或名字里包含逗号
-                  </li>
-                  <li>日期支持 2024-12-20 / 2024/12/20，时间支持 20:30:45 / 20:30</li>
-                  <li>省略日期或时间时，会使用当前时间；省略职业且需新建角色时，职业将使用“待指派”</li>
-                  <li>每行独立处理，失败不会影响其他行；# 开头的行会被忽略</li>
+                  <li>标准：角色名,分数,原因,日期,时间,职业（支持双引号，日期/时间可缺省）</li>
+                  <li>缺职业且需新建角色时会用“待指派”；# 开头的行会被忽略</li>
+                  <li>省略日期/时间会用当前时间，成功/失败各自独立统计</li>
                 </ul>
               </div>
             </div>
-          </div>
+            <button
+              type="button"
+              className="text-xs text-blue-300 hover:text-blue-200 underline"
+              onClick={() => setShowExamples((v) => !v)}
+            >
+              {showExamples ? '收起示例' : '查看示例'}
+            </button>
+            {showExamples && (
+              <div className="bg-slate-900/60 border border-blue-800/40 p-3 rounded">
+                <pre className="text-xs font-mono text-gray-200 whitespace-pre-wrap">
+{`# 推荐：角色名,分数,原因,日期,时间,职业
+无敌战士,50,击杀奈法利安,2025-12-20,20:30:45,战士
+"Aviere",3,"孟菲斯托斯 替补","2025-12-08","14:15:07","战士"
 
-          <div className="bg-amber-900/30 border border-amber-700/50 p-4 rounded-lg">
-            <div className="flex items-start space-x-2">
-              <AlertCircle className="h-5 w-5 text-amber-400 mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-gray-200">
-                <p className="font-semibold mb-2 text-amber-300">⚠️ 注意事项</p>
-                <ul className="space-y-1 list-disc list-inside text-gray-300">
-                  <li>必须先选择导入团队，默认“未选择团队”</li>
-                  <li>角色不存在时会在该团队自动创建，缺失职业将标记为“待指派”</li>
-                  <li>操作会记录到 DKP 日志，时间会使用指定的日期时间</li>
-                </ul>
+# 缺省日期时间
+怒风,10,补记奖励,,,
+# 缺省职业（新角色将用“待指派”）
+新来的,5,活动补贴,2025-12-20,20:30:00`}
+                </pre>
               </div>
-            </div>
+            )}
           </div>
 
           <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
@@ -305,19 +307,6 @@ Aviere,3,孟菲斯托斯 替补,${dateStr},${timeStr},战士
             </Button>
           </AlertDialog>
 
-          {importResult && (
-            <div className="rounded-lg border border-blue-800/50 bg-blue-900/30 p-4 text-sm text-gray-100">
-              <div className="font-semibold mb-1">最新导入摘要</div>
-              <div className="space-x-4 text-gray-200">
-                <span>成功：<strong className="text-green-400">{importResult.success}</strong></span>
-                <span>失败：<strong className="text-red-400">{importResult.failed}</strong></span>
-                <span>重复：<strong className="text-yellow-400">{importResult.duplicate}</strong></span>
-              </div>
-              {importResult.failed > 0 && (
-                <div className="text-xs text-red-200 mt-2">详细失败原因见下方列表</div>
-              )}
-            </div>
-          )}
         </div>
       </Card>
 
@@ -388,39 +377,7 @@ Aviere,3,孟菲斯托斯 替补,${dateStr},${timeStr},战士
         </Card>
       )}
 
-      <Card className="p-6 bg-gradient-to-br from-green-900/30 to-emerald-900/30 border-green-700/50">
-        <div className="space-y-3">
-          <div className="flex items-center space-x-2">
-            <FileSpreadsheet className="h-5 w-5 text-green-400" />
-            <h3 className="text-lg font-semibold text-gray-100">示例数据</h3>
-          </div>
-
-          <div className="bg-slate-800 p-4 rounded-lg border border-green-700/50">
-            <pre className="text-xs font-mono text-gray-300 whitespace-pre-wrap">
-{`# 完整格式（推荐：包含职业）
-无敌战士,50,击杀奈法利安,2025-12-20,20:30:45,战士
-神圣奶妈,45,击杀奈法利安,2025-12-20,20:30:45,牧师
-
-# 简化格式（秒数可选）
-狂暴猎人,-30,购买装备,2025-12-20,20:30
-暗影刺客,-25,购买装备,2025-12-20,20:30
-
-# 可使用双引号避免逗号冲突
-"Aviere",3,"孟菲斯托斯 替补","2025-12-08","14:15:07","战士"
-
-# 补录历史数据
-痛苦术士,100,补发奖励,2024-11-01,18:00:00,术士
-野性德鲁伊,80,补发奖励,2024-11-01,18:00:00,德鲁伊`}
-            </pre>
-          </div>
-
-          <div className="bg-green-900/30 border border-green-700/50 p-3 rounded-lg">
-            <p className="text-xs text-gray-300">
-              💡 提示：可以混合使用完整格式和简化格式，系统会自动处理。缺失日期时间的记录将使用当前时间。
-            </p>
-          </div>
-        </div>
-      </Card>
+      {/* 底部示例卡片已合并到上方快速说明中，避免页面过长 */}
     </div>
   );
 }
