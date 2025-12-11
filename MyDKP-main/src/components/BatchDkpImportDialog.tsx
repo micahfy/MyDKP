@@ -31,6 +31,7 @@ interface ImportResult {
   duplicate: number;
   successList: string[];
   errorList: Array<{ line: string; error: string }>;
+  duplicateList?: string[];
 }
 
 export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkpImportDialogProps) {
@@ -42,6 +43,7 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [showExamples, setShowExamples] = useState(false);
+  const [showSuccessList, setShowSuccessList] = useState(false);
   const resultRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -112,6 +114,7 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
           duplicate: data.duplicate || 0,
           successList: data.successList || [],
           errorList: data.errors || [],
+          duplicateList: data.duplicateList || [],
         };
         setImportResult(nextResult);
         cacheResult(nextResult);
@@ -167,7 +170,6 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
     const timeStr = `${hour}:${minute}:${second}`;
 
     const example = `# 推荐完整格式：角色名,分数,原因,日期,时间,职业
-Aviere,3,孟菲斯托斯 替补,${dateStr},${timeStr},战士
 莱耶,5,团队首杀奖励,${dateStr},${timeStr},法师
 
 # 日期时间缺失时将使用当前时间
@@ -235,7 +237,6 @@ Aviere,3,孟菲斯托斯 替补,${dateStr},${timeStr},战士
               onChange={(e) => setImportData(e.target.value)}
               placeholder={`每行格式：角色名,分数,原因,日期,时间,职业
 示例：
-\"Aviere\",3,\"孟菲斯托斯 替补\",\"2025-12-08\",\"14:15:07\",\"战士\"
 \"无敌战士\",50,\"击杀奈法利安\"（省略日期时间时将使用当前时间）`}
               rows={12}
               className="font-mono text-sm bg-slate-800/80 border-slate-600 text-gray-200 placeholder:text-gray-500"
@@ -347,16 +348,54 @@ Aviere,3,孟菲斯托斯 替补,${dateStr},${timeStr},战士
               </div>
             </div>
 
-            {importResult.successList.length > 0 && (
-              <div className="bg-green-900/10 border border-green-700/30 p-4 rounded-lg">
-                <h4 className="text-sm font-semibold text-green-400 mb-2">✅ 成功导入的记录：</h4>
-                <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {importResult.successList.map((item, index) => (
-                    <div key={index} className="text-sm text-gray-300 font-mono">
+            {importResult.duplicateList && importResult.duplicateList.length > 0 && (
+              <div className="bg-amber-900/10 border border-amber-700/40 p-4 rounded-lg">
+                <h4 className="text-sm font-semibold text-amber-300 mb-2">重复记录（已跳过）：</h4>
+                <div className="space-y-1 max-h-36 overflow-y-auto">
+                  {importResult.duplicateList.map((item, index) => (
+                    <div key={index} className="text-sm text-amber-100 font-mono">
                       {item}
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {importResult.errorList.length > 0 && (
+              <div className="bg-red-900/10 border border-red-700/30 p-4 rounded-lg">
+                <h4 className="text-sm font-semibold text-red-400 mb-2">❌ 失败的记录：</h4>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {importResult.errorList.map((item, index) => (
+                    <div key={index} className="bg-slate-900/50 p-2 rounded">
+                      <div className="text-sm text-gray-400 font-mono mb-1">原始数据: {item.line}</div>
+                      <div className="text-sm text-red-400">错误: {item.error}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {importResult.successList.length > 0 && (
+              <div className="bg-green-900/10 border border-green-700/30 p-4 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-green-400">✅ 成功导入的记录（可折叠）</h4>
+                  <button
+                    type="button"
+                    className="text-xs text-green-300 hover:text-green-200 underline"
+                    onClick={() => setShowSuccessList((v) => !v)}
+                  >
+                    {showSuccessList ? '收起' : '展开'}
+                  </button>
+                </div>
+                {showSuccessList && (
+                  <div className="space-y-1 max-h-36 overflow-y-auto mt-2">
+                    {importResult.successList.map((item, index) => (
+                      <div key={index} className="text-sm text-gray-300 font-mono">
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

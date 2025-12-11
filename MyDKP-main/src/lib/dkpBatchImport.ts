@@ -161,6 +161,7 @@ export interface BatchImportResult {
   duplicate: number;
   successList: string[];
   errors: Array<{ line: string; error: string }>;
+  duplicateList?: string[];
 }
 
 export interface BatchImportParams {
@@ -183,6 +184,7 @@ export async function runBatchImport(params: BatchImportParams): Promise<BatchIm
   let duplicateCount = 0;
   const successList: string[] = [];
   const errors: Array<{ line: string; error: string }> = [];
+  const duplicateList: string[] = [];
 
   const teamPlayers = await prisma.player.findMany({
     where: { teamId },
@@ -271,6 +273,7 @@ export async function runBatchImport(params: BatchImportParams): Promise<BatchIm
 
       if (processedHashes.has(recordHash) || existingHashes.has(recordHash)) {
         duplicateCount++;
+        duplicateList.push(`${playerName}: ${changeValue >= 0 ? '+' : ''}${changeValue} [${dateStr} ${timeStr}]`);
         continue;
       }
 
@@ -341,5 +344,6 @@ export async function runBatchImport(params: BatchImportParams): Promise<BatchIm
     duplicate: duplicateCount,
     successList,
     errors,
+    duplicateList,
   };
 }
