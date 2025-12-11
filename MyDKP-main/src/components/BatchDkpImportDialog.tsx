@@ -135,6 +135,12 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
     }
   };
 
+  useEffect(() => {
+    if (importResult) {
+      setSummaryOpen(true);
+    }
+  }, [importResult]);
+
   const openConfirm = () => {
     if (!importData.trim()) {
       toast.error('请输入变动数据');
@@ -405,7 +411,7 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
         </Card>
       )}
 
-      <AlertDialog open={summaryOpen} onOpenChange={setSummaryOpen}>
+      <AlertDialog open={summaryOpen && !!importResult} onOpenChange={setSummaryOpen}>
         <AlertDialogContent className="max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>导入完成小结</AlertDialogTitle>
