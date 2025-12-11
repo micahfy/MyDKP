@@ -63,7 +63,6 @@ export function DecayDialog({ teamId, teams = [], onSuccess }: DecayDialogProps)
         setSummary({ rate: ratePercent, affected: data.affected });
         setSummaryOpen(true);
         setDecayRate('15');
-        onSuccess();
       } else {
         toast.error(data.error || '衰减失败');
       }
@@ -72,6 +71,11 @@ export function DecayDialog({ teamId, teams = [], onSuccess }: DecayDialogProps)
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSummaryConfirm = () => {
+    setSummaryOpen(false);
+    onSuccess();
   };
 
   return (
@@ -173,7 +177,7 @@ export function DecayDialog({ teamId, teams = [], onSuccess }: DecayDialogProps)
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setSummaryOpen(false)}>确认</AlertDialogAction>
+            <AlertDialogAction onClick={handleSummaryConfirm}>确认</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
