@@ -415,6 +415,8 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
               <TableBody>
                 {decayRanking.map((p, idx) => {
                   const isChampion = idx === 0;
+                  const championBg =
+                    'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.08), transparent 35%), radial-gradient(circle at 80% 30%, rgba(255,200,100,0.15), transparent 35%)';
                   return (
                     <TableRow
                       key={p.id}
@@ -423,10 +425,8 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                           ? 'relative overflow-hidden bg-gradient-to-r from-orange-900/50 via-amber-800/40 to-yellow-700/40 shadow-lg shadow-amber-500/40 ring-2 ring-amber-400/60'
                           : ''
                       }`}
+                      style={isChampion ? { backgroundImage: championBg } : undefined}
                     >
-                      {isChampion && (
-                        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.08),transparent_35%),radial-gradient(circle_at_80%_30%,rgba(255,200,100,0.15),transparent_35%)]" />
-                      )}
                       <TableCell className="text-gray-400">
                         {idx + 1}
                       </TableCell>
