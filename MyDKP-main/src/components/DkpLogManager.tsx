@@ -32,6 +32,19 @@ type ViewMode = 'entries' | 'events';
 
 const PAGE_SIZE = 25;
 
+const TYPE_LABELS: Record<string, string> = {
+  earn: '加分',
+  spend: '扣分',
+  decay: '衰减',
+  attendance: '出勤',
+  other: '其他',
+};
+
+const typeLabel = (type: string) => {
+  const key = (type || '').trim().toLowerCase();
+  return TYPE_LABELS[key] || type;
+};
+
 export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: () => void }) {
   const [logs, setLogs] = useState<ManageLog[]>([]);
   const [events, setEvents] = useState<DkpEventLog[]>([]);
@@ -309,7 +322,7 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
               <TableCell>{log.team?.name || '-'}</TableCell>
               <TableCell>
                 <Badge variant={log.change >= 0 ? 'default' : 'destructive'}>
-                  {log.type === 'earn' ? '加分' : log.type === 'spend' ? '扣分' : log.type}
+                  {typeLabel(log.type)}
                 </Badge>
               </TableCell>
               <TableCell className={log.change >= 0 ? 'text-green-500' : 'text-red-400'}>
@@ -390,11 +403,11 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
                       </div>
                     </TableCell>
                     <TableCell>{event.teamName}</TableCell>
-                    <TableCell>
-                      <Badge variant={event.change >= 0 ? 'default' : 'destructive'}>
-                        {event.type === 'earn' ? '加分' : event.type === 'spend' ? '扣分' : event.type}
-                      </Badge>
-                    </TableCell>
+                  <TableCell>
+                    <Badge variant={event.change >= 0 ? 'default' : 'destructive'}>
+                      {typeLabel(event.type)}
+                    </Badge>
+                  </TableCell>
                     <TableCell className={event.change >= 0 ? 'text-green-500' : 'text-red-400'}>
                       {event.change >= 0 ? '+' : ''}
                       {event.change.toFixed(2)}
