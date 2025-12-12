@@ -428,18 +428,16 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                       style={isChampion ? { backgroundImage: championBg } : undefined}
                     >
                       <TableCell className="text-gray-400">
+                        {idx === 0 && <Crown className="h-4 w-4 text-yellow-300 drop-shadow mb-1 block" />}
                         {idx + 1}
                       </TableCell>
                       <TableCell className={`font-semibold ${getClassColor(p.class)} flex flex-col gap-1`}>
                         {isChampion ? (
                           <div className="flex flex-col items-start gap-1">
-                            <div className="flex items-center gap-2">
-                              <Crown className="h-4 w-4 text-yellow-300 drop-shadow" />
-                              <span className="text-xs px-2 py-1 rounded-full bg-gradient-to-r from-amber-400 to-yellow-300 text-amber-900 font-bold shadow-md shadow-amber-400/50 animate-pulse whitespace-nowrap">
-                                {championSlogan || '最帅的那一个'}
-                              </span>
-                            </div>
                             <div className="flex items-center gap-2">{p.name}</div>
+                            <span className="text-xs px-2 py-1 rounded-full bg-gradient-to-r from-amber-400 to-yellow-300 text-amber-900 font-bold shadow-md shadow-amber-400/50 animate-pulse whitespace-nowrap">
+                              {championSlogan || '最帅的那一个'}
+                            </span>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">{p.name}</div>
