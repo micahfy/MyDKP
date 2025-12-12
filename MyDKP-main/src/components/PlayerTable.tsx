@@ -415,17 +415,27 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
               <TableBody>
                 {decayRanking.map((p, idx) => {
                   const isChampion = idx === 0;
-                  const championBg =
-                    'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.08), transparent 35%), radial-gradient(circle at 80% 30%, rgba(255,200,100,0.15), transparent 35%)';
+                  const championBg = [
+                    'linear-gradient(120deg, rgba(255,180,80,0.35), rgba(255,120,50,0.25), rgba(255,220,120,0.35))',
+                    'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.10), transparent 35%)',
+                    'radial-gradient(circle at 80% 30%, rgba(255,200,120,0.20), transparent 35%)',
+                  ].join(',');
                   return (
                     <TableRow
                       key={p.id}
                       className={`hover:bg-orange-950/30 ${
                         isChampion
-                          ? 'relative overflow-hidden bg-gradient-to-r from-orange-900/50 via-amber-800/40 to-yellow-700/40 shadow-lg shadow-amber-500/40 ring-2 ring-amber-400/60'
+                          ? 'relative overflow-hidden bg-gradient-to-r from-orange-900/50 via-amber-800/40 to-yellow-700/40 shadow-lg shadow-amber-500/60 ring-2 ring-amber-300/70'
                           : ''
                       }`}
-                      style={isChampion ? { backgroundImage: championBg } : undefined}
+                      style={
+                        isChampion
+                          ? {
+                              backgroundImage: championBg,
+                              boxShadow: '0 0 25px rgba(255,200,120,0.45)',
+                            }
+                          : undefined
+                      }
                     >
                       <TableCell className="text-gray-400">
                         {idx === 0 && <Crown className="h-4 w-4 text-yellow-300 drop-shadow mb-1 block" />}
