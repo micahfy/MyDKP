@@ -304,8 +304,30 @@ async function handleEventView(options: {
     })
     .filter(Boolean);
 
+  // 合并同一时间的衰减事件，避免每人一条导致过度拆分
+  const mergedEvents: any[] = [];
+  const decayMergeMap = new Map<string, any>();
+
+  for (const evt of normalizedEvents) {
+    if (evt.type === 'decay') {
+      const key = `${evt.teamId}|${new Date(evt.eventTime).toISOString()}`;
+      const existing = decayMergeMap.get(key);
+      if (existing) {
+        existing.players.push(...evt.players);
+        existing.change += evt.change ?? 0;
+        if (!existing.reason && evt.reason) existing.reason = evt.reason;
+        continue;
+      }
+      const clone = { ...evt, players: [...evt.players] };
+      decayMergeMap.set(key, clone);
+      mergedEvents.push(clone);
+    } else {
+      mergedEvents.push(evt);
+    }
+  }
+
   return NextResponse.json({
-    events: normalizedEvents,
+    events: mergedEvents,
     total,
     page,
     pageSize,
