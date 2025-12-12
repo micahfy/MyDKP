@@ -432,14 +432,16 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                         {idx + 1}
                       </TableCell>
                       <TableCell className={`font-semibold ${getClassColor(p.class)} flex flex-col gap-1`}>
-                        <div className="flex items-center gap-2">
-                          {p.name}
-                          {isChampion && (
+                        {isChampion ? (
+                          <div className="flex flex-col items-start gap-1">
+                            <div className="flex items-center gap-2">{p.name}</div>
                             <span className="text-xs px-2 py-1 rounded-full bg-gradient-to-r from-amber-400 to-yellow-300 text-amber-900 font-bold shadow-md shadow-amber-400/50 animate-pulse whitespace-nowrap">
                               {championSlogan || '最帅的那一个'}
                             </span>
-                          )}
-                        </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">{p.name}</div>
+                        )}
                       </TableCell>
                       <TableCell>
                         <span className={`class-badge ${getClassColor(p.class, 'bg')} ${getClassColor(p.class)} border ${getClassColor(p.class, 'border')}`}>
