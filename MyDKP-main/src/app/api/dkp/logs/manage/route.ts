@@ -503,7 +503,7 @@ async function exportEntriesCsv(options: {
     (r) =>
       `"${r.player.replace(/"/g, '""')}",${r.change},"${r.reason}","${r.date}","${r.time}","${r.team.replace(/"/g, '""')}"`
   );
-  const csv = [header, ...lines].join('\n');
+  const csv = '\uFEFF' + [header, ...lines].join('\n');
 
   const response = new NextResponse(csv);
   response.headers.set('Content-Type', 'text/csv; charset=utf-8');
