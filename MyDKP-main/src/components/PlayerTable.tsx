@@ -46,6 +46,36 @@ interface PlayerTableProps {
 
 const formatDkp = (value: number) => Number(value.toFixed(2)).toString();
 
+const CHAMPION_SLOGANS = [
+  '这个男人他最帅',
+  '帅到没朋友，帅到飞起',
+  '帅气值爆表，服务器报警',
+  '颜值碾压，DKP 也碾压',
+  '风度与分数并存的男人',
+  '帅是一种习惯，榜一是一种态度',
+  '帅到让衰减都绕路走',
+  '帅得坦克都嘲讽不动',
+  '帅出新高度，分高有道理',
+  '帅哥，请收下我的膝盖',
+  '帅得像早八的闹钟，叫醒所有人',
+  '帅得让奈法都想掉皇冠',
+  '帅到老板加薪，队友加分',
+  '帅得离谱，分也离谱',
+  '帅到把衰减当保养',
+  '帅得装备都主动绑定',
+  '帅到让 DKP 曲线直线飙升',
+  '帅到没人敢 roll，你说了算',
+  '帅得让 DKP 只增不减',
+  '帅到“待指派”都想指派给你',
+  '帅出银河系，衰减不敢追',
+  '帅得暴击率 100%',
+  '帅得像橙杖一样唯一',
+  '帅得像春天的达拉然，暖',
+  '帅得连治疗都看呆了',
+  '帅得连拍卖行都打折',
+  '帅得像光头强，稳健又可靠',
+];
+
 const WOW_CLASSES = [
   '全部',
   '战士',
@@ -68,6 +98,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [loading, setLoading] = useState(true);
   const [showDecayRank, setShowDecayRank] = useState(false);
+  const [championSlogan, setChampionSlogan] = useState('');
 
   useEffect(() => {
     if (teamId) {
@@ -84,6 +115,13 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
     () => [...players].sort((a, b) => b.totalDecay - a.totalDecay),
     [players],
   );
+
+  useEffect(() => {
+    if (showDecayRank) {
+      const pick = CHAMPION_SLOGANS[Math.floor(Math.random() * CHAMPION_SLOGANS.length)];
+      setChampionSlogan(pick);
+    }
+  }, [showDecayRank]);
 
   const fetchPlayers = async () => {
     setLoading(true);
@@ -375,28 +413,48 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {decayRanking.map((p, idx) => (
-                  <TableRow key={p.id} className="hover:bg-orange-950/30">
-                    <TableCell className="text-gray-400">
-                      {idx === 0 && <Crown className="inline h-4 w-4 text-yellow-400 mr-1" />}
-                      {idx + 1}
-                    </TableCell>
-                    <TableCell className={`font-semibold ${getClassColor(p.class)}`}>
-                      {p.name}
-                    </TableCell>
-                    <TableCell>
-                      <span className={`class-badge ${getClassColor(p.class, 'bg')} ${getClassColor(p.class)} border ${getClassColor(p.class, 'border')}`}>
-                        {p.class}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right text-orange-400 font-semibold">
-                      {formatDkp(p.totalDecay)}
-                    </TableCell>
-                    <TableCell className="text-right text-blue-300">
-                      {formatDkp(p.currentDkp)}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {decayRanking.map((p, idx) => {
+                  const isChampion = idx === 0;
+                  return (
+                    <TableRow
+                      key={p.id}
+                      className={`hover:bg-orange-950/30 ${
+                        isChampion
+                          ? 'relative overflow-hidden bg-gradient-to-r from-orange-900/50 via-amber-800/40 to-yellow-700/40 shadow-lg shadow-amber-500/40 ring-2 ring-amber-400/60'
+                          : ''
+                      }`}
+                    >
+                      {isChampion && (
+                        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.08),transparent_35%),radial-gradient(circle_at_80%_30%,rgba(255,200,100,0.15),transparent_35%)]" />
+                      )}
+                      <TableCell className="text-gray-400">
+                        {isChampion && <Crown className="inline h-4 w-4 text-yellow-300 mr-1 drop-shadow" />}
+                        {idx + 1}
+                      </TableCell>
+                      <TableCell className={`font-semibold ${getClassColor(p.class)} flex flex-col gap-1`}>
+                        <div className="flex items-center gap-2">
+                          {p.name}
+                          {isChampion && (
+                            <span className="text-xs px-2 py-1 rounded-full bg-gradient-to-r from-amber-400 to-yellow-300 text-amber-900 font-bold shadow-md shadow-amber-400/50 animate-pulse whitespace-nowrap">
+                              {championSlogan || '最帅的那一个'}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className={`class-badge ${getClassColor(p.class, 'bg')} ${getClassColor(p.class)} border ${getClassColor(p.class, 'border')}`}>
+                          {p.class}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right text-orange-400 font-semibold">
+                        {formatDkp(p.totalDecay)}
+                      </TableCell>
+                      <TableCell className="text-right text-blue-300">
+                        {formatDkp(p.currentDkp)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
