@@ -39,7 +39,7 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [teamFilter, setTeamFilter] = useState<string>('all');
-  const [includeDeleted, setIncludeDeleted] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'valid' | 'all' | 'deleted'>('valid');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
@@ -78,7 +78,7 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
       const params = new URLSearchParams({
         page: page.toString(),
         pageSize: PAGE_SIZE.toString(),
-        includeDeleted: String(includeDeleted),
+        status: statusFilter,
         view: viewMode,
       });
       if (teamFilter !== 'all') {
@@ -118,7 +118,7 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
       setLoading(false);
       setSelectedIds(new Set());
     }
-  }, [page, search, teamFilter, includeDeleted, viewMode, typeFilter]);
+  }, [page, search, teamFilter, statusFilter, viewMode, typeFilter]);
 
   useEffect(() => {
     fetchData();
@@ -228,15 +228,14 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
         : 'other';
     const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9\u4e00-\u9fa5_-]+/g, '-');
     const searchPart = search.trim() ? sanitize(search.trim()) : 'all';
-    const deletedPart = includeDeleted ? 'with-deleted' : 'no-deleted';
-    return `dkp-logs_${viewMode}_${sanitize(teamName)}_${typeName}_${searchPart}_${deletedPart}_${dateStr}.csv`;
+    return `dkp-logs_${viewMode}_${sanitize(teamName)}_${typeName}_${searchPart}_${statusFilter}_${dateStr}.csv`;
   };
 
   const handleExportCsv = async () => {
     setExporting(true);
     try {
       const params = new URLSearchParams({
-        includeDeleted: String(includeDeleted),
+        status: statusFilter,
         view: viewMode,
         format: 'csv',
       });
@@ -518,16 +517,23 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
               ))}
             </SelectContent>
           </Select>
-          <label className="flex items-center space-x-2 text-sm text-gray-400">
-            <Checkbox
-              checked={includeDeleted}
-              onCheckedChange={(checked) => {
-                setIncludeDeleted(Boolean(checked));
-                setPage(1);
-              }}
-            />
-            <span>显示已删除记录</span>
-          </label>
+          <Select
+            value={statusFilter}
+            onValueChange={(value) => {
+              const v = value as 'valid' | 'all' | 'deleted';
+              setStatusFilter(v);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="记录状态" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="valid">有效（默认）</SelectItem>
+              <SelectItem value="all">全部</SelectItem>
+              <SelectItem value="deleted">已删除</SelectItem>
+            </SelectContent>
+          </Select>
           <div className="flex items-center gap-2 ml-auto">
             <Button
               variant="secondary"

@@ -49,7 +49,10 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search')?.trim() || '';
     const type = searchParams.get('type')?.trim() || '';
     const teamId = searchParams.get('teamId');
-    const includeDeleted = searchParams.get('includeDeleted') === 'true';
+    const statusParam = searchParams.get('status') || 'valid';
+    const status: 'valid' | 'all' | 'deleted' = ['all', 'deleted', 'valid'].includes(statusParam)
+      ? (statusParam as any)
+      : 'valid';
     const view = searchParams.get('view') === 'events' ? 'events' : 'entries';
     const format = searchParams.get('format')?.trim();
 
@@ -68,7 +71,7 @@ export async function GET(request: NextRequest) {
         search,
         type,
         teamId,
-        includeDeleted,
+        status,
         superAdmin,
       });
     }
@@ -80,7 +83,7 @@ export async function GET(request: NextRequest) {
         search,
         type,
         teamId,
-        includeDeleted,
+        status,
         superAdmin,
       });
     }
@@ -91,7 +94,7 @@ export async function GET(request: NextRequest) {
       search,
       type,
       teamId,
-      includeDeleted,
+      status,
       superAdmin,
     });
   } catch (error) {
@@ -106,14 +109,16 @@ async function handleEntryView(options: {
   search: string;
   type: string;
   teamId: string | null;
-  includeDeleted: boolean;
+  status: 'valid' | 'all' | 'deleted';
   superAdmin: boolean;
 }) {
-  const { page, pageSize, search, type, teamId, includeDeleted, superAdmin } = options;
+  const { page, pageSize, search, type, teamId, status, superAdmin } = options;
 
   const where: any = {};
-  if (!includeDeleted) {
+  if (status === 'valid') {
     where.isDeleted = false;
+  } else if (status === 'deleted') {
+    where.isDeleted = true;
   }
   if (teamId) {
     where.teamId = teamId;
@@ -201,13 +206,14 @@ async function handleEventView(options: {
   search: string;
   type: string;
   teamId: string | null;
-  includeDeleted: boolean;
+  status: 'valid' | 'all' | 'deleted';
   superAdmin: boolean;
 }) {
-  const { page, pageSize, search, type, teamId, includeDeleted, superAdmin } = options;
+  const { page, pageSize, search, type, teamId, status, superAdmin } = options;
 
   const filters: any[] = [];
-  const logFilter = includeDeleted ? {} : { isDeleted: false };
+  const logFilter =
+    status === 'all' ? {} : status === 'deleted' ? { isDeleted: true } : { isDeleted: false };
 
   if (teamId) {
     filters.push({ teamId });
@@ -216,7 +222,7 @@ async function handleEventView(options: {
     filters.push({ teamId: { in: adminTeams } });
   }
 
-  if (!includeDeleted) {
+  if (status !== 'all') {
     filters.push({ logs: { some: logFilter } });
   }
 
@@ -278,7 +284,7 @@ async function handleEventView(options: {
         operator: log.operator || event.operator,
       }));
 
-      if (!includeDeleted && players.length === 0) {
+      if (status !== 'all' && players.length === 0) {
         return null;
       }
 
@@ -427,14 +433,16 @@ async function exportEntriesCsv(options: {
   search: string;
   type: string;
   teamId: string | null;
-  includeDeleted: boolean;
+  status: 'valid' | 'all' | 'deleted';
   superAdmin: boolean;
 }) {
-  const { search, type, teamId, includeDeleted, superAdmin } = options;
+  const { search, type, teamId, status, superAdmin } = options;
 
   const where: any = {};
-  if (!includeDeleted) {
+  if (status === 'valid') {
     where.isDeleted = false;
+  } else if (status === 'deleted') {
+    where.isDeleted = true;
   }
   if (teamId) {
     where.teamId = teamId;
