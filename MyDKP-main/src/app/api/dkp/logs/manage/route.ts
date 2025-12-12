@@ -297,7 +297,7 @@ async function handleEventView(options: {
         players,
       };
     })
-    .filter(Boolean);
+    .filter((e): e is NonNullable<typeof e> => Boolean(e));
 
   // 合并同一时间的衰减事件，避免每人一条导致过度拆分
   const mergedEvents: any[] = [];
