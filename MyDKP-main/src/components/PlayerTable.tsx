@@ -428,12 +428,12 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                         <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.08),transparent_35%),radial-gradient(circle_at_80%_30%,rgba(255,200,100,0.15),transparent_35%)]" />
                       )}
                       <TableCell className="text-gray-400">
-                        {isChampion && <Crown className="inline h-4 w-4 text-yellow-300 mr-1 drop-shadow" />}
                         {idx + 1}
                       </TableCell>
                       <TableCell className={`font-semibold ${getClassColor(p.class)} flex flex-col gap-1`}>
                         {isChampion ? (
                           <div className="flex flex-col items-start gap-1">
+                            <Crown className="h-4 w-4 text-yellow-300 drop-shadow" />
                             <div className="flex items-center gap-2">{p.name}</div>
                             <span className="text-xs px-2 py-1 rounded-full bg-gradient-to-r from-amber-400 to-yellow-300 text-amber-900 font-bold shadow-md shadow-amber-400/50 animate-pulse whitespace-nowrap">
                               {championSlogan || '最帅的那一个'}
