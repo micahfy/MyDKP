@@ -251,25 +251,20 @@ async function handleEventView(options: {
 
   const where = filters.length ? { AND: filters } : {};
 
-  const [events, total] = await prisma.$transaction([
-    prisma.dkpEvent.findMany({
-      where,
-      include: {
-        team: { select: { name: true } },
-        logs: {
-          where: logFilter,
-          include: {
-            player: { select: { name: true, class: true } },
-          },
-          orderBy: { createdAt: 'asc' },
+  const events = await prisma.dkpEvent.findMany({
+    where,
+    include: {
+      team: { select: { name: true } },
+      logs: {
+        where: logFilter,
+        include: {
+          player: { select: { name: true, class: true } },
         },
+        orderBy: { createdAt: 'asc' },
       },
-      orderBy: { eventTime: 'desc' },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    prisma.dkpEvent.count({ where }),
-  ]);
+    },
+    orderBy: { eventTime: 'desc' },
+  });
 
   const normalizedEvents = events
     .map((event) => {
@@ -326,8 +321,14 @@ async function handleEventView(options: {
     }
   }
 
+  // 重新分页（按事件时间降序）
+  mergedEvents.sort((a, b) => new Date(b.eventTime).getTime() - new Date(a.eventTime).getTime());
+  const total = mergedEvents.length;
+  const start = (page - 1) * pageSize;
+  const pagedEvents = mergedEvents.slice(start, start + pageSize);
+
   return NextResponse.json({
-    events: mergedEvents,
+    events: pagedEvents,
     total,
     page,
     pageSize,
