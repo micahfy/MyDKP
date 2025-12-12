@@ -115,6 +115,18 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
   };
 
   const handleExport = () => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(
+      now.getHours(),
+    )}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const teamName =
+      players.find((p) => p.team?.name)?.team?.name ||
+      filteredPlayers.find((p) => p.team?.name)?.team?.name ||
+      'team';
+    const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9\u4e00-\u9fa5_-]+/g, '-');
+    const fileName = `players_${sanitize(teamName)}_${dateStr}.csv`;
+
     const csv = [
       'name,class,current_dkp,total_earned,total_spent,attendance',
       ...filteredPlayers.map(
@@ -126,7 +138,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `players-${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = fileName;
     link.click();
     toast.success('导出成功！');
   };
