@@ -31,6 +31,8 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
   const [loading, setLoading] = useState(false);
   const [playerKeyword, setPlayerKeyword] = useState('');
   const [isComposing, setIsComposing] = useState(false);
+  const [preview, setPreview] = useState<{ classAverage: string; before: string; delta: string } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     if (teamId) {
@@ -62,11 +64,29 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
     [players, selectedPlayer],
   );
 
+  useEffect(() => {
+    if (operationType === 'makeup-auto' && selectedPlayerObj) {
+      fetchPreview();
+    } else {
+      setPreview(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [operationType, selectedPlayer]);
+
   const handleAdjustToClassAverage = async () => {
     if (!selectedPlayerObj) {
       toast.error('请先选择玩家');
       return;
     }
+    if (!preview) {
+      toast.error('正在获取职业均分，请稍后重试');
+      return;
+    }
+    const confirm = window.confirm(
+      `确认将 ${selectedPlayerObj.name} 补至职业均分？\n职业均分：${preview.classAverage}\n当前：${preview.before}\n补分：${preview.delta}`,
+    );
+    if (!confirm) return;
+
     setLoading(true);
     try {
       const res = await fetch('/api/dkp/adjust-to-class-average', {
@@ -81,9 +101,7 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
       if (!res.ok) {
         toast.error(data.error || '补分失败');
       } else {
-        toast.success(
-          `补分完成：职业均分${data.classAverage}，补分前${data.before}，补分${data.delta}`,
-        );
+        toast.success(`补分完成：职业均分${data.classAverage}，补分前${data.before}，补分${data.delta}`);
         onSuccess();
         fetchPlayers();
       }
@@ -94,10 +112,47 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
     }
   };
 
+  const fetchPreview = async () => {
+    if (!selectedPlayerObj) return;
+    setPreviewLoading(true);
+    try {
+      const res = await fetch('/api/dkp/adjust-to-class-average', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playerId: selectedPlayerObj.id,
+          teamId,
+          previewOnly: true,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPreview(null);
+        toast.error(data.error || '获取职业均分失败');
+      } else {
+        setPreview({
+          classAverage: data.classAverage,
+          before: data.before,
+          delta: data.delta,
+        });
+      }
+    } catch (error) {
+      setPreview(null);
+      toast.error('获取职业均分失败');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPlayer) {
       toast.error('请选择玩家');
+      return;
+    }
+
+    if (operationType === 'makeup-auto') {
+      await handleAdjustToClassAverage();
       return;
     }
 
@@ -190,6 +245,7 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
             <SelectContent>
               <SelectItem value="earn">加分</SelectItem>
               <SelectItem value="makeup">补分</SelectItem>
+              <SelectItem value="makeup-auto">补至职业平均</SelectItem>
               <SelectItem value="spend">支出（装备）</SelectItem>
               <SelectItem value="penalty">扣分</SelectItem>
               <SelectItem value="attendance">出勤奖励</SelectItem>
@@ -204,8 +260,9 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
           type="number"
           value={change}
           onChange={(e) => setChange(e.target.value)}
-          placeholder="输入变动数值"
-          required
+          placeholder={operationType === 'makeup-auto' ? '补至均分将自动计算' : '输入变动数值'}
+          required={operationType !== 'makeup-auto'}
+          disabled={operationType === 'makeup-auto'}
           step="0.1"
         />
       </div>
@@ -242,25 +299,38 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
         />
       </div>
 
-      <div className="rounded-md border border-amber-700/50 bg-amber-900/20 p-4 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="text-sm text-amber-100">
-            服务器实时计算职业均分，自动忽略最近 6 天的补分记录，无需手工锁定基准。
+      {operationType === 'makeup-auto' && (
+        <div className="rounded-md border border-amber-700/50 bg-amber-900/20 p-4 space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-sm text-amber-100">
+              服务器实时计算职业均分（自动忽略最近 6 天补分），无需手工输入数值。
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-amber-500 text-amber-200 hover:bg-amber-800/50"
+              onClick={fetchPreview}
+              disabled={previewLoading || !selectedPlayerObj}
+            >
+              {previewLoading ? '计算中...' : '重新计算均分'}
+            </Button>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="border-amber-500 text-amber-200 hover:bg-amber-800/50"
-            onClick={handleAdjustToClassAverage}
-            disabled={loading || !selectedPlayerObj}
-          >
-            补至本职业平均
-          </Button>
+          {selectedPlayerObj && preview && (
+            <div className="text-sm text-amber-100">
+              职业：<span className="font-semibold">{selectedPlayerObj.class}</span> · 均分：
+              <span className="font-semibold">{preview.classAverage}</span> · 当前：
+              <span className="font-semibold">{preview.before}</span> · 补分：
+              <span className="font-semibold text-amber-300">
+                {Number(preview.delta) > 0 ? '+' : ''}
+                {preview.delta}
+              </span>
+            </div>
+          )}
+          {!preview && selectedPlayerObj && (
+            <div className="text-sm text-amber-200">均分计算中，稍后提交前可点击“重新计算均分”。</div>
+          )}
         </div>
-        <p className="text-xs text-amber-200">
-          选中玩家后点击补分，会按（同职业当前分数总和-近6天补分）/人数 计算均分，再补到该值。
-        </p>
-      </div>
+      )}
 
       <Button type="submit" className="w-full" disabled={loading}>
         {loading ? '提交中...' : '提交变动'}

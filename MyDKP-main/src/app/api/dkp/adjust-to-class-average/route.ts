@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const session = await getSession();
-    const { playerId, teamId } = await request.json();
+    const { playerId, teamId, previewOnly } = await request.json();
 
     if (!playerId || !teamId) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
@@ -61,13 +61,16 @@ export async function POST(request: NextRequest) {
     const current = Number(player.currentDkp);
     const delta = Number((targetAvg - current).toFixed(2));
 
-    if (delta === 0) {
+    if (delta === 0 || previewOnly) {
       return NextResponse.json({
         success: true,
-        message: '当前分数已等于职业平均，无需补分',
+        message: delta === 0 ? '当前分数已等于职业平均，无需补分' : '预览成功',
+        player: player.name,
+        class: player.class,
         classAverage: targetAvg.toFixed(2),
         before: current.toFixed(2),
         delta: delta.toFixed(2),
+        previewOnly: Boolean(previewOnly),
       });
     }
 
@@ -115,6 +118,7 @@ export async function POST(request: NextRequest) {
       classAverage: targetAvg.toFixed(2),
       before: current.toFixed(2),
       delta: delta.toFixed(2),
+      previewOnly: false,
     });
   } catch (error) {
     console.error('adjust-to-class-average error:', error);
