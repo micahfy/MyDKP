@@ -100,6 +100,10 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error || '补分失败');
+      } else if (data.noChange) {
+        toast.success(`已记录：当前高于均分，无DKP变动。均分${data.classAverage}，当前${data.before}`);
+        onSuccess();
+        fetchPlayers();
       } else {
         toast.success(`补分完成：职业均分${data.classAverage}，补分前${data.before}，补分${data.delta}`);
         onSuccess();
@@ -324,6 +328,9 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
                 {Number(preview.delta) > 0 ? '+' : ''}
                 {preview.delta}
               </span>
+              {Number(preview.delta) < 0 && (
+                <span className="text-xs text-amber-200 ml-2">当前高于均分，将仅记录不变更DKP</span>
+              )}
             </div>
           )}
           {!preview && selectedPlayerObj && (

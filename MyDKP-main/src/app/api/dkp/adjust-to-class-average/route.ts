@@ -74,6 +74,47 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // 如果当前分数高于均分，只做记录，不调整分数
+    if (delta < 0) {
+      const reason = `补至职业平均（职业：${player.class}，平均：${targetAvg.toFixed(
+        2,
+      )}，当前：${current.toFixed(2)}），当前高于均分，仅记录，无DKP变动`;
+
+      const event = await prisma.dkpEvent.create({
+        data: {
+          teamId,
+          type: 'makeup',
+          change: 0,
+          reason,
+          operator: session.username || 'admin',
+        },
+      });
+
+      await prisma.dkpLog.create({
+        data: {
+          playerId: player.id,
+          teamId,
+          type: 'makeup',
+          change: 0,
+          reason,
+          operator: session.username || 'admin',
+          eventId: event.id,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        player: player.name,
+        class: player.class,
+        classAverage: targetAvg.toFixed(2),
+        before: current.toFixed(2),
+        delta: delta.toFixed(2),
+        noChange: true,
+        previewOnly: false,
+        message: '当前高于均分，仅记录，无DKP变动',
+      });
+    }
+
     const reason = `补至职业平均（职业：${player.class}，平均：${targetAvg.toFixed(
       2,
     )}，当前：${current.toFixed(2)}，补分：${delta.toFixed(2)}）`;
