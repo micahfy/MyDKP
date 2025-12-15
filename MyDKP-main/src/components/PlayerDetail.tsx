@@ -148,7 +148,11 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
     logs.forEach((log) => {
       const dateKey = new Date(log.createdAt).toISOString().slice(0, 10);
       const isGain =
-        log.change > 0 && log.type !== 'decay' && log.type !== 'spend' && !log.isDeleted;
+        log.change > 0 &&
+        log.type !== 'decay' &&
+        log.type !== 'spend' &&
+        log.type !== 'makeup' &&
+        !log.isDeleted;
 
       if (isGain) {
         let group = groupMap.get(dateKey);
