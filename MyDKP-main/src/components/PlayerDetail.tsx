@@ -29,7 +29,8 @@ interface PlayerDetailProps {
 
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   earn: { label: '加分', color: 'bg-green-500' },
-  spend: { label: '扣分', color: 'bg-red-500' },
+  makeup: { label: '补分', color: 'bg-purple-500' },
+  spend: { label: '支出', color: 'bg-red-500' },
   decay: { label: '衰减', color: 'bg-orange-500' },
   undo: { label: '撤销', color: 'bg-blue-500' },
   penalty: { label: '惩罚', color: 'bg-purple-500' },
@@ -38,6 +39,7 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
 
 const TYPE_TEXT_COLOR: Record<string, string> = {
   earn: 'text-green-600',
+  makeup: 'text-purple-600',
   spend: 'text-red-600',
   decay: 'text-orange-600',
   undo: 'text-blue-600',
