@@ -29,6 +29,7 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
   const [item, setItem] = useState('');
   const [boss, setBoss] = useState('');
   const [loading, setLoading] = useState(false);
+  const [playerKeyword, setPlayerKeyword] = useState('');
 
   useEffect(() => {
     if (teamId) {
@@ -45,6 +46,10 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
       toast.error('获取玩家列表失败');
     }
   };
+
+  const filteredPlayers = players.filter((p) =>
+    p.name.toLowerCase().includes(playerKeyword.trim().toLowerCase()),
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,12 +104,18 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label>选择玩家</Label>
+          <Input
+            value={playerKeyword}
+            onChange={(e) => setPlayerKeyword(e.target.value)}
+            placeholder="输入关键字快速筛选玩家"
+            className="mb-2"
+          />
           <Select value={selectedPlayer} onValueChange={setSelectedPlayer}>
             <SelectTrigger>
               <SelectValue placeholder="选择玩家" />
             </SelectTrigger>
             <SelectContent>
-              {players.map((player) => (
+              {filteredPlayers.map((player) => (
                 <SelectItem key={player.id} value={player.id}>
                   {player.name} ({player.class})
                 </SelectItem>
