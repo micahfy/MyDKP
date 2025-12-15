@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -47,8 +47,12 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
     }
   };
 
-  const filteredPlayers = players.filter((p) =>
-    p.name.toLowerCase().includes(playerKeyword.trim().toLowerCase()),
+  const filteredPlayers = useMemo(
+    () =>
+      playerKeyword.trim()
+        ? players.filter((p) => p.name.toLowerCase().includes(playerKeyword.trim().toLowerCase()))
+        : players,
+    [players, playerKeyword],
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -104,35 +108,29 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label>选择玩家</Label>
-          <Input
-            value={playerKeyword}
-            onChange={(e) => {
-              const value = e.target.value;
-              setPlayerKeyword(value);
-              const exact = players.find((p) => p.name === value);
-              if (exact) {
-                setSelectedPlayer(exact.id);
-              } else {
-                const filtered = players.filter((p) =>
-                  p.name.toLowerCase().includes(value.trim().toLowerCase()),
-                );
-                if (filtered.length === 1) {
-                  setSelectedPlayer(filtered[0].id);
-                } else {
-                  setSelectedPlayer('');
-                }
-              }
-            }}
-            list="player-options"
-            placeholder="输入或选择玩家（支持搜索）"
-          />
-          <datalist id="player-options">
-            {filteredPlayers.map((player) => (
-              <option key={player.id} value={player.name}>
-                {player.name} ({player.class})
-              </option>
-            ))}
-          </datalist>
+          <Select value={selectedPlayer} onValueChange={setSelectedPlayer}>
+            <SelectTrigger>
+              <SelectValue placeholder="选择玩家" />
+            </SelectTrigger>
+            <SelectContent className="max-h-64">
+              <div className="px-2 py-1">
+                <Input
+                  value={playerKeyword}
+                  onChange={(e) => setPlayerKeyword(e.target.value)}
+                  placeholder="输入关键字过滤"
+                  className="h-8"
+                />
+              </div>
+              {filteredPlayers.map((player) => (
+                <SelectItem key={player.id} value={player.id}>
+                  {player.name} ({player.class})
+                </SelectItem>
+              ))}
+              {filteredPlayers.length === 0 && (
+                <div className="px-3 py-2 text-sm text-gray-400">无匹配玩家</div>
+              )}
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
