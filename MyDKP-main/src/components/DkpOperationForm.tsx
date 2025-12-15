@@ -106,22 +106,33 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
           <Label>选择玩家</Label>
           <Input
             value={playerKeyword}
-            onChange={(e) => setPlayerKeyword(e.target.value)}
-            placeholder="输入关键字快速筛选玩家"
-            className="mb-2"
+            onChange={(e) => {
+              const value = e.target.value;
+              setPlayerKeyword(value);
+              const exact = players.find((p) => p.name === value);
+              if (exact) {
+                setSelectedPlayer(exact.id);
+              } else {
+                const filtered = players.filter((p) =>
+                  p.name.toLowerCase().includes(value.trim().toLowerCase()),
+                );
+                if (filtered.length === 1) {
+                  setSelectedPlayer(filtered[0].id);
+                } else {
+                  setSelectedPlayer('');
+                }
+              }
+            }}
+            list="player-options"
+            placeholder="输入或选择玩家（支持搜索）"
           />
-          <Select value={selectedPlayer} onValueChange={setSelectedPlayer}>
-            <SelectTrigger>
-              <SelectValue placeholder="选择玩家" />
-            </SelectTrigger>
-            <SelectContent>
-              {filteredPlayers.map((player) => (
-                <SelectItem key={player.id} value={player.id}>
-                  {player.name} ({player.class})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <datalist id="player-options">
+            {filteredPlayers.map((player) => (
+              <option key={player.id} value={player.name}>
+                {player.name} ({player.class})
+              </option>
+            ))}
+          </datalist>
         </div>
 
         <div>
