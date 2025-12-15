@@ -46,6 +46,13 @@ const typeLabel = (type: string) => {
   return TYPE_LABELS[key] || type;
 };
 
+const typeBadgeClass = (type: string, change: number) => {
+  const t = (type || '').toLowerCase();
+  if (t === 'makeup') return 'bg-purple-900/60 text-purple-100 border border-purple-400';
+  if (change < 0) return 'bg-red-900/60 text-red-200 border border-red-500/70';
+  return 'bg-emerald-900/60 text-emerald-100 border border-emerald-500/70';
+};
+
 export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: () => void }) {
   const [logs, setLogs] = useState<ManageLog[]>([]);
   const [events, setEvents] = useState<DkpEventLog[]>([]);
@@ -324,7 +331,7 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
               <TableCell>{log.player?.name || '-'}</TableCell>
               <TableCell>{log.team?.name || '-'}</TableCell>
               <TableCell>
-                <Badge variant={log.change >= 0 ? 'default' : 'destructive'}>
+                <Badge className={typeBadgeClass(log.type, log.change || 0)}>
                   {typeLabel(log.type)}
                 </Badge>
               </TableCell>
@@ -406,11 +413,11 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
                       </div>
                     </TableCell>
                     <TableCell>{event.teamName}</TableCell>
-                  <TableCell>
-                    <Badge variant={event.change >= 0 ? 'default' : 'destructive'}>
-                      {typeLabel(event.type)}
-                    </Badge>
-                  </TableCell>
+                    <TableCell>
+                      <Badge className={typeBadgeClass(event.type, event.change || 0)}>
+                        {typeLabel(event.type)}
+                      </Badge>
+                    </TableCell>
                     <TableCell className={event.change >= 0 ? 'text-green-500' : 'text-red-400'}>
                       {event.change >= 0 ? '+' : ''}
                       {event.change.toFixed(2)}

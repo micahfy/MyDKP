@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     const reason = `补至职业平均（职业：${player.class}，平均：${targetAvg.toFixed(
       2,
-    )}，当前：${current.toFixed(2)}，补分：${delta.toFixed(2)}，近6天补分已剔除）`;
+    )}，当前：${current.toFixed(2)}，补分：${delta.toFixed(2)}）`;
 
     const event = await prisma.dkpEvent.create({
       data: {
