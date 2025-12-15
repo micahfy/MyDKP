@@ -11,9 +11,9 @@ export async function POST(request: NextRequest) {
     }
 
     const session = await getSession();
-    const { playerId, teamId, classAverage } = await request.json();
+    const { playerId, teamId } = await request.json();
 
-    if (!playerId || !teamId || classAverage === undefined) {
+    if (!playerId || !teamId) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
     }
 
@@ -30,27 +30,55 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '未找到该玩家或不属于当前团队' }, { status: 404 });
     }
 
-    const targetAvg = Number(classAverage);
-    if (Number.isNaN(targetAvg)) {
-      return NextResponse.json({ error: '职业平均分无效' }, { status: 400 });
+    // 计算忽略近 6 天补分后的职业均分
+    const sixDaysAgo = new Date();
+    sixDaysAgo.setDate(sixDaysAgo.getDate() - 6);
+
+    const [classPlayers, makeupSumAgg] = await prisma.$transaction([
+      prisma.player.findMany({
+        where: { teamId, class: player.class },
+        select: { id: true, currentDkp: true },
+      }),
+      prisma.dkpLog.aggregate({
+        _sum: { change: true },
+        where: {
+          teamId,
+          type: 'makeup',
+          isDeleted: false,
+          createdAt: { gte: sixDaysAgo },
+          player: { class: player.class },
+        },
+      }),
+    ]);
+
+    if (classPlayers.length === 0) {
+      return NextResponse.json({ error: '该职业暂无玩家，无法计算均分' }, { status: 400 });
     }
 
+    const currentTotal = classPlayers.reduce((sum, p) => sum + Number(p.currentDkp || 0), 0);
+    const recentMakeup = Number(makeupSumAgg._sum.change || 0);
+    const targetAvg = Number(((currentTotal - recentMakeup) / classPlayers.length).toFixed(2));
     const current = Number(player.currentDkp);
     const delta = Number((targetAvg - current).toFixed(2));
 
     if (delta === 0) {
-      return NextResponse.json({ success: true, message: '当前分数已等于职业平均，无需补分' });
+      return NextResponse.json({
+        success: true,
+        message: '当前分数已等于职业平均，无需补分',
+        classAverage: targetAvg.toFixed(2),
+        before: current.toFixed(2),
+        delta: delta.toFixed(2),
+      });
     }
 
-    const operationType = delta >= 0 ? 'earn' : 'spend';
     const reason = `补至职业平均（职业：${player.class}，平均：${targetAvg.toFixed(
       2,
-    )}，当前：${current.toFixed(2)}，补分：${delta.toFixed(2)}）`;
+    )}，当前：${current.toFixed(2)}，补分：${delta.toFixed(2)}，近6天补分已剔除）`;
 
     const event = await prisma.dkpEvent.create({
       data: {
         teamId,
-        type: operationType,
+        type: 'makeup',
         change: delta,
         reason,
         operator: session.username || 'admin',
@@ -71,7 +99,7 @@ export async function POST(request: NextRequest) {
         data: {
           playerId: player.id,
           teamId,
-          type: operationType,
+          type: 'makeup',
           change: delta,
           reason,
           operator: session.username || 'admin',

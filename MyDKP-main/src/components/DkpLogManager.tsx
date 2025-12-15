@@ -34,7 +34,8 @@ const PAGE_SIZE = 25;
 
 const TYPE_LABELS: Record<string, string> = {
   earn: '加分',
-  spend: '扣分',
+  makeup: '补分',
+  spend: '支出',
   decay: '衰减',
   attendance: '出勤',
   other: '其他',
@@ -232,6 +233,8 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
         ? 'all'
         : typeFilter === 'earn'
         ? 'earn'
+        : typeFilter === 'makeup'
+        ? 'makeup'
         : typeFilter === 'spend'
         ? 'spend'
         : typeFilter === 'decay'
@@ -505,7 +508,8 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
           <SelectContent>
             <SelectItem value="all">全部类型</SelectItem>
             <SelectItem value="earn">加分</SelectItem>
-            <SelectItem value="spend">扣分</SelectItem>
+            <SelectItem value="makeup">补分</SelectItem>
+            <SelectItem value="spend">支出</SelectItem>
             <SelectItem value="decay">衰减</SelectItem>
             <SelectItem value="attendance">出勤</SelectItem>
             <SelectItem value="other">其他</SelectItem>

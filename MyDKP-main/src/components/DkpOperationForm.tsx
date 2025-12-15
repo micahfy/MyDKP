@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,11 +31,9 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
   const [loading, setLoading] = useState(false);
   const [playerKeyword, setPlayerKeyword] = useState('');
   const [isComposing, setIsComposing] = useState(false);
-  const [baselineByClass, setBaselineByClass] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (teamId) {
-      setBaselineByClass({});
       fetchPlayers();
     }
   }, [teamId]);
@@ -45,20 +43,6 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
       const res = await fetch(`/api/players?teamId=${teamId}`);
       const data = await res.json();
       setPlayers(data);
-      if (Object.keys(baselineByClass).length === 0) {
-        const map: Record<string, { sum: number; count: number }> = {};
-        data.forEach((p: Player) => {
-          const cls = p.class || 'unknown';
-          if (!map[cls]) map[cls] = { sum: 0, count: 0 };
-          map[cls].sum += p.currentDkp;
-          map[cls].count += 1;
-        });
-        const baseline: Record<string, number> = {};
-        Object.entries(map).forEach(([cls, v]) => {
-          baseline[cls] = Number((v.sum / v.count).toFixed(2));
-        });
-        setBaselineByClass(baseline);
-      }
     } catch (error) {
       toast.error('获取玩家列表失败');
     }
@@ -78,24 +62,9 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
     [players, selectedPlayer],
   );
 
-  const classBaseline = selectedPlayerObj ? baselineByClass[selectedPlayerObj.class] : undefined;
-  const classDelta =
-    selectedPlayerObj && classBaseline !== undefined
-      ? Number((classBaseline - selectedPlayerObj.currentDkp).toFixed(2))
-      : undefined;
-
   const handleAdjustToClassAverage = async () => {
     if (!selectedPlayerObj) {
       toast.error('请先选择玩家');
-      return;
-    }
-    if (classBaseline === undefined) {
-      toast.error('无法获取该职业的基准平均分');
-      return;
-    }
-    const delta = classDelta ?? 0;
-    if (delta === 0) {
-      toast.info('该玩家分数已等于职业平均，无需补分');
       return;
     }
     setLoading(true);
@@ -106,7 +75,6 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
         body: JSON.stringify({
           playerId: selectedPlayerObj.id,
           teamId,
-          classAverage: classBaseline,
         }),
       });
       const data = await res.json();
@@ -114,11 +82,10 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
         toast.error(data.error || '补分失败');
       } else {
         toast.success(
-          `补分完成：职业均分 ${classBaseline.toFixed(2)}，当前 ${selectedPlayerObj.currentDkp.toFixed(
-            2,
-          )}，补分 ${delta > 0 ? '+' : ''}${delta.toFixed(2)}`,
+          `补分完成：职业均分${data.classAverage}，补分前${data.before}，补分${data.delta}`,
         );
         onSuccess();
+        fetchPlayers();
       }
     } catch (error) {
       toast.error('补分失败，请重试');
@@ -157,13 +124,14 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
       });
 
       if (res.ok) {
-        toast.success('DKP变动记录成功！');
+        toast.success('DKP变动记录成功');
         setSelectedPlayer('');
         setChange('');
         setReason('');
         setItem('');
         setBoss('');
         onSuccess();
+        fetchPlayers();
       } else {
         const data = await res.json();
         toast.error(data.error || '操作失败');
@@ -220,10 +188,11 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="earn">获得DKP</SelectItem>
-              <SelectItem value="spend">消耗DKP（装备）</SelectItem>
+              <SelectItem value="earn">加分</SelectItem>
+              <SelectItem value="makeup">补分</SelectItem>
+              <SelectItem value="spend">支出（装备）</SelectItem>
               <SelectItem value="penalty">扣分</SelectItem>
-              <SelectItem value="attendance">出席奖励</SelectItem>
+              <SelectItem value="attendance">出勤奖励</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -273,33 +242,25 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
         />
       </div>
 
-      {selectedPlayerObj && classBaseline !== undefined && (
-        <div className="rounded-md border border-amber-700/50 bg-amber-900/20 p-4 space-y-2">
-          <div className="flex justify-between items-center">
-            <div className="text-sm text-amber-100">
-              职业：<span className="font-semibold">{selectedPlayerObj.class}</span> · 职业平均：
-              <span className="font-semibold">{classBaseline.toFixed(2)}</span> · 当前：
-              <span className="font-semibold">{selectedPlayerObj.currentDkp.toFixed(2)}</span>
-              · 预计补分：
-              <span className="font-semibold text-amber-300">
-                {classDelta !== undefined && (classDelta > 0 ? '+' : '') + classDelta.toFixed(2)}
-              </span>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              className="border-amber-500 text-amber-200 hover:bg-amber-800/50"
-              onClick={handleAdjustToClassAverage}
-              disabled={loading}
-            >
-              补至本职业平均
-            </Button>
+      <div className="rounded-md border border-amber-700/50 bg-amber-900/20 p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="text-sm text-amber-100">
+            服务器实时计算职业均分，自动忽略最近 6 天的补分记录，无需手工锁定基准。
           </div>
-          <p className="text-xs text-amber-200">
-            职业平均基于本次打开时的快照，多次补分不会互相影响。
-          </p>
+          <Button
+            type="button"
+            variant="outline"
+            className="border-amber-500 text-amber-200 hover:bg-amber-800/50"
+            onClick={handleAdjustToClassAverage}
+            disabled={loading || !selectedPlayerObj}
+          >
+            补至本职业平均
+          </Button>
         </div>
-      )}
+        <p className="text-xs text-amber-200">
+          选中玩家后点击补分，会按（同职业当前分数总和-近6天补分）/人数 计算均分，再补到该值。
+        </p>
+      </div>
 
       <Button type="submit" className="w-full" disabled={loading}>
         {loading ? '提交中...' : '提交变动'}
