@@ -30,6 +30,7 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
   const [boss, setBoss] = useState('');
   const [loading, setLoading] = useState(false);
   const [playerKeyword, setPlayerKeyword] = useState('');
+  const [isComposing, setIsComposing] = useState(false);
 
   useEffect(() => {
     if (teamId) {
@@ -47,12 +48,13 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
     }
   };
 
+  const effectiveKeyword = isComposing ? '' : playerKeyword.trim().toLowerCase();
   const filteredPlayers = useMemo(
     () =>
-      playerKeyword.trim()
-        ? players.filter((p) => p.name.toLowerCase().includes(playerKeyword.trim().toLowerCase()))
+      effectiveKeyword
+        ? players.filter((p) => p.name.toLowerCase().includes(effectiveKeyword))
         : players,
-    [players, playerKeyword],
+    [players, effectiveKeyword],
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -117,6 +119,11 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
                 <Input
                   value={playerKeyword}
                   onChange={(e) => setPlayerKeyword(e.target.value)}
+                  onCompositionStart={() => setIsComposing(true)}
+                  onCompositionEnd={(e) => {
+                    setIsComposing(false);
+                    setPlayerKeyword(e.currentTarget.value);
+                  }}
                   placeholder="输入关键字过滤"
                   className="h-8"
                   onKeyDown={(e) => e.stopPropagation()}
