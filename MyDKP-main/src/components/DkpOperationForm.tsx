@@ -119,6 +119,9 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
                   onChange={(e) => setPlayerKeyword(e.target.value)}
                   placeholder="输入关键字过滤"
                   className="h-8"
+                  onKeyDown={(e) => e.stopPropagation()}
+                  onKeyUp={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
                 />
               </div>
               {filteredPlayers.map((player) => (
