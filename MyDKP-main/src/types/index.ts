@@ -17,6 +17,8 @@ export interface Player {
   totalSpent: number;
   totalDecay: number;
   attendance: number;
+  isArchived?: boolean;
+  archivedAt?: string | null;
   teamId: string;
   team?: {
     name: string;

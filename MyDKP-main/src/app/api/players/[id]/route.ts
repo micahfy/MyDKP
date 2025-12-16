@@ -48,9 +48,13 @@ export async function PATCH(
     }
 
     const data = await request.json();
+    const updateData: any = { ...data };
+    if (typeof data.isArchived === 'boolean') {
+      updateData.archivedAt = data.isArchived ? new Date() : null;
+    }
     const player = await prisma.player.update({
       where: { id: params.id },
-      data,
+      data: updateData,
     });
     return NextResponse.json(player);
   } catch (error) {

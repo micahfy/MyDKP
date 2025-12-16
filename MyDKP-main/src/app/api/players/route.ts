@@ -10,9 +10,11 @@ export async function GET(request: NextRequest) {
     const teamId = searchParams.get('teamId');
     const search = searchParams.get('search');
     const classFilter = searchParams.get('class');
+    const includeArchived = searchParams.get('includeArchived') === '1';
 
     const where: any = {};
     if (teamId) where.teamId = teamId;
+    if (!includeArchived) where.isArchived = false;
     if (search) {
       where.name = { contains: search };
     }

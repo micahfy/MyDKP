@@ -149,7 +149,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
   const fetchPlayers = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/players?teamId=${teamId}`);
+      const res = await fetch(`/api/players?teamId=${teamId}${isAdmin ? '&includeArchived=1' : ''}`);
       const data = await res.json();
       setPlayers(data);
     } catch (error) {

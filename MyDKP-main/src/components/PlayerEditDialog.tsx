@@ -38,6 +38,7 @@ export function PlayerEditDialog({ player, open, onOpenChange, onSuccess }: Play
   const [name, setName] = useState(player.name);
   const [className, setClassName] = useState(player.class);
   const [attendance, setAttendance] = useState((player.attendance * 100).toFixed(0));
+  const [isArchived, setIsArchived] = useState(Boolean(player.isArchived));
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export function PlayerEditDialog({ player, open, onOpenChange, onSuccess }: Play
       setName(player.name);
       setClassName(player.class);
       setAttendance((player.attendance * 100).toFixed(0));
+      setIsArchived(Boolean(player.isArchived));
     }
   }, [open, player]);
 
@@ -70,7 +72,8 @@ export function PlayerEditDialog({ player, open, onOpenChange, onSuccess }: Play
         body: JSON.stringify({ 
           name: name.trim(), 
           class: className,
-          attendance: attendanceValue
+          attendance: attendanceValue,
+          isArchived,
         }),
       });
 
@@ -141,6 +144,17 @@ export function PlayerEditDialog({ player, open, onOpenChange, onSuccess }: Play
             <p className="text-xs text-gray-500 mt-1">
               当前 DKP 数据不会被修改
             </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              id="archived"
+              type="checkbox"
+              checked={isArchived}
+              onChange={(e) => setIsArchived(e.target.checked)}
+              className="h-4 w-4"
+            />
+            <Label htmlFor="archived">封存该玩家（访客不可见，不参与职业均分）</Label>
           </div>
 
           <DialogFooter>
