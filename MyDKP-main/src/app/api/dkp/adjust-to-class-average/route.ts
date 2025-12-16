@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
 
     const [classPlayers, makeupSumAgg] = await prisma.$transaction([
       prisma.player.findMany({
-        where: { teamId, class: player.class },
+        where: { teamId, class: player.class, isArchived: false },
         select: { id: true, currentDkp: true },
       }),
       prisma.dkpLog.aggregate({
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
           type: 'makeup',
           isDeleted: false,
           createdAt: { gte: sixDaysAgo },
-          player: { class: player.class },
+          player: { class: player.class, isArchived: false },
         },
       }),
     ]);
