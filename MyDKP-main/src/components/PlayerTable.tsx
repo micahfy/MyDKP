@@ -322,7 +322,9 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                   {filteredPlayers.map((player, index) => (
                     <TableRow
                       key={player.id}
-                      className="table-row-hover border-blue-900/50 cursor-pointer"
+                      className={`table-row-hover border-blue-900/50 cursor-pointer ${
+                        player.isArchived ? 'bg-gradient-to-r from-gray-900/70 via-slate-800/60 to-gray-900/70 opacity-70 ring-1 ring-gray-500/60' : ''
+                      }`}
                       onClick={() => setSelectedPlayer(player)}
                     >
                       <TableCell className="font-medium text-gray-400">
@@ -330,7 +332,14 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                         {index + 1}
                       </TableCell>
                       <TableCell className={`font-bold ${getClassColor(player.class)}`}>
-                        {player.name}
+                        <div className="flex items-center gap-2">
+                          {player.name}
+                          {player.isArchived && (
+                            <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-700 text-gray-100 border border-gray-400/60 shadow-inner">
+                              已封存
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <span className={`class-badge ${getClassColor(player.class, 'bg')} ${getClassColor(player.class)} border ${getClassColor(player.class, 'border')}`}>
