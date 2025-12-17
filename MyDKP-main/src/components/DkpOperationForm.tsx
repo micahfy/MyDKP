@@ -28,6 +28,7 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
   const [reason, setReason] = useState('');
   const [item, setItem] = useState('');
   const [boss, setBoss] = useState('');
+  const [makeupTime, setMakeupTime] = useState('');
   const [loading, setLoading] = useState(false);
   const [playerKeyword, setPlayerKeyword] = useState('');
   const [isComposing, setIsComposing] = useState(false);
@@ -72,6 +73,12 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [operationType, selectedPlayer]);
+
+  useEffect(() => {
+    if (operationType !== 'makeup') {
+      setMakeupTime('');
+    }
+  }, [operationType]);
 
   const handleAdjustToClassAverage = async () => {
     if (!selectedPlayerObj) {
@@ -160,6 +167,15 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
       return;
     }
 
+    if (operationType === 'makeup') {
+      const when = makeupTime ? new Date(makeupTime) : null;
+      const whenStr = when ? when.toLocaleString() : '当前时间';
+      const ok = window.confirm(
+        `确认提交补分？\n玩家：${selectedPlayerObj?.name || ''}\n变动：${change}\n时间：${whenStr}\n备注：${reason || '（空）'}`,
+      );
+      if (!ok) return;
+    }
+
     setLoading(true);
     try {
       const changeValue = parseFloat(change);
@@ -179,6 +195,9 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
           reason: reason || undefined,
           item: item || undefined,
           boss: boss || undefined,
+          ...(operationType === 'makeup' && makeupTime
+            ? { eventTime: new Date(makeupTime).toISOString() }
+            : {}),
         }),
       });
 
@@ -270,6 +289,21 @@ export function DkpOperationForm({ teamId, onSuccess }: DkpOperationFormProps) {
           step="0.1"
         />
       </div>
+
+      {operationType === 'makeup' && (
+        <div>
+          <Label>记录时间（可选）</Label>
+          <Input
+            type="datetime-local"
+            value={makeupTime}
+            onChange={(e) => setMakeupTime(e.target.value)}
+            placeholder="不填写则使用当前时间"
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            仅影响日志时间展示/合并，不会追溯影响已发生的衰减结果。
+          </p>
+        </div>
+      )}
 
       {operationType === 'spend' && (
         <div>

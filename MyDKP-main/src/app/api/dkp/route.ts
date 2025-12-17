@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const session = await getSession();
-    const { playerId, teamId, type, change, reason, item, boss } = await request.json();
+    const { playerId, teamId, type, change, reason, item, boss, eventTime } = await request.json();
 
     if (!playerId || !teamId || change === undefined) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
@@ -33,6 +33,15 @@ export async function POST(request: NextRequest) {
     // 验证玩家属于该团队
     if (player.teamId !== teamId) {
       return NextResponse.json({ error: '玩家不属于该团队' }, { status: 400 });
+    }
+
+    let effectiveEventTime = new Date();
+    if (type === 'makeup' && eventTime) {
+      const parsed = new Date(eventTime);
+      if (Number.isNaN(parsed.getTime())) {
+        return NextResponse.json({ error: '记录时间格式不正确' }, { status: 400 });
+      }
+      effectiveEventTime = parsed;
     }
 
     const lootItems = await fetchLootItems();
@@ -61,7 +70,7 @@ export async function POST(request: NextRequest) {
           item,
           boss,
           operator: session.username || 'admin',
-          eventTime: new Date(),
+          eventTime: effectiveEventTime,
         },
       });
 
