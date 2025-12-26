@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ImportDialog } from './ImportDialog';
@@ -26,6 +26,18 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
   const [hasPermission, setHasPermission] = useState(false);
   const [checkingPermission, setCheckingPermission] = useState(true);
   const [activeTab, setActiveTab] = useState('operation');
+  const [permittedTeamIds, setPermittedTeamIds] = useState<string[] | null>(null);
+
+  const permittedTeams = useMemo(() => {
+    if (isSuperAdmin) {
+      return teams;
+    }
+    if (!permittedTeamIds) {
+      return [];
+    }
+    const allowed = new Set(permittedTeamIds);
+    return teams.filter((team) => allowed.has(team.id));
+  }, [isSuperAdmin, permittedTeamIds, teams]);
 
   useEffect(() => {
     // 记住上一次选择的标签，避免组件重渲染后跳回默认
@@ -45,6 +57,40 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
   useEffect(() => {
     checkTeamPermission();
   }, [teamId, adminRole]);
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      setPermittedTeamIds(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchPermittedTeams = async () => {
+      try {
+        const res = await fetch('/api/auth/admin-teams');
+        if (!res.ok) {
+          throw new Error('Failed to load admin teams');
+        }
+        const data = await res.json();
+        if (!cancelled) {
+          const teamIds = Array.isArray(data?.teamIds) ? data.teamIds : [];
+          setPermittedTeamIds(teamIds);
+        }
+      } catch (error) {
+        console.error('Fetch admin teams error:', error);
+        if (!cancelled) {
+          setPermittedTeamIds([]);
+        }
+      }
+    };
+
+    fetchPermittedTeams();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isSuperAdmin]);
 
   const checkTeamPermission = async () => {
     if (!teamId) {
@@ -151,7 +197,7 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
           </TabsContent>
 
           <TabsContent value="batch-import" className="space-y-4">
-            <BatchDkpImportDialog teamId={teamId} teams={teams} onSuccess={onUpdate} />
+            <BatchDkpImportDialog teamId={teamId} teams={permittedTeams} onSuccess={onUpdate} />
           </TabsContent>
 
           <TabsContent value="import" className="space-y-4">
@@ -159,15 +205,15 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
           </TabsContent>
 
           <TabsContent value="decay" className="space-y-4">
-            <DecayDialog teamId={teamId} teams={teams} onSuccess={onUpdate} />
+            <DecayDialog teamId={teamId} teams={permittedTeams} onSuccess={onUpdate} />
           </TabsContent>
 
           <TabsContent value="logs" className="space-y-4">
-            <DkpLogManager teams={teams} onChange={onUpdate} />
+            <DkpLogManager teams={permittedTeams} onChange={onUpdate} />
           </TabsContent>
 
           <TabsContent value="webdkp" className="space-y-4">
-            <WebdkpImportTab teams={teams} />
+            <WebdkpImportTab teams={permittedTeams} />
           </TabsContent>
 
           {isSuperAdmin && (
