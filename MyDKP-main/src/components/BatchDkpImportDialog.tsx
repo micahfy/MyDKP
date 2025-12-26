@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, XCircle, Copy } from 'lucide-react';
@@ -37,6 +38,12 @@ interface ImportResult {
 export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkpImportDialogProps) {
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [importData, setImportData] = useState('');
+  const [importMode, setImportMode] = useState<'line' | 'roster'>('line');
+  const [rosterNames, setRosterNames] = useState('');
+  const [rosterChange, setRosterChange] = useState('');
+  const [rosterReason, setRosterReason] = useState('');
+  const [rosterDate, setRosterDate] = useState('');
+  const [rosterTime, setRosterTime] = useState('');
   const [ignoreDuplicates, setIgnoreDuplicates] = useState(true);
   const [createMissingPlayers, setCreateMissingPlayers] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -61,16 +68,75 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
     }
   }, []);
 
+  const parseRosterNames = (value: string) =>
+    value
+      .split(/[\n,，]+/)
+      .map((name) => name.trim())
+      .filter(Boolean);
+
+  const escapeCsvValue = (value: string) => {
+    const raw = value ?? '';
+    if (!raw) return '';
+    const escaped = raw.replace(/"/g, '""');
+    return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
+  };
+
+  const rosterNameList = useMemo(() => parseRosterNames(rosterNames), [rosterNames]);
+
   const availableTeams = teams.length > 0 ? teams : teamId ? [{ id: teamId, name: '当前团队' }] : [];
   const selectedTeamName = availableTeams.find((t) => t.id === selectedTeamId)?.name || '未选择团队';
   const recordCount = useMemo(
-    () => importData.split('\n').filter((line) => line.trim() && !line.trim().startsWith('#')).length,
-    [importData],
+    () =>
+      importMode === 'line'
+        ? importData.split('\n').filter((line) => line.trim() && !line.trim().startsWith('#')).length
+        : rosterNameList.length,
+    [importData, importMode, rosterNameList],
   );
+  const rosterChangeValue = parseFloat(rosterChange);
+  const rosterChangeValid = !Number.isNaN(rosterChangeValue);
+  const canImport =
+    importMode === 'line'
+      ? Boolean(importData.trim())
+      : rosterNameList.length > 0 && rosterChangeValid;
+
+  const buildImportPayload = () => {
+    if (importMode === 'line') {
+      const trimmed = importData.trim();
+      if (!trimmed) {
+        return { error: '请输入变动数据' };
+      }
+      return { data: trimmed };
+    }
+
+    if (rosterNameList.length === 0) {
+      return { error: '请输入角色名称' };
+    }
+
+    if (!rosterChangeValid) {
+      return { error: '请输入有效的分数' };
+    }
+
+    const reason = rosterReason.trim();
+    const dateStr = rosterDate.trim();
+    const timeStr = rosterTime.trim();
+    const hasDateTime = Boolean(dateStr && timeStr);
+    const changeText = String(rosterChangeValue);
+
+    const lines = rosterNameList.map((name) => {
+      const parts = [name, changeText, reason];
+      if (hasDateTime) {
+        parts.push(dateStr, timeStr);
+      }
+      return parts.map(escapeCsvValue).join(',');
+    });
+
+    return { data: lines.join('\n') };
+  };
 
   const handleImport = async () => {
-    if (!importData.trim()) {
-      toast.error('请输入变动数据');
+    const payload = buildImportPayload();
+    if (payload.error) {
+      toast.error(payload.error);
       setConfirmOpen(false);
       return;
     }
@@ -89,7 +155,7 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           teamId: selectedTeamId,
-          importData: importData.trim(),
+          importData: payload.data,
           ignoreDuplicates,
           createMissingPlayers,
         }),
@@ -114,7 +180,15 @@ export function BatchDkpImportDialog({ teamId, teams = [], onSuccess }: BatchDkp
 
         if (data.failed === 0 && (data.duplicate || 0) === 0) {
           toast.success(`批量导入成功！共处理 ${data.success} 条记录`);
-          setImportData('');
+          if (importMode === 'line') {
+            setImportData('');
+          } else {
+            setRosterNames('');
+            setRosterChange('');
+            setRosterReason('');
+            setRosterDate('');
+            setRosterTime('');
+          }
         } else {
           toast.warning(
             `导入完成：成功 ${data.success} 条，失败 ${data.failed} 条${
@@ -145,8 +219,9 @@ useEffect(() => {
   }, [importResult]);
 
   const openConfirm = () => {
-    if (!importData.trim()) {
-      toast.error('请输入变动数据');
+    const payload = buildImportPayload();
+    if (payload.error) {
+      toast.error(payload.error);
       return;
     }
     if (!selectedTeamId) {
@@ -167,6 +242,16 @@ useEffect(() => {
 
     const dateStr = `${year}-${month}-${day}`;
     const timeStr = `${hour}:${minute}:${second}`;
+
+    if (importMode === 'roster') {
+      setRosterNames(`莱耶,怒风
+无敌战士`);
+      setRosterChange('10');
+      setRosterReason('活动奖励');
+      setRosterDate(dateStr);
+      setRosterTime(timeStr);
+      return;
+    }
 
     const example = `# 推荐完整格式：角色名,分数,原因,日期,时间,职业
 莱耶,5,团队首杀奖励,${dateStr},${timeStr},法师
@@ -242,41 +327,63 @@ useEffect(() => {
             </Label>
           </div>
 
-          <div>
-            <Label className="text-gray-200">变动数据</Label>
-            <Textarea
-              value={importData}
-              onChange={(e) => setImportData(e.target.value)}
-              placeholder={`每行格式：角色名,分数,原因,日期,时间,职业
-示例：
-\"无敌战士\",50,\"击杀奈法利安\"（省略日期时间时将使用当前时间）`}
-              rows={12}
-              className="font-mono text-sm bg-slate-800/80 border-slate-600 text-gray-200 placeholder:text-gray-500"
-            />
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-300">导入方式</span>
+            <div className="rounded-md border border-blue-800/60 p-1 flex gap-1">
+              <Button
+                size="sm"
+                variant={importMode === 'line' ? 'default' : 'ghost'}
+                onClick={() => setImportMode('line')}
+              >
+                逐行导入
+              </Button>
+              <Button
+                size="sm"
+                variant={importMode === 'roster' ? 'default' : 'ghost'}
+                onClick={() => setImportMode('roster')}
+              >
+                名单导入
+              </Button>
+            </div>
           </div>
 
-          <div className="bg-blue-900/30 border border-blue-700/50 p-4 rounded-lg space-y-3">
-            <div className="flex items-start space-x-2">
-              <FileSpreadsheet className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-gray-200 space-y-2">
-                <p className="font-semibold text-blue-300">快速说明</p>
-                <ul className="space-y-1 list-disc list-inside text-gray-300">
-                  <li>标准：角色名,分数,原因,日期,时间,职业（支持双引号，日期/时间可缺省）</li>
-                  <li>缺职业且需新建角色时会用“待指派”；# 开头的行会被忽略</li>
-                  <li>省略日期/时间会用当前时间，成功/失败各自独立统计</li>
-                </ul>
+          {importMode === 'line' ? (
+            <>
+              <div>
+                <Label className="text-gray-200">变动数据</Label>
+                <Textarea
+                  value={importData}
+                  onChange={(e) => setImportData(e.target.value)}
+                  placeholder={`每行格式：角色名,分数,原因,日期,时间,职业
+示例：
+\"无敌战士\",50,\"击杀奈法利安\"（省略日期时间时将使用当前时间）`}
+                  rows={12}
+                  className="font-mono text-sm bg-slate-800/80 border-slate-600 text-gray-200 placeholder:text-gray-500"
+                />
               </div>
-            </div>
-            <button
-              type="button"
-              className="text-xs text-blue-300 hover:text-blue-200 underline"
-              onClick={() => setShowExamples((v) => !v)}
-            >
-              {showExamples ? '收起示例' : '查看示例'}
-            </button>
-            {showExamples && (
-              <div className="bg-slate-900/60 border border-blue-800/40 p-3 rounded">
-                <pre className="text-xs font-mono text-gray-200 whitespace-pre-wrap">
+
+              <div className="bg-blue-900/30 border border-blue-700/50 p-4 rounded-lg space-y-3">
+                <div className="flex items-start space-x-2">
+                  <FileSpreadsheet className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-gray-200 space-y-2">
+                    <p className="font-semibold text-blue-300">快速说明</p>
+                    <ul className="space-y-1 list-disc list-inside text-gray-300">
+                      <li>标准：角色名,分数,原因,日期,时间,职业（支持双引号，日期/时间可缺省）</li>
+                      <li>缺职业且需新建角色时会用“待指派”；# 开头的行会被忽略</li>
+                      <li>省略日期/时间会用当前时间，成功/失败各自独立统计</li>
+                    </ul>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="text-xs text-blue-300 hover:text-blue-200 underline"
+                  onClick={() => setShowExamples((v) => !v)}
+                >
+                  {showExamples ? '收起示例' : '查看示例'}
+                </button>
+                {showExamples && (
+                  <div className="bg-slate-900/60 border border-blue-800/40 p-3 rounded">
+                    <pre className="text-xs font-mono text-gray-200 whitespace-pre-wrap">
 {`# 推荐：角色名,分数,原因,日期,时间,职业
 无敌战士,50,击杀奈法利安,2025-12-20,20:30:45,战士
 "Aviere",3,"孟菲斯托斯 替补","2025-12-08","14:15:07","战士"
@@ -285,10 +392,105 @@ useEffect(() => {
 怒风,10,补记奖励,,,
 # 缺省职业（新角色将用“待指派”）
 新来的,5,活动补贴,2025-12-20,20:30:00`}
-                </pre>
+                    </pre>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-gray-200">角色名单（逗号或换行分隔）</Label>
+                  <Textarea
+                    value={rosterNames}
+                    onChange={(e) => setRosterNames(e.target.value)}
+                    placeholder={`例如：莱耶,怒风
+无敌战士`}
+                    rows={6}
+                    className="font-mono text-sm bg-slate-800/80 border-slate-600 text-gray-200 placeholder:text-gray-500"
+                  />
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div>
+                    <Label className="text-gray-200">分数</Label>
+                    <Input
+                      type="number"
+                      value={rosterChange}
+                      onChange={(e) => setRosterChange(e.target.value)}
+                      placeholder="例如 10"
+                      className="bg-slate-800/80 border-slate-600 text-gray-200"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-gray-200">原因</Label>
+                    <Input
+                      value={rosterReason}
+                      onChange={(e) => setRosterReason(e.target.value)}
+                      placeholder="例如 活动奖励"
+                      className="bg-slate-800/80 border-slate-600 text-gray-200"
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div>
+                    <Label className="text-gray-200">日期（可选）</Label>
+                    <Input
+                      value={rosterDate}
+                      onChange={(e) => setRosterDate(e.target.value)}
+                      placeholder="2025-12-20"
+                      className="bg-slate-800/80 border-slate-600 text-gray-200"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-gray-200">时间（可选）</Label>
+                    <Input
+                      value={rosterTime}
+                      onChange={(e) => setRosterTime(e.target.value)}
+                      placeholder="20:30:45"
+                      className="bg-slate-800/80 border-slate-600 text-gray-200"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">日期与时间需同时填写，否则默认使用当前时间。</p>
+              </div>
+
+              <div className="bg-blue-900/30 border border-blue-700/50 p-4 rounded-lg space-y-3">
+                <div className="flex items-start space-x-2">
+                  <FileSpreadsheet className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-gray-200 space-y-2">
+                    <p className="font-semibold text-blue-300">快速说明</p>
+                    <ul className="space-y-1 list-disc list-inside text-gray-300">
+                      <li>角色名单可用逗号或换行分隔，分数/原因只需填写一次</li>
+                      <li>日期与时间同时填写才会生效，否则使用当前时间</li>
+                      <li>缺职业且需新建角色时会用“待指派”</li>
+                    </ul>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="text-xs text-blue-300 hover:text-blue-200 underline"
+                  onClick={() => setShowExamples((v) => !v)}
+                >
+                  {showExamples ? '收起示例' : '查看示例'}
+                </button>
+                {showExamples && (
+                  <div className="bg-slate-900/60 border border-blue-800/40 p-3 rounded">
+                    <pre className="text-xs font-mono text-gray-200 whitespace-pre-wrap">
+{`角色名单：
+莱耶,怒风
+无敌战士
+
+分数：10
+原因：活动奖励
+日期：2025-12-20
+时间：20:30:45`}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
           <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
             <AlertDialogContent>
@@ -298,7 +500,7 @@ useEffect(() => {
                   <p>
                     将把 <strong>{recordCount}</strong> 条记录导入到团队
                     <strong className="text-blue-300"> {selectedTeamName} </strong>
-                    ，并写入指定的日期时间。
+                    ，未填写日期时间时将使用当前时间。
                   </p>
                   <p>重复记录处理：{ignoreDuplicates ? '自动跳过' : '允许重复写入'}</p>
                 </AlertDialogDescription>
@@ -314,7 +516,7 @@ useEffect(() => {
             <Button
               onClick={openConfirm}
               className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-              disabled={loading || !importData.trim() || !selectedTeamId}
+              disabled={loading || !selectedTeamId || !canImport}
             >
               {loading ? '导入中...' : '开始批量导入'}
             </Button>
