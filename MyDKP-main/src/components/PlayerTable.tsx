@@ -757,7 +757,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
       </Dialog>
 
       <Dialog open={showShameRank} onOpenChange={setShowShameRank}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto shame-rank-shell">
           <DialogHeader>
             <DialogTitle className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-rose-400 to-orange-400 flex items-center space-x-2">
               <span>耻辱榜</span>
