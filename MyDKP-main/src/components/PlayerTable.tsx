@@ -147,12 +147,16 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
   const [championSlogan, setChampionSlogan] = useState('');
   const [shameRanking, setShameRanking] = useState<ShameRankEntry[]>([]);
   const [shameLoading, setShameLoading] = useState(false);
-  const [faultKeywords, setFaultKeywords] = useState<FaultKeywordItem[]>([]);
+  const [faultKeywordsGlobal, setFaultKeywordsGlobal] = useState<FaultKeywordItem[]>([]);
+  const [faultKeywordsTeam, setFaultKeywordsTeam] = useState<FaultKeywordItem[]>([]);
   const [faultKeywordsLoading, setFaultKeywordsLoading] = useState(false);
   const [faultKeywordName, setFaultKeywordName] = useState('');
   const [faultKeywordBulk, setFaultKeywordBulk] = useState('');
+  const [globalKeywordName, setGlobalKeywordName] = useState('');
+  const [globalKeywordBulk, setGlobalKeywordBulk] = useState('');
   const [faultKeywordSubmitting, setFaultKeywordSubmitting] = useState(false);
   const [showKeywordPanel, setShowKeywordPanel] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   useEffect(() => {
     if (teamId) {
@@ -187,6 +191,13 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
   useEffect(() => {
     if (showShameRank && isAdmin) {
       fetchFaultKeywords();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showShameRank, isAdmin]);
+
+  useEffect(() => {
+    if (showShameRank && isAdmin) {
+      fetchAdminRole();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showShameRank, isAdmin]);
@@ -227,18 +238,35 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
     }
   };
 
+  const fetchAdminRole = async () => {
+    try {
+      const res = await fetch('/api/auth/check');
+      const data = await res.json();
+      setIsSuperAdmin(data?.role === 'super_admin');
+    } catch (error) {
+      setIsSuperAdmin(false);
+    }
+  };
+
   const fetchFaultKeywords = async () => {
+    if (!teamId) {
+      setFaultKeywordsGlobal([]);
+      setFaultKeywordsTeam([]);
+      return;
+    }
     setFaultKeywordsLoading(true);
     try {
-      const res = await fetch('/api/fault-keywords');
+      const res = await fetch(`/api/fault-keywords?teamId=${teamId}`);
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data?.error || '获取关键字失败');
       }
-      setFaultKeywords(Array.isArray(data) ? data : []);
+      setFaultKeywordsGlobal(Array.isArray(data?.global) ? data.global : []);
+      setFaultKeywordsTeam(Array.isArray(data?.team) ? data.team : []);
     } catch (error) {
       toast.error('获取关键字失败');
-      setFaultKeywords([]);
+      setFaultKeywordsGlobal([]);
+      setFaultKeywordsTeam([]);
     } finally {
       setFaultKeywordsLoading(false);
     }
@@ -260,6 +288,8 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
       toast.success(successMsg.replace('{count}', String(data.created || 0)));
       setFaultKeywordName('');
       setFaultKeywordBulk('');
+      setGlobalKeywordName('');
+      setGlobalKeywordBulk('');
       fetchFaultKeywords();
       fetchShameRanking();
     } catch (error: any) {
@@ -274,7 +304,10 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
       toast.error('请输入关键字');
       return;
     }
-    await submitFaultKeywords({ name: faultKeywordName.trim() }, '已新增 1 个关键字');
+    await submitFaultKeywords(
+      { name: faultKeywordName.trim(), scope: 'team', teamId },
+      '已新增 1 个关键字',
+    );
   };
 
   const handleBulkFaultKeywords = async () => {
@@ -283,7 +316,33 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
       toast.error('请输入要导入的关键字');
       return;
     }
-    await submitFaultKeywords({ text }, '已新增 {count} 个关键字');
+    await submitFaultKeywords(
+      { text, scope: 'team', teamId },
+      '已新增 {count} 个关键字',
+    );
+  };
+
+  const handleAddGlobalKeyword = async () => {
+    if (!globalKeywordName.trim()) {
+      toast.error('请输入关键字');
+      return;
+    }
+    await submitFaultKeywords(
+      { name: globalKeywordName.trim(), scope: 'global' },
+      '已新增 1 个全局关键字',
+    );
+  };
+
+  const handleBulkGlobalKeywords = async () => {
+    const text = globalKeywordBulk.trim();
+    if (!text) {
+      toast.error('请输入要导入的关键字');
+      return;
+    }
+    await submitFaultKeywords(
+      { text, scope: 'global' },
+      '已新增 {count} 个全局关键字',
+    );
   };
 
   const handleDeleteFaultKeyword = async (id: string, name: string) => {
@@ -732,43 +791,108 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                 </Button>
               </div>
               {showKeywordPanel && (
-                <div className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <label className="text-xs text-gray-400">新增关键字</label>
-                      <div className="flex gap-2">
-                        <Input
-                          value={faultKeywordName}
-                          onChange={(e) => setFaultKeywordName(e.target.value)}
-                          placeholder="例如：站位错误"
+                <div className="space-y-5">
+                  <div className="space-y-3 border border-slate-700/60 rounded-lg p-3">
+                    <div className="text-xs text-gray-400">全局关键字（总管理员维护）</div>
+                    {isSuperAdmin && (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <label className="text-xs text-gray-400">新增关键字</label>
+                          <div className="flex gap-2">
+                            <Input
+                              value={globalKeywordName}
+                              onChange={(e) => setGlobalKeywordName(e.target.value)}
+                              placeholder="例如：站位错误"
+                              className="bg-slate-900/60 border-slate-700 text-gray-100"
+                            />
+                            <Button onClick={handleAddGlobalKeyword} disabled={faultKeywordSubmitting}>
+                              添加
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs text-gray-400">批量导入（逗号/换行分隔）</label>
+                          <Textarea
+                            value={globalKeywordBulk}
+                            onChange={(e) => setGlobalKeywordBulk(e.target.value)}
+                            rows={4}
+                            className="bg-slate-900/60 border-slate-700 text-gray-100"
+                            placeholder="示例：踩雷\n开怪"
+                          />
+                          <Button
+                            onClick={handleBulkGlobalKeywords}
+                            className="w-full bg-red-700 hover:bg-red-800"
+                            disabled={faultKeywordSubmitting}
+                          >
+                            批量导入
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {faultKeywordsGlobal.map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center gap-1 rounded-full bg-slate-800/70 border border-slate-700 px-3 py-1 text-xs text-gray-200"
+                        >
+                          <span>{item.name}</span>
+                          {isSuperAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteFaultKeyword(item.id, item.name)}
+                              className="h-5 w-5 text-red-300 hover:text-red-200 hover:bg-red-900/40"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      {faultKeywordsGlobal.length === 0 && (
+                        <div className="text-xs text-gray-500">暂无全局关键字</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 border border-slate-700/60 rounded-lg p-3">
+                    <div className="text-xs text-gray-400">团队专用关键字</div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <label className="text-xs text-gray-400">新增关键字</label>
+                        <div className="flex gap-2">
+                          <Input
+                            value={faultKeywordName}
+                            onChange={(e) => setFaultKeywordName(e.target.value)}
+                            placeholder="例如：站位错误"
+                            className="bg-slate-900/60 border-slate-700 text-gray-100"
+                          />
+                          <Button onClick={handleAddFaultKeyword} disabled={faultKeywordSubmitting}>
+                            添加
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs text-gray-400">批量导入（逗号/换行分隔）</label>
+                        <Textarea
+                          value={faultKeywordBulk}
+                          onChange={(e) => setFaultKeywordBulk(e.target.value)}
+                          rows={4}
                           className="bg-slate-900/60 border-slate-700 text-gray-100"
+                          placeholder="示例：踩雷\n开怪"
                         />
-                        <Button onClick={handleAddFaultKeyword} disabled={faultKeywordSubmitting}>
-                          添加
+                        <Button
+                          onClick={handleBulkFaultKeywords}
+                          className="w-full bg-red-700 hover:bg-red-800"
+                          disabled={faultKeywordSubmitting}
+                        >
+                          批量导入
                         </Button>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-xs text-gray-400">批量导入（逗号/换行分隔）</label>
-                      <Textarea
-                        value={faultKeywordBulk}
-                        onChange={(e) => setFaultKeywordBulk(e.target.value)}
-                        rows={4}
-                        className="bg-slate-900/60 border-slate-700 text-gray-100"
-                        placeholder="示例：踩雷\n开怪"
-                      />
-                      <Button
-                        onClick={handleBulkFaultKeywords}
-                        className="w-full bg-red-700 hover:bg-red-800"
-                        disabled={faultKeywordSubmitting}
-                      >
-                        批量导入
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-400">当前关键字（{faultKeywords.length}）</span>
+                      <span className="text-xs text-gray-400">
+                        当前团队关键字（{faultKeywordsTeam.length}）
+                      </span>
                       <Button
                         variant="outline"
                         size="sm"
@@ -779,12 +903,12 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                       </Button>
                     </div>
                     {faultKeywordsLoading ? (
-                      <div className="text-center text-gray-400 py-6">加载中...</div>
-                    ) : faultKeywords.length === 0 ? (
-                      <div className="text-center text-gray-400 py-6">暂无关键字</div>
+                      <div className="text-center text-gray-400 py-4">加载中...</div>
+                    ) : faultKeywordsTeam.length === 0 ? (
+                      <div className="text-center text-gray-400 py-4">暂无团队关键字</div>
                     ) : (
                       <div className="flex flex-wrap gap-2">
-                        {faultKeywords.map((item) => (
+                        {faultKeywordsTeam.map((item) => (
                           <div
                             key={item.id}
                             className="flex items-center gap-1 rounded-full bg-slate-800/70 border border-slate-700 px-3 py-1 text-xs text-gray-200"
@@ -803,6 +927,12 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                       </div>
                     )}
                   </div>
+
+                  {!isSuperAdmin && (
+                    <div className="text-xs text-gray-500">
+                      全局关键字由总管理员维护，你可以在此基础上维护团队专用关键字。
+                    </div>
+                  )}
                 </div>
               )}
             </div>

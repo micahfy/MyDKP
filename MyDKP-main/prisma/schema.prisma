@@ -151,10 +151,17 @@ model LootItem {
 
 model FaultKeyword {
   id        String   @id @default(cuid())
-  name      String   @unique
+  name      String
+  scope     String   @default("global")
+  teamId    String?
+  createdByAdminId String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  team Team? @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdByAdmin Admin? @relation(fields: [createdByAdminId], references: [id], onDelete: SetNull)
+
+  @@unique([name, scope, teamId])
   @@map("fault_keywords")
 }
 

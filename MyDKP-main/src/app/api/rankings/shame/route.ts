@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     const lastWeekStart = addDays(currentWeekStart, -7);
     const prevWeekStart = addDays(currentWeekStart, -14);
 
-    const faultKeywords = await fetchFaultKeywordNames();
+    const faultKeywords = await fetchFaultKeywordNames(teamId);
     if (faultKeywords.length === 0) {
       return NextResponse.json({ items: [], keywords: [] });
     }

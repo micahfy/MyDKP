@@ -1,14 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ensureFaultKeywords } from '@/lib/faultKeywords';
-import { isAdmin } from '@/lib/auth';
+import { ensureGlobalFaultKeywords } from '@/lib/faultKeywords';
+import { getSession, hasTeamPermission, isAdmin, isSuperAdmin } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const keywords = await ensureFaultKeywords();
-    return NextResponse.json(keywords);
+    if (!(await isAdmin())) {
+      return NextResponse.json({ error: '权限不足' }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const teamId = searchParams.get('teamId') || '';
+    const superAdmin = await isSuperAdmin();
+
+    if (!teamId) {
+      if (!superAdmin) {
+        return NextResponse.json({ error: '缺少团队ID' }, { status: 400 });
+      }
+      const globalKeywords = await ensureGlobalFaultKeywords();
+      return NextResponse.json({ global: globalKeywords, team: [] });
+    }
+
+    if (!superAdmin) {
+      const permitted = await hasTeamPermission(teamId);
+      if (!permitted) {
+        return NextResponse.json({ error: '您没有权限操作该团队' }, { status: 403 });
+      }
+    }
+
+    const globalKeywords = await ensureGlobalFaultKeywords();
+    const teamKeywords = await prisma.faultKeyword.findMany({
+      where: { scope: 'team', teamId },
+      orderBy: { name: 'asc' },
+    });
+
+    return NextResponse.json({ global: globalKeywords, team: teamKeywords });
   } catch (error) {
     console.error('Get fault keywords error:', error);
     return NextResponse.json({ error: '获取关键字失败' }, { status: 500 });
@@ -24,6 +52,22 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const name = typeof body.name === 'string' ? body.name.trim() : '';
     const text = typeof body.text === 'string' ? body.text.trim() : '';
+    const scope = body.scope === 'global' ? 'global' : 'team';
+    const teamId = typeof body.teamId === 'string' ? body.teamId.trim() : '';
+
+    if (scope === 'global') {
+      if (!(await isSuperAdmin())) {
+        return NextResponse.json({ error: '权限不足' }, { status: 403 });
+      }
+    } else {
+      if (!teamId) {
+        return NextResponse.json({ error: '缺少团队ID' }, { status: 400 });
+      }
+      const permitted = await hasTeamPermission(teamId);
+      if (!permitted) {
+        return NextResponse.json({ error: '您没有权限操作该团队' }, { status: 403 });
+      }
+    }
 
     let names: string[] = [];
     if (name) {
@@ -40,8 +84,16 @@ export async function POST(request: NextRequest) {
     }
 
     const uniqueNames = Array.from(new Set(names));
+    const whereClause: any = scope === 'global'
+      ? { scope: 'global', name: { in: uniqueNames } }
+      : {
+          OR: [
+            { scope: 'global', name: { in: uniqueNames } },
+            { scope: 'team', teamId, name: { in: uniqueNames } },
+          ],
+        };
     const existing = await prisma.faultKeyword.findMany({
-      where: { name: { in: uniqueNames } },
+      where: whereClause,
       select: { name: true },
     });
     const existingSet = new Set(existing.map((item) => item.name));
@@ -50,8 +102,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ created: 0 });
     }
 
+    const session = await getSession();
     const result = await prisma.faultKeyword.createMany({
-      data: toCreate.map((value) => ({ name: value })),
+      data: toCreate.map((value) => ({
+        name: value,
+        scope,
+        teamId: scope === 'team' ? teamId : null,
+        createdByAdminId: session.adminId || null,
+      })),
     });
 
     return NextResponse.json({ created: result.count || 0 });
