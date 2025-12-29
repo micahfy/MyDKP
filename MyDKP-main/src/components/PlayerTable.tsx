@@ -380,7 +380,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
   };
 
   const formatWeekStat = (week: { count: number; score: number }) =>
-    `${week.count}/${formatPenalty(week.score)}`;
+    `${week.count}次/${formatPenalty(week.score)}分`;
 
   const handleExport = () => {
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -722,14 +722,14 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
       </Dialog>
 
       <Dialog open={showShameRank} onOpenChange={setShowShameRank}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-rose-400 to-orange-400 flex items-center space-x-2">
               <span>耻辱榜</span>
             </DialogTitle>
           </DialogHeader>
           <p className="text-xs text-gray-500">最近三周的犯错扣分记录排行榜</p>
-          <div className="border border-red-900/40 rounded-lg overflow-hidden max-h-[70vh] overflow-y-auto">
+          <div className="border border-red-900/40 rounded-lg overflow-hidden">
             {shameLoading ? (
               <div className="py-10 text-center text-gray-400">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-red-500 border-t-transparent"></div>
