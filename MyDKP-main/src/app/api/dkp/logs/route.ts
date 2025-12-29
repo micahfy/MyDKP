@@ -31,10 +31,7 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         );
       }
-      const hasPermission = await hasTeamPermission(effectiveTeamId);
-      if (!hasPermission) {
-        return NextResponse.json({ error: '无权访问该团队' }, { status: 403 });
-      }
+      await hasTeamPermission(effectiveTeamId);
     } else if (!isAdmin) {
       if (!effectiveTeamId) {
         return NextResponse.json(

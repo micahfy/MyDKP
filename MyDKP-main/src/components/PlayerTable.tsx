@@ -157,6 +157,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
   const [faultKeywordSubmitting, setFaultKeywordSubmitting] = useState(false);
   const [showKeywordPanel, setShowKeywordPanel] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [canManageFaultKeywords, setCanManageFaultKeywords] = useState(false);
 
   useEffect(() => {
     if (teamId) {
@@ -190,17 +191,31 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
 
   useEffect(() => {
     if (showShameRank && isAdmin) {
-      fetchFaultKeywords();
+      fetchAdminRole();
+    } else {
+      setIsSuperAdmin(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showShameRank, isAdmin]);
 
   useEffect(() => {
     if (showShameRank && isAdmin) {
-      fetchAdminRole();
+      checkFaultKeywordPermission();
+    } else {
+      setCanManageFaultKeywords(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showShameRank, isAdmin]);
+  }, [showShameRank, isAdmin, teamId, isSuperAdmin]);
+
+  useEffect(() => {
+    if (showShameRank && canManageFaultKeywords) {
+      fetchFaultKeywords();
+    } else {
+      setFaultKeywordsGlobal([]);
+      setFaultKeywordsTeam([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showShameRank, canManageFaultKeywords]);
 
   useEffect(() => {
     if (!showShameRank) {
@@ -248,8 +263,28 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
     }
   };
 
+  const checkFaultKeywordPermission = async () => {
+    if (!isAdmin || !teamId) {
+      setCanManageFaultKeywords(false);
+      return;
+    }
+
+    if (isSuperAdmin) {
+      setCanManageFaultKeywords(true);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/auth/check-team-permission?teamId=${teamId}`);
+      const data = await res.json();
+      setCanManageFaultKeywords(data?.hasPermission === true);
+    } catch (error) {
+      setCanManageFaultKeywords(false);
+    }
+  };
+
   const fetchFaultKeywords = async () => {
-    if (!teamId) {
+    if (!teamId || !canManageFaultKeywords) {
       setFaultKeywordsGlobal([]);
       setFaultKeywordsTeam([]);
       return;
@@ -778,7 +813,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
               </Table>
             )}
           </div>
-          {isAdmin && (
+          {isAdmin && canManageFaultKeywords && (
             <div className="mt-4 border border-slate-700/60 rounded-lg p-4 space-y-3 bg-slate-900/40">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-200">犯错扣分关键字</h3>
