@@ -44,7 +44,22 @@ interface PlayerTableProps {
   refreshKey?: number;
 }
 
+interface ShameRankEntry {
+  playerId: string;
+  playerName: string;
+  playerClass: string;
+  totalCount: number;
+  totalScore: number;
+  weeks: {
+    current: { count: number; score: number };
+    last: { count: number; score: number };
+    prev: { count: number; score: number };
+  };
+}
+
 const formatDkp = (value: number) => Number(value.toFixed(2)).toString();
+const formatPenalty = (value: number) =>
+  value === 0 ? '0' : `-${formatDkp(Math.abs(value))}`;
 
 const CHAMPION_SLOGANS = [
   '帅冠全服',
@@ -121,7 +136,10 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [loading, setLoading] = useState(true);
   const [showDecayRank, setShowDecayRank] = useState(false);
+  const [showShameRank, setShowShameRank] = useState(false);
   const [championSlogan, setChampionSlogan] = useState('');
+  const [shameRanking, setShameRanking] = useState<ShameRankEntry[]>([]);
+  const [shameLoading, setShameLoading] = useState(false);
 
   useEffect(() => {
     if (teamId) {
@@ -146,6 +164,13 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
     }
   }, [showDecayRank]);
 
+  useEffect(() => {
+    if (showShameRank && teamId) {
+      fetchShameRanking();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showShameRank, teamId]);
+
   const fetchPlayers = async () => {
     setLoading(true);
     try {
@@ -156,6 +181,23 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
       toast.error('获取玩家列表失败');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchShameRanking = async () => {
+    setShameLoading(true);
+    try {
+      const res = await fetch(`/api/rankings/shame?teamId=${teamId}`);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || '获取耻辱榜失败');
+      }
+      setShameRanking(Array.isArray(data.items) ? data.items : []);
+    } catch (error) {
+      toast.error('获取耻辱榜失败');
+      setShameRanking([]);
+    } finally {
+      setShameLoading(false);
     }
   };
 
@@ -174,6 +216,9 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
 
     setFilteredPlayers(filtered);
   };
+
+  const formatWeekStat = (week: { count: number; score: number }) =>
+    `${week.count}/${formatPenalty(week.score)}`;
 
   const handleExport = () => {
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -252,6 +297,14 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
               >
                 <Crown className="h-4 w-4 mr-1" />
                 帅神榜
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowShameRank(true)}
+                className="bg-gradient-to-r from-slate-700/80 to-red-800/80 text-white border-none shadow-lg shadow-red-900/30 hover:shadow-red-900/50 hover:from-slate-700 hover:to-red-800"
+              >
+                耻辱榜
               </Button>
               {isAdmin && (
                 <Button 
@@ -501,6 +554,69 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                 })}
               </TableBody>
             </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showShameRank} onOpenChange={setShowShameRank}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-rose-400 to-orange-400 flex items-center space-x-2">
+              <span>耻辱榜</span>
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-gray-500">
+            统计最近三周的犯错扣分记录（关键字：犯错、失误、灭团、开怪、镣铐、下跪、国王愤怒、国王之怒、黑水、扣分）
+          </p>
+          <div className="border border-red-900/40 rounded-lg overflow-hidden max-h-[70vh] overflow-y-auto">
+            {shameLoading ? (
+              <div className="py-10 text-center text-gray-400">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-red-500 border-t-transparent"></div>
+                <p className="mt-4">加载中...</p>
+              </div>
+            ) : shameRanking.length === 0 ? (
+              <div className="py-10 text-center text-gray-400">暂无犯错记录</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-900/60">
+                    <TableHead className="w-16 text-gray-300">名次</TableHead>
+                    <TableHead className="text-gray-300">玩家</TableHead>
+                    <TableHead className="text-center text-gray-300">总次数</TableHead>
+                    <TableHead className="text-right text-gray-300">扣分</TableHead>
+                    <TableHead className="text-right text-gray-300">本周</TableHead>
+                    <TableHead className="text-right text-gray-300">上周</TableHead>
+                    <TableHead className="text-right text-gray-300">上上周</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {shameRanking.map((entry, idx) => (
+                    <TableRow key={entry.playerId} className="hover:bg-red-950/20">
+                      <TableCell className="text-gray-400">{idx + 1}</TableCell>
+                      <TableCell>
+                        <div className={`font-semibold ${getClassColor(entry.playerClass)}`}>
+                          {entry.playerName || entry.playerId}
+                        </div>
+                        <div className="text-xs text-gray-500">{entry.playerId}</div>
+                      </TableCell>
+                      <TableCell className="text-center text-gray-200">{entry.totalCount}</TableCell>
+                      <TableCell className="text-right text-red-400 font-semibold">
+                        {formatPenalty(entry.totalScore)}
+                      </TableCell>
+                      <TableCell className="text-right text-red-300">
+                        {formatWeekStat(entry.weeks.current)}
+                      </TableCell>
+                      <TableCell className="text-right text-red-300">
+                        {formatWeekStat(entry.weeks.last)}
+                      </TableCell>
+                      <TableCell className="text-right text-red-300">
+                        {formatWeekStat(entry.weeks.prev)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </div>
         </DialogContent>
       </Dialog>
