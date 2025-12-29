@@ -22,6 +22,7 @@ model Admin {
 
   teamPermissions TeamPermission[]
   deletedLogs     DkpLog[] @relation("DeletedByAdmin")
+  faultKeywords   FaultKeyword[]
 
   @@map("admins")
 }
@@ -53,6 +54,7 @@ model Team {
   decayHistory    DecayHistory[]
   teamPermissions TeamPermission[]
   dkpEvents       DkpEvent[]
+  faultKeywords   FaultKeyword[]
 
   @@map("teams")
 }
