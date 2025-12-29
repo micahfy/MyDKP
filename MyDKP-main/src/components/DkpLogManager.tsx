@@ -29,6 +29,7 @@ interface ManageLog extends DkpLog {
 }
 
 type ViewMode = 'entries' | 'events';
+type ScoreFilter = 'all' | 'score' | 'positive' | 'negative';
 
 const PAGE_SIZE = 25;
 
@@ -66,6 +67,7 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [scoreFilter, setScoreFilter] = useState<ScoreFilter>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -111,6 +113,9 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
       if (typeFilter !== 'all') {
         params.set('type', typeFilter);
       }
+      if (scoreFilter !== 'all') {
+        params.set('score', scoreFilter);
+      }
       const res = await fetch(`/api/dkp/logs/manage?${params.toString()}`);
       const data = await res.json();
       if (!res.ok) {
@@ -139,7 +144,7 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
       setLoading(false);
       setSelectedIds(new Set());
     }
-  }, [page, search, teamFilter, statusFilter, viewMode, typeFilter]);
+  }, [page, search, teamFilter, statusFilter, viewMode, typeFilter, scoreFilter]);
 
   useEffect(() => {
     fetchData();
@@ -249,9 +254,17 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
         : typeFilter === 'attendance'
         ? 'attendance'
         : 'other';
+    const scoreName =
+      scoreFilter === 'all'
+        ? 'all'
+        : scoreFilter === 'score'
+        ? 'score'
+        : scoreFilter === 'positive'
+        ? 'positive'
+        : 'negative';
     const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9\u4e00-\u9fa5_-]+/g, '-');
     const searchPart = search.trim() ? sanitize(search.trim()) : 'all';
-    return `dkp-logs_${viewMode}_${sanitize(teamName)}_${typeName}_${searchPart}_${statusFilter}_${dateStr}.csv`;
+    return `dkp-logs_${viewMode}_${sanitize(teamName)}_${typeName}_${scoreName}_${searchPart}_${statusFilter}_${dateStr}.csv`;
   };
 
   const handleExportCsv = async () => {
@@ -265,6 +278,7 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
       if (search.trim()) params.set('search', search.trim());
       if (teamFilter !== 'all') params.set('teamId', teamFilter);
       if (typeFilter !== 'all') params.set('type', typeFilter);
+      if (scoreFilter !== 'all') params.set('score', scoreFilter);
 
       const res = await fetch(`/api/dkp/logs/manage?${params.toString()}`);
       if (!res.ok) {
@@ -520,6 +534,23 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
             <SelectItem value="decay">衰减</SelectItem>
             <SelectItem value="attendance">出勤</SelectItem>
             <SelectItem value="other">其他</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          value={scoreFilter}
+          onValueChange={(value) => {
+            setScoreFilter(value as ScoreFilter);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="分数筛选" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全部</SelectItem>
+            <SelectItem value="score">分数变动</SelectItem>
+            <SelectItem value="positive">仅加分</SelectItem>
+            <SelectItem value="negative">仅扣分</SelectItem>
           </SelectContent>
         </Select>
           <Select

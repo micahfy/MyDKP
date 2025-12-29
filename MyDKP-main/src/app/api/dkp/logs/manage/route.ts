@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
     const { page, pageSize } = parsePageParams(searchParams);
     const search = searchParams.get('search')?.trim() || '';
     const type = searchParams.get('type')?.trim() || '';
+    const scoreParam = searchParams.get('score')?.trim() || 'all';
     const teamId = searchParams.get('teamId');
     const statusParam = searchParams.get('status') || 'valid';
     const status: 'valid' | 'all' | 'deleted' = ['all', 'deleted', 'valid'].includes(statusParam)
@@ -55,6 +56,9 @@ export async function GET(request: NextRequest) {
       : 'valid';
     const view = searchParams.get('view') === 'events' ? 'events' : 'entries';
     const format = searchParams.get('format')?.trim();
+    const scoreFilter: 'all' | 'score' | 'positive' | 'negative' = ['all', 'score', 'positive', 'negative'].includes(scoreParam)
+      ? (scoreParam as any)
+      : 'all';
 
     if (!superAdmin) {
       const adminTeams = await getAdminTeams();
@@ -70,6 +74,7 @@ export async function GET(request: NextRequest) {
       return exportEntriesCsv({
         search,
         type,
+        scoreFilter,
         teamId,
         status,
         superAdmin,
@@ -82,6 +87,7 @@ export async function GET(request: NextRequest) {
         pageSize,
         search,
         type,
+        scoreFilter,
         teamId,
         status,
         superAdmin,
@@ -93,6 +99,7 @@ export async function GET(request: NextRequest) {
       pageSize,
       search,
       type,
+      scoreFilter,
       teamId,
       status,
       superAdmin,
@@ -108,11 +115,12 @@ async function handleEntryView(options: {
   pageSize: number;
   search: string;
   type: string;
+  scoreFilter: 'all' | 'score' | 'positive' | 'negative';
   teamId: string | null;
   status: 'valid' | 'all' | 'deleted';
   superAdmin: boolean;
 }) {
-  const { page, pageSize, search, type, teamId, status, superAdmin } = options;
+  const { page, pageSize, search, type, scoreFilter, teamId, status, superAdmin } = options;
 
   const where: any = {};
   if (status === 'valid') {
@@ -153,6 +161,23 @@ async function handleEntryView(options: {
   }
   if (type) {
     where.type = type;
+  }
+  if (scoreFilter !== 'all') {
+    const scoreCondition =
+      scoreFilter === 'positive'
+        ? { gt: 0 }
+        : scoreFilter === 'negative'
+        ? { lt: 0 }
+        : { not: 0 };
+    where.AND = [
+      ...(where.AND || []),
+      {
+        OR: [
+          { change: scoreCondition },
+          { event: { is: { change: scoreCondition } } },
+        ],
+      },
+    ];
   }
 
   const [logs, total] = await prisma.$transaction([
@@ -205,11 +230,12 @@ async function handleEventView(options: {
   pageSize: number;
   search: string;
   type: string;
+  scoreFilter: 'all' | 'score' | 'positive' | 'negative';
   teamId: string | null;
   status: 'valid' | 'all' | 'deleted';
   superAdmin: boolean;
 }) {
-  const { page, pageSize, search, type, teamId, status, superAdmin } = options;
+  const { page, pageSize, search, type, scoreFilter, teamId, status, superAdmin } = options;
 
   const filters: any[] = [];
   const logFilter =
@@ -247,6 +273,15 @@ async function handleEventView(options: {
   }
   if (type) {
     filters.push({ type });
+  }
+  if (scoreFilter !== 'all') {
+    const scoreCondition =
+      scoreFilter === 'positive'
+        ? { gt: 0 }
+        : scoreFilter === 'negative'
+        ? { lt: 0 }
+        : { not: 0 };
+    filters.push({ change: scoreCondition });
   }
 
   const where = filters.length ? { AND: filters } : {};
@@ -455,11 +490,12 @@ export async function DELETE(request: NextRequest) {
 async function exportEntriesCsv(options: {
   search: string;
   type: string;
+  scoreFilter: 'all' | 'score' | 'positive' | 'negative';
   teamId: string | null;
   status: 'valid' | 'all' | 'deleted';
   superAdmin: boolean;
 }) {
-  const { search, type, teamId, status, superAdmin } = options;
+  const { search, type, scoreFilter, teamId, status, superAdmin } = options;
 
   const where: any = {};
   if (status === 'valid') {
@@ -500,6 +536,23 @@ async function exportEntriesCsv(options: {
   }
   if (type) {
     where.type = type;
+  }
+  if (scoreFilter !== 'all') {
+    const scoreCondition =
+      scoreFilter === 'positive'
+        ? { gt: 0 }
+        : scoreFilter === 'negative'
+        ? { lt: 0 }
+        : { not: 0 };
+    where.AND = [
+      ...(where.AND || []),
+      {
+        OR: [
+          { change: scoreCondition },
+          { event: { is: { change: scoreCondition } } },
+        ],
+      },
+    ];
   }
 
   const logs = await prisma.dkpLog.findMany({
