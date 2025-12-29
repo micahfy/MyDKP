@@ -1,26 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { fetchFaultKeywordNames } from '@/lib/faultKeywords';
 
 export const dynamic = 'force-dynamic';
 
-const FAULT_KEYWORDS = [
-  '犯错',
-  '失误',
-  '灭团',
-  '开怪',
-  '镣铐',
-  '下跪',
-  '国王愤怒',
-  '国王之怒',
-  '黑水',
-  '扣分',
-];
-
 const normalizeText = (value: string) => value.toLowerCase().replace(/\s+/g, '');
 
-const matchesFaultKeyword = (reason: string) => {
+const matchesFaultKeyword = (reason: string, keywords: string[]) => {
   const normalized = normalizeText(reason);
-  return FAULT_KEYWORDS.some((keyword) => normalized.includes(normalizeText(keyword)));
+  return keywords.some((keyword) => normalized.includes(normalizeText(keyword)));
 };
 
 const startOfWeek = (date: Date) => {
@@ -49,6 +37,11 @@ export async function GET(request: NextRequest) {
     const currentWeekStart = startOfWeek(now);
     const lastWeekStart = addDays(currentWeekStart, -7);
     const prevWeekStart = addDays(currentWeekStart, -14);
+
+    const faultKeywords = await fetchFaultKeywordNames();
+    if (faultKeywords.length === 0) {
+      return NextResponse.json({ items: [], keywords: [] });
+    }
 
     const logs = await prisma.dkpLog.findMany({
       where: {
@@ -87,7 +80,7 @@ export async function GET(request: NextRequest) {
 
     for (const log of logs) {
       const reason = (log.reason ?? log.event?.reason ?? '').trim();
-      if (!reason || !matchesFaultKeyword(reason)) {
+      if (!reason || !matchesFaultKeyword(reason, faultKeywords)) {
         continue;
       }
 
@@ -136,7 +129,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       items,
-      keywords: FAULT_KEYWORDS,
+      keywords: faultKeywords,
     });
   } catch (error) {
     console.error('Get shame ranking error:', error);

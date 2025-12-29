@@ -11,6 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -20,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, Download, Edit2, Trash2, Crown } from 'lucide-react';
+import { Search, Download, Edit2, Trash2, Crown, Skull } from 'lucide-react';
 import { PlayerDetail } from './PlayerDetail';
 import { PlayerEditDialog } from './PlayerEditDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -55,6 +56,12 @@ interface ShameRankEntry {
     last: { count: number; score: number };
     prev: { count: number; score: number };
   };
+}
+
+interface FaultKeywordItem {
+  id: string;
+  name: string;
+  createdAt: string;
 }
 
 const formatDkp = (value: number) => Number(value.toFixed(2)).toString();
@@ -140,6 +147,12 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
   const [championSlogan, setChampionSlogan] = useState('');
   const [shameRanking, setShameRanking] = useState<ShameRankEntry[]>([]);
   const [shameLoading, setShameLoading] = useState(false);
+  const [faultKeywords, setFaultKeywords] = useState<FaultKeywordItem[]>([]);
+  const [faultKeywordsLoading, setFaultKeywordsLoading] = useState(false);
+  const [faultKeywordName, setFaultKeywordName] = useState('');
+  const [faultKeywordBulk, setFaultKeywordBulk] = useState('');
+  const [faultKeywordSubmitting, setFaultKeywordSubmitting] = useState(false);
+  const [showKeywordPanel, setShowKeywordPanel] = useState(false);
 
   useEffect(() => {
     if (teamId) {
@@ -171,6 +184,19 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showShameRank, teamId]);
 
+  useEffect(() => {
+    if (showShameRank && isAdmin) {
+      fetchFaultKeywords();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showShameRank, isAdmin]);
+
+  useEffect(() => {
+    if (!showShameRank) {
+      setShowKeywordPanel(false);
+    }
+  }, [showShameRank]);
+
   const fetchPlayers = async () => {
     setLoading(true);
     try {
@@ -198,6 +224,83 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
       setShameRanking([]);
     } finally {
       setShameLoading(false);
+    }
+  };
+
+  const fetchFaultKeywords = async () => {
+    setFaultKeywordsLoading(true);
+    try {
+      const res = await fetch('/api/fault-keywords');
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || '获取关键字失败');
+      }
+      setFaultKeywords(Array.isArray(data) ? data : []);
+    } catch (error) {
+      toast.error('获取关键字失败');
+      setFaultKeywords([]);
+    } finally {
+      setFaultKeywordsLoading(false);
+    }
+  };
+
+  const submitFaultKeywords = async (payload: any, successMsg: string) => {
+    if (faultKeywordSubmitting) return;
+    setFaultKeywordSubmitting(true);
+    try {
+      const res = await fetch('/api/fault-keywords', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || '保存失败');
+      }
+      toast.success(successMsg.replace('{count}', String(data.created || 0)));
+      setFaultKeywordName('');
+      setFaultKeywordBulk('');
+      fetchFaultKeywords();
+      fetchShameRanking();
+    } catch (error: any) {
+      toast.error(error?.message || '保存失败');
+    } finally {
+      setFaultKeywordSubmitting(false);
+    }
+  };
+
+  const handleAddFaultKeyword = async () => {
+    if (!faultKeywordName.trim()) {
+      toast.error('请输入关键字');
+      return;
+    }
+    await submitFaultKeywords({ name: faultKeywordName.trim() }, '已新增 1 个关键字');
+  };
+
+  const handleBulkFaultKeywords = async () => {
+    const text = faultKeywordBulk.trim();
+    if (!text) {
+      toast.error('请输入要导入的关键字');
+      return;
+    }
+    await submitFaultKeywords({ text }, '已新增 {count} 个关键字');
+  };
+
+  const handleDeleteFaultKeyword = async (id: string, name: string) => {
+    if (!confirm(`确认删除关键字「${name}」吗？`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/fault-keywords/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || '删除失败');
+      }
+      toast.success(`已删除 ${name}`);
+      fetchFaultKeywords();
+      fetchShameRanking();
+    } catch (error: any) {
+      toast.error(error?.message || '删除失败');
     }
   };
 
@@ -304,6 +407,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                 onClick={() => setShowShameRank(true)}
                 className="bg-gradient-to-r from-slate-700/80 to-red-800/80 text-white border-none shadow-lg shadow-red-900/30 hover:shadow-red-900/50 hover:from-slate-700 hover:to-red-800"
               >
+                <Skull className="h-4 w-4 mr-1" />
                 耻辱榜
               </Button>
               {isAdmin && (
@@ -565,9 +669,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
               <span>耻辱榜</span>
             </DialogTitle>
           </DialogHeader>
-          <p className="text-xs text-gray-500">
-            统计最近三周的犯错扣分记录（关键字：犯错、失误、灭团、开怪、镣铐、下跪、国王愤怒、国王之怒、黑水、扣分）
-          </p>
+          <p className="text-xs text-gray-500">最近三周的犯错扣分记录排行榜</p>
           <div className="border border-red-900/40 rounded-lg overflow-hidden max-h-[70vh] overflow-y-auto">
             {shameLoading ? (
               <div className="py-10 text-center text-gray-400">
@@ -594,10 +696,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                     <TableRow key={entry.playerId} className="hover:bg-red-950/20">
                       <TableCell className="text-gray-400">{idx + 1}</TableCell>
                       <TableCell>
-                        <div className={`font-semibold ${getClassColor(entry.playerClass)}`}>
-                          {entry.playerName || entry.playerId}
-                        </div>
-                        <div className="text-xs text-gray-500">{entry.playerId}</div>
+                        <div className="font-semibold text-gray-100">{entry.playerId}</div>
                       </TableCell>
                       <TableCell className="text-center text-gray-200">{entry.totalCount}</TableCell>
                       <TableCell className="text-right text-red-400 font-semibold">
@@ -618,6 +717,94 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
               </Table>
             )}
           </div>
+          {isAdmin && (
+            <div className="mt-4 border border-slate-700/60 rounded-lg p-4 space-y-3 bg-slate-900/40">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-200">犯错扣分关键字</h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowKeywordPanel((prev) => !prev)}
+                >
+                  {showKeywordPanel ? '收起' : '管理'}
+                </Button>
+              </div>
+              {showKeywordPanel && (
+                <div className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-xs text-gray-400">新增关键字</label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={faultKeywordName}
+                          onChange={(e) => setFaultKeywordName(e.target.value)}
+                          placeholder="例如：站位错误"
+                          className="bg-slate-900/60 border-slate-700 text-gray-100"
+                        />
+                        <Button onClick={handleAddFaultKeyword} disabled={faultKeywordSubmitting}>
+                          添加
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs text-gray-400">批量导入（逗号/换行分隔）</label>
+                      <Textarea
+                        value={faultKeywordBulk}
+                        onChange={(e) => setFaultKeywordBulk(e.target.value)}
+                        rows={4}
+                        className="bg-slate-900/60 border-slate-700 text-gray-100"
+                        placeholder="示例：踩雷\n开怪"
+                      />
+                      <Button
+                        onClick={handleBulkFaultKeywords}
+                        className="w-full bg-red-700 hover:bg-red-800"
+                        disabled={faultKeywordSubmitting}
+                      >
+                        批量导入
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-400">当前关键字（{faultKeywords.length}）</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={fetchFaultKeywords}
+                        disabled={faultKeywordsLoading}
+                      >
+                        刷新
+                      </Button>
+                    </div>
+                    {faultKeywordsLoading ? (
+                      <div className="text-center text-gray-400 py-6">加载中...</div>
+                    ) : faultKeywords.length === 0 ? (
+                      <div className="text-center text-gray-400 py-6">暂无关键字</div>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {faultKeywords.map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center gap-1 rounded-full bg-slate-800/70 border border-slate-700 px-3 py-1 text-xs text-gray-200"
+                          >
+                            <span>{item.name}</span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteFaultKeyword(item.id, item.name)}
+                              className="h-5 w-5 text-red-300 hover:text-red-200 hover:bg-red-900/40"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
