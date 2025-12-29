@@ -40,9 +40,18 @@ export async function POST(request: NextRequest) {
     }
 
     const uniqueNames = Array.from(new Set(names));
+    const existing = await prisma.faultKeyword.findMany({
+      where: { name: { in: uniqueNames } },
+      select: { name: true },
+    });
+    const existingSet = new Set(existing.map((item) => item.name));
+    const toCreate = uniqueNames.filter((value) => !existingSet.has(value));
+    if (toCreate.length === 0) {
+      return NextResponse.json({ created: 0 });
+    }
+
     const result = await prisma.faultKeyword.createMany({
-      data: uniqueNames.map((value) => ({ name: value })),
-      skipDuplicates: true,
+      data: toCreate.map((value) => ({ name: value })),
     });
 
     return NextResponse.json({ created: result.count || 0 });

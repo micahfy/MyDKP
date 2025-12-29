@@ -24,7 +24,6 @@ export async function ensureFaultKeywords() {
 
   await prisma.faultKeyword.createMany({
     data: DEFAULT_FAULT_KEYWORDS.map((name) => ({ name })),
-    skipDuplicates: true,
   });
 
   return prisma.faultKeyword.findMany({
