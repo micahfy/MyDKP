@@ -696,7 +696,9 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                     <TableRow key={entry.playerId} className="hover:bg-red-950/20">
                       <TableCell className="text-gray-400">{idx + 1}</TableCell>
                       <TableCell>
-                        <div className="font-semibold text-gray-100">{entry.playerId}</div>
+                        <div className="font-semibold text-gray-100">
+                          {entry.playerName || entry.playerId}
+                        </div>
                       </TableCell>
                       <TableCell className="text-center text-gray-200">{entry.totalCount}</TableCell>
                       <TableCell className="text-right text-red-400 font-semibold">
