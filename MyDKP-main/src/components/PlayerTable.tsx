@@ -65,6 +65,7 @@ interface FaultKeywordItem {
 }
 
 const formatDkp = (value: number) => Number(value.toFixed(2)).toString();
+const formatDkpFixed = (value: number) => value.toFixed(2);
 const formatPenalty = (value: number) =>
   value === 0 ? '0' : `-${formatDkp(Math.abs(value))}`;
 
@@ -446,6 +447,30 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
     toast.success('导出成功！');
   };
 
+  const handleExportTxt = () => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(
+      now.getHours(),
+    )}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const teamName =
+      players.find((p) => p.team?.name)?.team?.name ||
+      filteredPlayers.find((p) => p.team?.name)?.team?.name ||
+      'team';
+    const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9\u4e00-\u9fa5_-]+/g, '-');
+    const fileName = `dkp_${sanitize(teamName)}_${dateStr}.txt`;
+
+    const lines = filteredPlayers.map(
+      (p) => `${p.name},${p.class},${formatDkpFixed(p.currentDkp)}`,
+    );
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    link.click();
+    toast.success('导出成功！');
+  };
+
   const handleDeletePlayer = async (playerId: string, playerName: string) => {
     try {
       const res = await fetch(`/api/players/${playerId}`, {
@@ -513,6 +538,17 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                 >
                   <Download className="h-4 w-4 mr-2" />
                   导出 CSV
+                </Button>
+              )}
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportTxt}
+                  className="btn-glow border-slate-500 text-slate-300 hover:bg-slate-900"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  导出 TXT
                 </Button>
               )}
             </div>
