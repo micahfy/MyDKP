@@ -144,7 +144,8 @@ function HomeContent() {
         </div>
         <footer className="border-t border-slate-700/50">
           <div className="container mx-auto px-4 py-6 text-center text-sm text-gray-400">
-            <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300 transition-colors">
+            <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300 transition-colors inline-flex items-center gap-2">
+              <img src="/logo.png" alt="ICP备" className="h-4 w-auto" />
               京ICP备12345678号
             </a>
           </div>
@@ -195,7 +196,8 @@ function HomeContent() {
 
       <footer className="border-t border-slate-700/50 mt-auto">
         <div className="container mx-auto px-4 py-6 text-center text-sm text-gray-400">
-          <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300 transition-colors">
+          <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300 transition-colors inline-flex items-center gap-2">
+            <img src="/logo.png" alt="ICP备" className="h-4 w-auto" />
             京ICP备12345678号
           </a>
         </div>
@@ -217,7 +219,8 @@ export default function Home() {
           </div>
           <footer className="border-t border-slate-700/50">
             <div className="container mx-auto px-4 py-6 text-center text-sm text-gray-400">
-              <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300 transition-colors">
+              <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300 transition-colors inline-flex items-center gap-2">
+                <img src="/logo.png" alt="ICP备" className="h-4 w-auto" />
                 京ICP备12345678号
               </a>
             </div>
