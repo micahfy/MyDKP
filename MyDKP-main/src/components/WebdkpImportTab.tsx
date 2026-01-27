@@ -18,6 +18,7 @@ interface WebdkpImportTabProps {
 }
 
 interface LogRow {
+  id: string; // 稳定的唯一ID，用于作为key
   player: string;
   change: number;
   reason: string;
@@ -103,7 +104,12 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
       }
 
       setSessionId(data.sessionId);
-      setRows(data.rows || []);
+      // 为每条记录添加稳定的唯一ID
+      const rowsWithId = (data.rows || []).map((row: Omit<LogRow, 'id'>, idx: number) => ({
+        ...row,
+        id: `row-${Date.now()}-${idx}`
+      }));
+      setRows(rowsWithId);
       setViewMode('grouped');
       setSelectedIndices(new Set());
       toast.success(`上传成功，共解析 ${data.rowCount} 条记录`);
@@ -114,13 +120,13 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
     }
   };
 
-  const updateRow = (index: number, field: keyof LogRow, value: string) => {
+  const updateRow = (index: number, field: keyof Omit<LogRow, 'id'>, value: string) => {
     setRows((prev) => {
       const next = [...prev];
       next[index] = {
         ...next[index],
         [field]: field === 'change' ? Number(value) : value,
-      } as LogRow;
+      };
       return next;
     });
   };
@@ -281,7 +287,10 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
     setRows((prev) => {
       const next = [...prev];
       const source = prev[index];
-      next.splice(index + 1, 0, { ...source });
+      next.splice(index + 1, 0, {
+        ...source,
+        id: `row-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      });
       return next;
     });
   };
@@ -292,6 +301,7 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
     const clones = group.items.map(({ row }) => ({
       ...row,
       reason: nextReason,
+      id: `row-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     }));
     setRows((prev) => [...prev, ...clones]);
   };
@@ -308,7 +318,9 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
       return;
     }
 
-    const newRows = names.map<LogRow>((player) => ({
+    const timestamp = Date.now();
+    const newRows = names.map<LogRow>((player, idx) => ({
+      id: `row-${timestamp}-${idx}`,
       player,
       change: Number(group.change) || 0,
       reason: group.reason,
@@ -321,14 +333,14 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
     toast.success(`已添加 ${names.length} 名玩家到该分组`);
   };
 
-  const updateGroupField = (indices: number[], field: keyof LogRow, value: string) => {
+  const updateGroupField = (indices: number[], field: keyof Omit<LogRow, 'id'>, value: string) => {
     setRows((prev) => {
       const next = [...prev];
       indices.forEach((i) => {
         next[i] = {
           ...next[i],
           [field]: field === 'change' ? Number(value) || 0 : value,
-        } as LogRow;
+        };
       });
       return next;
     });
@@ -505,7 +517,7 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
                   </thead>
                   <tbody>
                     {filteredRows.map(({ row, index }) => (
-                      <tr key={`${row.player}-${index}`} className="odd:bg-slate-900/30">
+                      <tr key={row.id} className="odd:bg-slate-900/30">
                         <td className="px-3 py-1">
                           <input
                             type="checkbox"
@@ -573,8 +585,10 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
                       const indices = group.items.map((item) => item.index);
                       const allGroupSelected = indices.every((i) => selectedIndices.has(i));
                       const groupKey = group.key;
+                      // 使用第一个item的id作为稳定的key
+                      const firstItemId = group.items[0]?.row.id || `group-${idx}`;
                       return (
-                        <tr key={`${group.reason}-${group.date}-${group.time}-${group.change}-${idx}`} className="odd:bg-slate-900/30">
+                        <tr key={firstItemId} className="odd:bg-slate-900/30">
                           <td className="px-3 py-2 max-w-sm">
                             <Textarea
                               value={group.reason}
@@ -606,7 +620,7 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
                             <div className="flex flex-wrap gap-2 mb-2">
                               {group.items.map(({ row, index: rowIndex }) => (
                                 <span
-                                  key={row.player + row.time + rowIndex}
+                                  key={row.id}
                                   className="px-2 py-1 bg-slate-800 rounded text-xs flex items-center gap-1"
                                 >
                                   <span>{row.player}</span>
