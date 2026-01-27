@@ -47,7 +47,9 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
   const [importResult, setImportResult] = useState<any>(null);
   const [downloadReady, setDownloadReady] = useState(false);
   const [filterText, setFilterText] = useState('');
+  const [isFilterComposing, setIsFilterComposing] = useState(false);
   const [bulkSearch, setBulkSearch] = useState('');
+  const [isBulkSearchComposing, setIsBulkSearchComposing] = useState(false);
   const [bulkReplace, setBulkReplace] = useState('');
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>('grouped');
@@ -55,11 +57,11 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
   const [exportTeamId, setExportTeamId] = useState<string>('all');
 
   const filteredRows = useMemo(() => {
-    const term = filterText.trim();
+    const term = isFilterComposing ? '' : filterText.trim();
     return rows
       .map((row, index) => ({ row, index }))
       .filter(({ row }) => (term ? rowContains(row, term) : true));
-  }, [rows, filterText]);
+  }, [rows, filterText, isFilterComposing]);
 
   const groupedRows = useMemo(() => {
     const groups = new Map<
@@ -183,19 +185,20 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
   };
 
   const handleBulkReplace = () => {
-    if (!bulkSearch.trim()) {
+    const searchTerm = isBulkSearchComposing ? '' : bulkSearch.trim();
+    if (!searchTerm) {
       toast.error('请输入要搜索的关键字');
       return;
     }
     setRows((prev) =>
       prev.map((row) => {
-        if (!rowContains(row, bulkSearch)) return row;
+        if (!rowContains(row, searchTerm)) return row;
         return {
           ...row,
-          player: row.player.replaceAll(bulkSearch, bulkReplace),
-          reason: row.reason.replaceAll(bulkSearch, bulkReplace),
-          date: row.date.replaceAll(bulkSearch, bulkReplace),
-          time: row.time.replaceAll(bulkSearch, bulkReplace),
+          player: row.player.replaceAll(searchTerm, bulkReplace),
+          reason: row.reason.replaceAll(searchTerm, bulkReplace),
+          date: row.date.replaceAll(searchTerm, bulkReplace),
+          time: row.time.replaceAll(searchTerm, bulkReplace),
         };
       }),
     );
@@ -203,12 +206,13 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
   };
 
   const handleBulkDelete = () => {
-    if (!bulkSearch.trim()) {
+    const searchTerm = isBulkSearchComposing ? '' : bulkSearch.trim();
+    if (!searchTerm) {
       toast.error('请输入要搜索的关键字');
       return;
     }
     setRows((prev) => {
-      const filtered = prev.filter((row) => !rowContains(row, bulkSearch));
+      const filtered = prev.filter((row) => !rowContains(row, searchTerm));
       const nextSelected = new Set<number>();
       setSelectedIndices(nextSelected);
       return filtered;
@@ -423,6 +427,11 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
                     placeholder="输入关键字过滤记录"
                     value={filterText}
                     onChange={(e) => setFilterText(e.target.value)}
+                    onCompositionStart={() => setIsFilterComposing(true)}
+                    onCompositionEnd={(e) => {
+                      setIsFilterComposing(false);
+                      setFilterText(e.currentTarget.value);
+                    }}
                   />
                 </div>
                 <div className="space-y-2">
@@ -432,6 +441,11 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
                       placeholder="搜索关键字"
                       value={bulkSearch}
                       onChange={(e) => setBulkSearch(e.target.value)}
+                      onCompositionStart={() => setIsBulkSearchComposing(true)}
+                      onCompositionEnd={(e) => {
+                        setIsBulkSearchComposing(false);
+                        setBulkSearch(e.currentTarget.value);
+                      }}
                     />
                     <Input
                       placeholder="替换为（可选）"
