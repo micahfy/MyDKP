@@ -517,28 +517,28 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                 variant="outline"
                 size="sm"
                 onClick={() => setShowDecayRank(true)}
-                className="bg-gradient-to-r from-orange-500/80 to-red-500/80 text-white border-none shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:from-orange-500 hover:to-red-500"
+                className="px-3 bg-gradient-to-r from-orange-500/80 to-red-500/80 text-white border-none shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:from-orange-500 hover:to-red-500"
               >
-                <Crown className="h-4 w-4 mr-1" />
-                帅神榜
+                <Crown className="h-4 w-4" />
+                帅
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowShameRank(true)}
-                className="bg-gradient-to-r from-slate-700/80 to-red-800/80 text-white border-none shadow-lg shadow-red-900/30 hover:shadow-red-900/50 hover:from-slate-700 hover:to-red-800"
+                className="px-3 bg-gradient-to-r from-slate-700/80 to-red-800/80 text-white border-none shadow-lg shadow-red-900/30 hover:shadow-red-900/50 hover:from-slate-700 hover:to-red-800"
               >
-                <Skull className="h-4 w-4 mr-1" />
-                耻辱榜
+                <Skull className="h-4 w-4" />
+                耻
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowLootHistory(true)}
-                className="bg-gradient-to-r from-purple-500/80 to-pink-500/80 text-white border-none shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 hover:from-purple-500 hover:to-pink-500"
+                className="px-3 bg-gradient-to-r from-purple-500/80 to-pink-500/80 text-white border-none shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 hover:from-purple-500 hover:to-pink-500"
               >
-                <TrendingUp className="h-4 w-4 mr-1" />
-                装备历史
+                <TrendingUp className="h-4 w-4" />
+                趋势
               </Button>
               {isAdmin && (
                 <Button 
