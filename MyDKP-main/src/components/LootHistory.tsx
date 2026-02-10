@@ -2,12 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { LootHistoryCard } from '@/components/LootHistoryCard';
 import { LootChartDialog } from '@/components/LootChartDialog';
 import { LootHistoryItem, LootHistoryResponse } from '@/types/loot';
 import { toast } from 'sonner';
 import { Search, TrendingUp } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface LootHistoryProps {
   teamSlug: string;
@@ -57,7 +63,7 @@ export function LootHistory({ teamSlug, teamId, teamName }: LootHistoryProps) {
           装备掉落历史
         </h1>
         <p className="text-gray-400 text-lg">
-          {teamName} - 展示最近8周的装备消费记录
+          {teamName} - 展示最近8周的装备消费记录（按平均价格排序）
         </p>
       </div>
 
@@ -105,14 +111,51 @@ export function LootHistory({ teamSlug, teamId, teamName }: LootHistoryProps) {
 
       {/* 装备列表 */}
       {!loading && filteredItems.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredItems.map((item) => (
-            <LootHistoryCard
-              key={item.itemName}
-              item={item}
-              onClick={() => setSelectedItem(item)}
-            />
-          ))}
+        <div className="bg-slate-900/40 border border-purple-800/60 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-slate-800/60">
+                <TableRow>
+                  <TableHead className="text-gray-300">排名</TableHead>
+                  <TableHead className="text-gray-300">装备名称</TableHead>
+                  <TableHead className="text-gray-300 text-right">平均价格</TableHead>
+                  <TableHead className="text-gray-300 text-right">最高价格</TableHead>
+                  <TableHead className="text-gray-300 text-right">最低价格</TableHead>
+                  <TableHead className="text-gray-300 text-right">掉落次数</TableHead>
+                  <TableHead className="text-gray-300 text-center">操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredItems.map((item, index) => (
+                  <TableRow
+                    key={item.itemName}
+                    className="hover:bg-slate-800/30 cursor-pointer transition-colors"
+                    onClick={() => setSelectedItem(item)}
+                  >
+                    <TableCell className="text-gray-400 font-medium">#{index + 1}</TableCell>
+                    <TableCell className="text-purple-300 font-medium">{item.itemName}</TableCell>
+                    <TableCell className="text-right">
+                      <span className="text-purple-400 font-bold text-lg">
+                        {item.avgPrice.toFixed(1)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right text-red-400">{item.maxPrice}</TableCell>
+                    <TableCell className="text-right text-green-400">{item.minPrice}</TableCell>
+                    <TableCell className="text-right">
+                      <span className="px-2 py-1 rounded bg-blue-900/30 text-blue-300 text-sm">
+                        {item.dropCount}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <button className="text-sm text-purple-400 hover:text-purple-300 transition-colors">
+                        查看详情
+                      </button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 

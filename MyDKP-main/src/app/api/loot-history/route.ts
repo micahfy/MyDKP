@@ -137,8 +137,8 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // 按掉落次数降序排序
-    items.sort((a, b) => b.dropCount - a.dropCount);
+    // 按平均价格降序排序（从高到低）
+    items.sort((a, b) => b.avgPrice - a.avgPrice);
 
     const response: LootHistoryResponse = {
       items,
