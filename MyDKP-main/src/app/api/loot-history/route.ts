@@ -42,14 +42,11 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const weeksAgo = new Date(now.getTime() - weeks * 7 * 24 * 60 * 60 * 1000);
 
-    // 查询装备消费记录
+    // 查询装备消费记录（type='spend'表示支出，即装备消费）
     const logs = await prisma.dkpLog.findMany({
       where: {
         teamId: team.id,
         type: 'spend',
-        item: {
-          not: null
-        },
         isDeleted: false,
         createdAt: {
           gte: weeksAgo,
@@ -64,8 +61,35 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'asc' }
     });
 
-    // 过滤掉空装备名
-    const validLogs = logs.filter(log => log.item && log.item.trim() !== '');
+    // 从item字段或reason字段中提取装备名称
+    const EQUIP_REGEX = /\[([^\]]+)\]/g;
+
+    const validLogs = logs.filter(log => {
+      // 优先使用item字段
+      if (log.item && log.item.trim() !== '') {
+        return true;
+      }
+      // 如果item为空，尝试从reason中提取装备名称
+      if (log.reason) {
+        const matches = log.reason.match(EQUIP_REGEX);
+        return matches && matches.length > 0;
+      }
+      return false;
+    }).map(log => {
+      // 确定装备名称
+      let itemName = log.item || '';
+      if (!itemName && log.reason) {
+        const matches = log.reason.match(EQUIP_REGEX);
+        if (matches && matches.length > 0) {
+          // 提取第一个装备名称（去掉方括号）
+          itemName = matches[0].slice(1, -1);
+        }
+      }
+      return {
+        ...log,
+        extractedItemName: itemName
+      };
+    });
 
     if (validLogs.length === 0) {
       return NextResponse.json({
@@ -82,7 +106,7 @@ export async function GET(request: NextRequest) {
     const itemGroups = new Map<string, typeof validLogs>();
 
     for (const log of validLogs) {
-      const itemName = log.item!;
+      const itemName = (log as any).extractedItemName;
       if (!itemGroups.has(itemName)) {
         itemGroups.set(itemName, []);
       }
