@@ -21,9 +21,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, Download, Edit2, Trash2, Crown, Skull } from 'lucide-react';
+import { Search, Download, Edit2, Trash2, Crown, Skull, TrendingUp } from 'lucide-react';
 import { PlayerDetail } from './PlayerDetail';
 import { PlayerEditDialog } from './PlayerEditDialog';
+import { LootHistoryDialog } from './LootHistoryDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -145,6 +146,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
   const [loading, setLoading] = useState(true);
   const [showDecayRank, setShowDecayRank] = useState(false);
   const [showShameRank, setShowShameRank] = useState(false);
+  const [showLootHistory, setShowLootHistory] = useState(false);
   const [championSlogan, setChampionSlogan] = useState('');
   const [shameRanking, setShameRanking] = useState<ShameRankEntry[]>([]);
   const [shameLoading, setShameLoading] = useState(false);
@@ -528,6 +530,15 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
               >
                 <Skull className="h-4 w-4 mr-1" />
                 耻辱榜
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowLootHistory(true)}
+                className="bg-gradient-to-r from-purple-500/80 to-pink-500/80 text-white border-none shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 hover:from-purple-500 hover:to-pink-500"
+              >
+                <TrendingUp className="h-4 w-4 mr-1" />
+                装备历史
               </Button>
               {isAdmin && (
                 <Button 
@@ -1027,6 +1038,12 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
           onSuccess={fetchPlayers}
         />
       )}
+
+      <LootHistoryDialog
+        teamId={teamId}
+        open={showLootHistory}
+        onOpenChange={setShowLootHistory}
+      />
     </>
   );
 }

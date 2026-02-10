@@ -18,11 +18,10 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { LogIn, LogOut, Shield, Swords, User, TrendingUp } from 'lucide-react';
+import { LogIn, LogOut, Shield, Swords, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { Team } from '@/types';
 import { ChangePasswordDialog } from './ChangePasswordDialog';
-import Link from 'next/link';
 
 interface NavbarProps {
   teams: Team[];
@@ -123,19 +122,6 @@ export function Navbar({
                 WoW DKP Manager
               </h1>
             </div>
-
-            {teams.length > 0 && selectedTeam && (() => {
-              const currentTeam = teams.find(t => t.id === selectedTeam);
-              return currentTeam?.slug ? (
-                <Link
-                  href={`/${currentTeam.slug}/loot-history`}
-                  className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-purple-900/20 border border-purple-700/50 hover:bg-purple-900/40 hover:border-purple-600 transition-colors text-gray-300"
-                >
-                  <TrendingUp className="h-4 w-4 text-purple-400" />
-                  <span>装备历史</span>
-                </Link>
-              ) : null;
-            })()}
 
             {teams.length > 0 && (
               <Select value={selectedTeam} onValueChange={onTeamChange}>
