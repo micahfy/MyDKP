@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Upload, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -90,7 +91,16 @@ export function ImportDialog({ teamId, onSuccess }: ImportDialogProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <Tabs defaultValue="players" className="w-full">
+      <TabsList className="grid w-full grid-cols-2 bg-slate-800/50">
+        <TabsTrigger value="players" className="data-[state=active]:bg-blue-950">
+          批量导入玩家
+        </TabsTrigger>
+        <TabsTrigger value="talents" className="data-[state=active]:bg-emerald-950">
+          批量导入天赋
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="players" className="mt-6">
       <Card className="p-6 bg-gradient-to-br from-blue-900/30 to-indigo-900/30 border-blue-700/50">
         <div className="space-y-4">
           <div className="flex items-center space-x-2">
@@ -134,7 +144,10 @@ export function ImportDialog({ teamId, onSuccess }: ImportDialogProps) {
         </div>
       </Card>
 
-      <Card className="p-6 bg-gradient-to-br from-emerald-900/30 to-teal-900/30 border-emerald-700/50">
+      </TabsContent>
+
+      <TabsContent value="talents" className="mt-6">
+        <Card className="p-6 bg-gradient-to-br from-emerald-900/30 to-teal-900/30 border-emerald-700/50">
         <div className="space-y-4">
           <div className="flex items-center space-x-2">
             <Upload className="h-5 w-5 text-emerald-400" />
@@ -185,6 +198,7 @@ export function ImportDialog({ teamId, onSuccess }: ImportDialogProps) {
           </Button>
         </div>
       </Card>
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 }
