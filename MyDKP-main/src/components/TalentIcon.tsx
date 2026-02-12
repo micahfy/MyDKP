@@ -50,8 +50,8 @@ const TALENT_ICON_MAP: Record<string, LucideIcon> = {
   '恶魔学识': Ghost,
   '毁灭': Flame,
   '平衡': Moon,
-  '猫-野性战斗': Cat,
-  '熊-野性战斗': PawPrint,
+  '猫-野性战斗': PawPrint,
+  '熊-野性战斗': Shield,
 };
 
 interface TalentIconProps {

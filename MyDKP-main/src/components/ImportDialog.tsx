@@ -175,15 +175,15 @@ export function ImportDialog({ teamId, onSuccess }: ImportDialogProps) {
                   <li>格式：角色名,字母编号（不区分大小写）</li>
                   <li>天赋编号需与玩家职业顺序匹配，不匹配会跳过</li>
                   <li>天赋留空将清空为“待指派”</li>
-                  <li>战士：a武器 / b狂怒 / c防护</li>
-                  <li>圣骑士：a神圣 / b防护 / c惩戒</li>
+                  <li>战士：a防护 / b狂怒 / c武器</li>
+                  <li>圣骑士：a防护 / b神圣 / c惩戒</li>
                   <li>猎人：a野兽掌握 / b射击 / c生存</li>
                   <li>盗贼：a刺杀 / b战斗 / c敏锐</li>
                   <li>牧师：a戒律 / b神圣 / c暗影</li>
-                  <li>萨满祭司：a元素 / b增强 / c恢复 / d坦-增强</li>
+                  <li>萨满祭司：a坦-增强 / b恢复 / c增强 / d元素</li>
                   <li>法师：a奥术 / b火焰 / c冰霜</li>
                   <li>术士：a痛苦 / b恶魔学识 / c毁灭</li>
-                  <li>德鲁伊：a平衡 / b猫-野性战斗 / c熊-野性战斗 / d恢复</li>
+                  <li>德鲁伊：a熊-野性战斗 / b恢复 / c平衡 / d猫-野性战斗</li>
                 </ul>
               </div>
             </div>
