@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdmin, hasTeamPermission } from '@/lib/auth';
-import { isTalentValidForClass, normalizeTalentName } from '@/lib/talents';
+import { isTalentValidForClass, mapTalentCodeToName, normalizeTalentName } from '@/lib/talents';
 import Papa from 'papaparse';
 
 export const dynamic = 'force-dynamic';
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
 
       const [nameRaw, talentRaw] = row;
       const name = typeof nameRaw === 'string' ? nameRaw.trim() : '';
-      const talent = normalizeTalentName(talentRaw);
+      const talentCode = typeof talentRaw === 'string' ? talentRaw.trim() : '';
 
       if (!name) {
         errorCount++;
@@ -59,15 +59,24 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      if (talent && !isTalentValidForClass(player.class, talent)) {
+      const mappedTalent = mapTalentCodeToName(player.class, talentCode);
+      const normalizedTalent = normalizeTalentName(mappedTalent);
+
+      if (talentCode && !normalizedTalent) {
         errorCount++;
-        errors.push(`天赋与职业不匹配: ${name} (${player.class}) -> ${talent}`);
+        errors.push(`未知天赋编号: ${name} -> ${talentCode}`);
+        continue;
+      }
+
+      if (normalizedTalent && !isTalentValidForClass(player.class, normalizedTalent)) {
+        errorCount++;
+        errors.push(`天赋与职业不匹配: ${name} (${player.class}) -> ${normalizedTalent}`);
         continue;
       }
 
       await prisma.player.update({
         where: { id: player.id },
-        data: { talent: talent ?? null },
+        data: { talent: normalizedTalent ?? null },
       });
 
       successCount++;

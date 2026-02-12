@@ -10,6 +10,26 @@ export const TALENTS_BY_CLASS: Record<string, string[]> = {
   '德鲁伊': ['平衡', '猫-野性战斗', '熊-野性战斗', '恢复'],
 };
 
+export function mapTalentCodeToName(className: string, code?: string | null): string | null {
+  if (!code) {
+    return null;
+  }
+
+  const trimmed = code.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const normalizedCode = trimmed.toLowerCase();
+  const index = normalizedCode.charCodeAt(0) - 97;
+  if (index < 0 || index > 25) {
+    return null;
+  }
+
+  const options = getTalentsForClass(className);
+  return options[index] ?? null;
+}
+
 export function normalizeTalentName(value?: string | null): string | null {
   if (typeof value !== 'string') {
     return null;
