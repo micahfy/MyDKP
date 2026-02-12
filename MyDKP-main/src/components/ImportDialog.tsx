@@ -16,6 +16,8 @@ interface ImportDialogProps {
 export function ImportDialog({ teamId, onSuccess }: ImportDialogProps) {
   const [playerData, setPlayerData] = useState('');
   const [loading, setLoading] = useState(false);
+  const [talentData, setTalentData] = useState('');
+  const [talentLoading, setTalentLoading] = useState(false);
 
   const handleImportPlayers = async () => {
     if (!playerData.trim()) {
@@ -49,6 +51,41 @@ export function ImportDialog({ teamId, onSuccess }: ImportDialogProps) {
       toast.error('导入失败，请重试');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImportTalents = async () => {
+    if (!talentData.trim()) {
+      toast.error('请输入天赋数据');
+      return;
+    }
+
+    setTalentLoading(true);
+    try {
+      const res = await fetch('/api/players/import-talents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          csvData: talentData,
+          teamId,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        toast.success(
+          `导入完成：更新 ${data.updated}，失败 ${data.failed}`
+        );
+        setTalentData('');
+        onSuccess();
+      } else {
+        toast.error(data.error || '导入失败');
+      }
+    } catch (error) {
+      toast.error('导入失败，请重试');
+    } finally {
+      setTalentLoading(false);
     }
   };
 
@@ -93,6 +130,49 @@ export function ImportDialog({ teamId, onSuccess }: ImportDialogProps) {
             disabled={loading}
           >
             {loading ? '导入中...' : '开始导入'}
+          </Button>
+        </div>
+      </Card>
+
+      <Card className="p-6 bg-gradient-to-br from-emerald-900/30 to-teal-900/30 border-emerald-700/50">
+        <div className="space-y-4">
+          <div className="flex items-center space-x-2">
+            <Upload className="h-5 w-5 text-emerald-400" />
+            <h3 className="text-lg font-semibold text-gray-100">批量导入天赋</h3>
+          </div>
+
+          <div>
+            <Label className="text-gray-200">CSV 数据</Label>
+            <Textarea
+              value={talentData}
+              onChange={(e) => setTalentData(e.target.value)}
+              placeholder="格式示例：&#10;角色名,天赋&#10;无敌战士,狂怒&#10;治疗圣骑,神圣"
+              rows={6}
+              className="font-mono text-sm bg-slate-800/80 border-slate-600 text-gray-200 placeholder:text-gray-500"
+            />
+          </div>
+
+          <div className="bg-emerald-900/30 border border-emerald-700/50 p-4 rounded-lg">
+            <div className="flex items-start space-x-2">
+              <FileText className="h-5 w-5 text-emerald-400 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-gray-200">
+                <p className="font-semibold mb-2 text-emerald-300">格式说明：</p>
+                <ul className="space-y-1 list-disc list-inside text-gray-300">
+                  <li>每行一个玩家，使用逗号分隔</li>
+                  <li>格式：角色名,天赋</li>
+                  <li>天赋需与玩家职业匹配，不匹配会跳过</li>
+                  <li>天赋留空将清空为“待指派”</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <Button
+            onClick={handleImportTalents}
+            className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+            disabled={talentLoading}
+          >
+            {talentLoading ? '导入中...' : '开始导入天赋'}
           </Button>
         </div>
       </Card>

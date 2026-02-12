@@ -21,11 +21,14 @@ import {
 import { Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Player } from '@/types';
+import { getTalentsForClass } from '@/lib/talents';
 
 const WOW_CLASSES = [
   '战士', '圣骑士', '猎人', '盗贼', '牧师',
   '萨满祭司', '法师', '术士', '德鲁伊'
 ];
+
+const UNASSIGNED_TALENT = '__unassigned__';
 
 interface PlayerEditDialogProps {
   player: Player;
@@ -37,6 +40,7 @@ interface PlayerEditDialogProps {
 export function PlayerEditDialog({ player, open, onOpenChange, onSuccess }: PlayerEditDialogProps) {
   const [name, setName] = useState(player.name);
   const [className, setClassName] = useState(player.class);
+  const [talent, setTalent] = useState(player.talent ?? UNASSIGNED_TALENT);
   const [attendance, setAttendance] = useState((player.attendance * 100).toFixed(0));
   const [isArchived, setIsArchived] = useState(Boolean(player.isArchived));
   const [loading, setLoading] = useState(false);
@@ -45,10 +49,18 @@ export function PlayerEditDialog({ player, open, onOpenChange, onSuccess }: Play
     if (open) {
       setName(player.name);
       setClassName(player.class);
+      setTalent(player.talent ?? UNASSIGNED_TALENT);
       setAttendance((player.attendance * 100).toFixed(0));
       setIsArchived(Boolean(player.isArchived));
     }
   }, [open, player]);
+
+  useEffect(() => {
+    const options = getTalentsForClass(className);
+    if (talent !== UNASSIGNED_TALENT && !options.includes(talent)) {
+      setTalent(UNASSIGNED_TALENT);
+    }
+  }, [className, talent]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,6 +84,7 @@ export function PlayerEditDialog({ player, open, onOpenChange, onSuccess }: Play
         body: JSON.stringify({ 
           name: name.trim(), 
           class: className,
+          talent: talent === UNASSIGNED_TALENT ? null : talent,
           attendance: attendanceValue,
           isArchived,
         }),
@@ -124,6 +137,23 @@ export function PlayerEditDialog({ player, open, onOpenChange, onSuccess }: Play
                 {WOW_CLASSES.map((cls) => (
                   <SelectItem key={cls} value={cls}>
                     {cls}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="playerTalent">天赋</Label>
+            <Select value={talent} onValueChange={setTalent}>
+              <SelectTrigger id="playerTalent">
+                <SelectValue placeholder="待指派" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={UNASSIGNED_TALENT}>待指派</SelectItem>
+                {getTalentsForClass(className).map((talentName) => (
+                  <SelectItem key={talentName} value={talentName}>
+                    {talentName}
                   </SelectItem>
                 ))}
               </SelectContent>

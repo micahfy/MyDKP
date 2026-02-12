@@ -63,6 +63,7 @@ model Player {
   id           String   @id @default(cuid())
   name         String
   class        String
+  talent       String?
   currentDkp   Float    @default(0)
   totalEarned  Float    @default(0)
   totalSpent   Float    @default(0)

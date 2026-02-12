@@ -12,6 +12,7 @@ export interface Player {
   id: string;
   name: string;
   class: string;
+  talent?: string | null;
   currentDkp: number;
   totalEarned: number;
   totalSpent: number;

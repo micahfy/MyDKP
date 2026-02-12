@@ -25,6 +25,7 @@ import { Search, Download, Edit2, Trash2, Crown, Skull, TrendingUp } from 'lucid
 import { PlayerDetail } from './PlayerDetail';
 import { PlayerEditDialog } from './PlayerEditDialog';
 import { LootHistoryDialog } from './LootHistoryDialog';
+import { TalentIcon } from './TalentIcon';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -631,6 +632,11 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                       </TableCell>
                       <TableCell className={`font-bold ${getClassColor(player.class)}`}>
                         <div className="flex items-center gap-2">
+                          <TalentIcon
+                            talent={player.talent}
+                            className={getClassColor(player.class)}
+                            size={16}
+                          />
                           {player.name}
                           {player.isArchived && (
                             <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-700 text-gray-100 border border-gray-400/60 shadow-inner">
@@ -774,13 +780,27 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                       <TableCell className={`font-semibold ${getClassColor(p.class)} flex flex-col gap-1`}>
                         {isChampion ? (
                           <div className="flex flex-col items-start gap-1">
-                            <div className="flex items-center gap-2">{p.name}</div>
+                            <div className="flex items-center gap-2">
+                              <TalentIcon
+                                talent={p.talent}
+                                className={getClassColor(p.class)}
+                                size={16}
+                              />
+                              {p.name}
+                            </div>
                             <span className="text-xs px-2 py-1 rounded-full bg-gradient-to-r from-amber-400 to-yellow-300 text-amber-900 font-bold shadow-md shadow-amber-400/50 animate-pulse whitespace-nowrap">
                               {championSlogan || '最帅的那一个'}
                             </span>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2">{p.name}</div>
+                          <div className="flex items-center gap-2">
+                            <TalentIcon
+                              talent={p.talent}
+                              className={getClassColor(p.class)}
+                              size={16}
+                            />
+                            {p.name}
+                          </div>
                         )}
                       </TableCell>
                       <TableCell>

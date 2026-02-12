@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdmin, hasTeamPermission } from '@/lib/auth';
+import { isTalentValidForClass, normalizeTalentName } from '@/lib/talents';
 export const dynamic = 'force-dynamic';
 export async function GET(
   request: NextRequest,
@@ -34,7 +35,7 @@ export async function PATCH(
     // 先获取玩家信息以检查团队权限
     const existingPlayer = await prisma.player.findUnique({
       where: { id: params.id },
-      select: { teamId: true },
+      select: { teamId: true, class: true, talent: true },
     });
 
     if (!existingPlayer) {
@@ -49,6 +50,29 @@ export async function PATCH(
 
     const data = await request.json();
     const updateData: any = { ...data };
+    const hasTalentField = Object.prototype.hasOwnProperty.call(data, 'talent');
+    const nextClass =
+      typeof data.class === 'string' ? data.class.trim() : existingPlayer.class;
+    const classChanged =
+      typeof data.class === 'string' &&
+      data.class.trim() !== existingPlayer.class;
+
+    if (typeof data.class === 'string') {
+      updateData.class = nextClass;
+    }
+
+    if (hasTalentField) {
+      const normalizedTalent = normalizeTalentName(data.talent);
+      if (normalizedTalent && !isTalentValidForClass(nextClass, normalizedTalent)) {
+        return NextResponse.json({ error: '天赋与职业不匹配' }, { status: 400 });
+      }
+      updateData.talent = normalizedTalent;
+    } else if (classChanged) {
+      const existingTalent = normalizeTalentName(existingPlayer.talent);
+      if (existingTalent && !isTalentValidForClass(nextClass, existingTalent)) {
+        updateData.talent = null;
+      }
+    }
     if (typeof data.isArchived === 'boolean') {
       updateData.archivedAt = data.isArchived ? new Date() : null;
     }

@@ -18,8 +18,9 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatDate } from '@/lib/utils';
+import { formatDate, getClassColor } from '@/lib/utils';
 import { toast } from 'sonner';
+import { TalentIcon } from './TalentIcon';
 
 interface PlayerDetailProps {
   player: Player;
@@ -187,8 +188,13 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl">
-            {player.name} - {player.class}
+          <DialogTitle className="flex items-center gap-3 text-2xl">
+            <TalentIcon talent={player.talent} className={getClassColor(player.class)} size={20} />
+            <span>{player.name}</span>
+            <span className="text-base text-gray-400">· {player.class}</span>
+            <span className="text-base text-gray-400">
+              · 天赋：{player.talent?.trim() ? player.talent : '待指派'}
+            </span>
           </DialogTitle>
         </DialogHeader>
 

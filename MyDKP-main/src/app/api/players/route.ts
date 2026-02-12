@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdmin, hasTeamPermission } from '@/lib/auth';
+import { isTalentValidForClass, normalizeTalentName } from '@/lib/talents';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,7 +48,16 @@ export async function POST(request: NextRequest) {
 
   try {
     const data = await request.json();
-    const { name, class: playerClass, teamId, currentDkp = 0, totalEarned = 0, totalSpent = 0, attendance = 0 } = data;
+    const {
+      name,
+      class: playerClass,
+      teamId,
+      currentDkp = 0,
+      totalEarned = 0,
+      totalSpent = 0,
+      attendance = 0,
+      talent,
+    } = data;
 
     if (!teamId || typeof teamId !== 'string') {
       return NextResponse.json({ error: '缺少团队ID' }, { status: 400 });
@@ -62,10 +72,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '您没有权限操作该团队' }, { status: 403 });
     }
 
+    const trimmedName = name.trim();
+    const trimmedClass = playerClass.trim();
+    const normalizedTalent = normalizeTalentName(talent);
+
+    if (normalizedTalent && !isTalentValidForClass(trimmedClass, normalizedTalent)) {
+      return NextResponse.json({ error: '天赋与职业不匹配' }, { status: 400 });
+    }
+
     const player = await prisma.player.create({
       data: {
-        name: name.trim(),
-        class: playerClass.trim(),
+        name: trimmedName,
+        class: trimmedClass,
+        talent: normalizedTalent,
         teamId,
         currentDkp,
         totalEarned,
