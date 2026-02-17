@@ -423,7 +423,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
 
   const handleExport = () => {
     const pad = (n: number) => String(n).padStart(2, '0');
-    const truncateDkpToTwoDecimals = (value: number) => {
+    const truncateToTwoDecimals = (value: number) => {
       const factor = 100;
       const truncated = value >= 0 ? Math.floor(value * factor) : Math.ceil(value * factor);
       return (truncated / factor).toFixed(2);
@@ -443,7 +443,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
       '角色名,职业,天赋,当前DKP,总获得,总消费,出勤',
       ...filteredPlayers.map(
         (p) =>
-          `${p.name},${p.class},${p.talent?.trim() ? p.talent : '待定'},${truncateDkpToTwoDecimals(p.currentDkp)},${p.totalEarned},${p.totalSpent},${p.attendance}`
+          `${p.name},${p.class},${p.talent?.trim() ? p.talent : '待定'},${truncateToTwoDecimals(p.currentDkp)},${p.totalEarned},${p.totalSpent},${truncateToTwoDecimals(p.attendance)}`
       ),
     ].join('\n');
 
