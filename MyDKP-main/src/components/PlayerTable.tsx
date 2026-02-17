@@ -423,6 +423,11 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
 
   const handleExport = () => {
     const pad = (n: number) => String(n).padStart(2, '0');
+    const truncateDkpToTwoDecimals = (value: number) => {
+      const factor = 100;
+      const truncated = value >= 0 ? Math.floor(value * factor) : Math.ceil(value * factor);
+      return (truncated / factor).toFixed(2);
+    };
     const now = new Date();
     const dateStr = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(
       now.getHours(),
@@ -432,13 +437,13 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
       filteredPlayers.find((p) => p.team?.name)?.team?.name ||
       'team';
     const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9\u4e00-\u9fa5_-]+/g, '-');
-    const fileName = `players_${sanitize(teamName)}_${dateStr}.csv`;
+    const fileName = `${sanitize(teamName)}_${dateStr}.csv`;
 
     const csv = [
-      'name,class,current_dkp,total_earned,total_spent,attendance',
+      '角色名,职业,天赋,当前DKP,总获得,总消费,出勤',
       ...filteredPlayers.map(
         (p) =>
-          `${p.name},${p.class},${p.currentDkp},${p.totalEarned},${p.totalSpent},${p.attendance}`
+          `${p.name},${p.class},${p.talent?.trim() ? p.talent : '待定'},${truncateDkpToTwoDecimals(p.currentDkp)},${p.totalEarned},${p.totalSpent},${p.attendance}`
       ),
     ].join('\n');
 
