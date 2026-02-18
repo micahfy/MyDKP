@@ -443,7 +443,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
       '角色名,职业,天赋,当前DKP,总获得,总消费,出勤',
       ...filteredPlayers.map(
         (p) =>
-          `${p.name},${normalizeWowClassName(p.class)},${p.talent?.trim() ? p.talent : '待定'},${truncateToTwoDecimals(p.currentDkp)},${p.totalEarned},${p.totalSpent},${truncateToTwoDecimals(p.attendance)}`
+          `${p.name},${normalizeWowClassName(p.class)},${p.talent?.trim() ? p.talent : '待定'},${truncateToTwoDecimals(p.currentDkp)},${truncateToTwoDecimals(p.totalEarned)},${truncateToTwoDecimals(p.totalSpent)},${truncateToTwoDecimals(p.attendance)}`
       ),
     ].join('\n');
 
