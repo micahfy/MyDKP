@@ -39,7 +39,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { getClassColor, getClassShortName } from '@/lib/utils';
+import { getClassColor, getClassShortName, normalizeWowClassName } from '@/lib/utils';
 
 interface PlayerTableProps {
   teamId: string;
@@ -443,7 +443,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
       '角色名,职业,天赋,当前DKP,总获得,总消费,出勤',
       ...filteredPlayers.map(
         (p) =>
-          `${p.name},${p.class},${p.talent?.trim() ? p.talent : '待定'},${truncateToTwoDecimals(p.currentDkp)},${p.totalEarned},${p.totalSpent},${truncateToTwoDecimals(p.attendance)}`
+          `${p.name},${normalizeWowClassName(p.class)},${p.talent?.trim() ? p.talent : '待定'},${truncateToTwoDecimals(p.currentDkp)},${p.totalEarned},${p.totalSpent},${truncateToTwoDecimals(p.attendance)}`
       ),
     ].join('\n');
 
@@ -469,7 +469,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
     const fileName = `dkp_${sanitize(teamName)}_${dateStr}.txt`;
 
     const lines = filteredPlayers.map(
-      (p) => `${p.name},${p.class},${formatDkpFixed(p.currentDkp)}`,
+      (p) => `${p.name},${normalizeWowClassName(p.class)},${formatDkpFixed(p.currentDkp)}`,
     );
     const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8;' });
     const link = document.createElement('a');
