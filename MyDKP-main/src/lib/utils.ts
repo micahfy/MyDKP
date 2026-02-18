@@ -152,6 +152,16 @@ export function getClassColor(className: string, type: 'text' | 'textLight' | 'b
     }
     return CLASS_COLORS[mappedName][type];
   }
+
+  // Try resolving color by short class name alias (e.g. 潜行者 -> 贼 -> 盗贼)
+  const shortName = getClassShortName(cleanClassName);
+  const mappedFromShort = CLASS_NAME_MAP[shortName];
+  if (mappedFromShort && CLASS_COLORS[mappedFromShort]) {
+    if (type === 'hex') {
+      return CLASS_HEX[mappedFromShort] || '#9ca3af';
+    }
+    return CLASS_COLORS[mappedFromShort][type];
+  }
   
   // 模糊匹配
   for (const [key, value] of Object.entries(CLASS_COLORS)) {
