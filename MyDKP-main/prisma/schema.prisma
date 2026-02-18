@@ -105,6 +105,8 @@ model DkpLog {
   decayHistory DecayHistory? @relation(fields: [decayHistoryId], references: [id])
   event DkpEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
 
+  @@index([teamId, isDeleted, createdAt])
+  @@index([playerId, createdAt])
   @@map("dkp_logs")
 }
 
