@@ -38,7 +38,7 @@ const WOW_CLASSES = [
 
 const UNASSIGNED_TALENT = '__unassigned__';
 
-type InlineDkpType = 'earn' | 'spend';
+type DkpActionMode = 'none' | 'earn' | 'spend' | 'makeup';
 
 interface MakeupPreview {
   className: string;
@@ -62,7 +62,7 @@ export function PlayerEditDialog({ player, open, onOpenChange, onSuccess }: Play
   const [isArchived, setIsArchived] = useState(Boolean(player.isArchived));
   const [loading, setLoading] = useState(false);
 
-  const [inlineDkpType, setInlineDkpType] = useState<InlineDkpType>('earn');
+  const [activeDkpAction, setActiveDkpAction] = useState<DkpActionMode>('none');
   const [inlineDkpValue, setInlineDkpValue] = useState('');
   const [inlineDkpReason, setInlineDkpReason] = useState('');
   const [inlineDkpTime, setInlineDkpTime] = useState('');
@@ -80,7 +80,7 @@ export function PlayerEditDialog({ player, open, onOpenChange, onSuccess }: Play
       setAttendance((player.attendance * 100).toFixed(0));
       setIsArchived(Boolean(player.isArchived));
 
-      setInlineDkpType('earn');
+      setActiveDkpAction('none');
       setInlineDkpValue('');
       setInlineDkpReason('');
       setInlineDkpTime('');
@@ -177,6 +177,10 @@ export function PlayerEditDialog({ player, open, onOpenChange, onSuccess }: Play
   const handleInlineDkpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (activeDkpAction !== 'earn' && activeDkpAction !== 'spend') {
+      return;
+    }
+
     const amount = Number(inlineDkpValue);
     if (!Number.isFinite(amount) || amount <= 0) {
       toast.error('请填写大于 0 的分值');
@@ -200,14 +204,14 @@ export function PlayerEditDialog({ player, open, onOpenChange, onSuccess }: Play
 
     setInlineDkpLoading(true);
     try {
-      const change = inlineDkpType === 'spend' ? -Math.abs(amount) : Math.abs(amount);
+      const change = activeDkpAction === 'spend' ? -Math.abs(amount) : Math.abs(amount);
       const res = await fetch('/api/dkp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           playerId: player.id,
           teamId: player.teamId,
-          type: inlineDkpType,
+          type: activeDkpAction,
           change,
           reason: inlineDkpReason.trim(),
           ...(eventTimeIso ? { eventTime: eventTimeIso } : {}),
@@ -220,14 +224,11 @@ export function PlayerEditDialog({ player, open, onOpenChange, onSuccess }: Play
         return;
       }
 
-      toast.success(inlineDkpType === 'earn' ? '加分成功' : '支出记录成功');
+      toast.success(activeDkpAction === 'earn' ? '加分成功' : '支出记录成功');
       setInlineDkpValue('');
       setInlineDkpReason('');
       setInlineDkpTime('');
       onSuccess();
-      if (makeupPreview) {
-        fetchMakeupPreview();
-      }
     } catch (error) {
       toast.error('DKP操作失败，请重试');
     } finally {
@@ -235,21 +236,17 @@ export function PlayerEditDialog({ player, open, onOpenChange, onSuccess }: Play
     }
   };
 
+  const handlePrepareMakeup = async () => {
+    if (inlineDkpLoading || makeupLoading || makeupPreviewLoading) {
+      return;
+    }
+
+    setActiveDkpAction('makeup');
+    await fetchMakeupPreview();
+  };
+
   const handleAdjustToClassAverage = async () => {
-    if (makeupLoading || makeupPreviewLoading) {
-      return;
-    }
-
-    const preview = (await fetchMakeupPreview()) ?? makeupPreview;
-    if (!preview) {
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `确认将 ${player.name} 补至职业平均？\n职业：${preview.className}\n职业均分：${preview.classAverage}\n当前DKP：${preview.before}\n补分：${preview.delta}`,
-    );
-
-    if (!confirmed) {
+    if (makeupLoading || makeupPreviewLoading || !makeupPreview) {
       return;
     }
 
@@ -276,7 +273,7 @@ export function PlayerEditDialog({ player, open, onOpenChange, onSuccess }: Play
         toast.success(`补分完成：职业均分${data.classAverage}，补分前${data.before}，补分${data.delta}`);
       }
       onSuccess();
-      fetchMakeupPreview();
+      await fetchMakeupPreview();
     } catch (error) {
       toast.error('补分失败，请重试');
     } finally {
@@ -385,94 +382,104 @@ export function PlayerEditDialog({ player, open, onOpenChange, onSuccess }: Play
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
-              variant={inlineDkpType === 'earn' ? 'default' : 'outline'}
-              onClick={() => setInlineDkpType('earn')}
-              disabled={inlineDkpLoading || makeupLoading}
+              variant={activeDkpAction === 'earn' ? 'default' : 'outline'}
+              onClick={() => setActiveDkpAction('earn')}
+              disabled={inlineDkpLoading || makeupLoading || makeupPreviewLoading}
             >
               加分
             </Button>
             <Button
               type="button"
-              variant={inlineDkpType === 'spend' ? 'default' : 'outline'}
-              onClick={() => setInlineDkpType('spend')}
-              disabled={inlineDkpLoading || makeupLoading}
+              variant={activeDkpAction === 'spend' ? 'default' : 'outline'}
+              onClick={() => setActiveDkpAction('spend')}
+              disabled={inlineDkpLoading || makeupLoading || makeupPreviewLoading}
             >
               支出
             </Button>
             <Button
               type="button"
-              variant="secondary"
-              onClick={handleAdjustToClassAverage}
+              variant={activeDkpAction === 'makeup' ? 'secondary' : 'outline'}
+              onClick={handlePrepareMakeup}
               disabled={inlineDkpLoading || makeupLoading || makeupPreviewLoading}
             >
               {makeupLoading ? '执行中...' : makeupPreviewLoading ? '计算中...' : '补至职业平均'}
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={fetchMakeupPreview}
-              disabled={inlineDkpLoading || makeupLoading || makeupPreviewLoading}
-            >
-              预览职业均分
-            </Button>
           </div>
 
-          {makeupPreview && (
-            <div className="rounded-md border border-amber-700/40 bg-amber-900/20 px-3 py-2 text-sm text-amber-100">
-              职业：<span className="font-semibold">{makeupPreview.className}</span>
-              {' · '}均分：<span className="font-semibold">{makeupPreview.classAverage}</span>
-              {' · '}当前：<span className="font-semibold">{makeupPreview.before}</span>
-              {' · '}补分：
-              <span className="font-semibold text-amber-300">
-                {Number(makeupPreview.delta) > 0 ? '+' : ''}
-                {makeupPreview.delta}
-              </span>
-            </div>
+          {(activeDkpAction === 'earn' || activeDkpAction === 'spend') && (
+            <form onSubmit={handleInlineDkpSubmit} className="space-y-3">
+              <div>
+                <Label>{activeDkpAction === 'earn' ? '加分分值 *' : '支出分值 *'}</Label>
+                <Input
+                  type="number"
+                  value={inlineDkpValue}
+                  onChange={(e) => setInlineDkpValue(e.target.value)}
+                  min="0"
+                  step="0.01"
+                  placeholder="请输入分值"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label>原因 *</Label>
+                <Textarea
+                  value={inlineDkpReason}
+                  onChange={(e) => setInlineDkpReason(e.target.value)}
+                  rows={2}
+                  placeholder={activeDkpAction === 'earn' ? '填写加分原因' : '填写支出原因'}
+                  required
+                />
+              </div>
+
+              <div>
+                <Label>时间（可选）</Label>
+                <Input
+                  type="datetime-local"
+                  value={inlineDkpTime}
+                  onChange={(e) => setInlineDkpTime(e.target.value)}
+                  placeholder="不填写则使用当前时间"
+                />
+              </div>
+
+              <Button type="submit" className="w-full" disabled={inlineDkpLoading || makeupLoading}>
+                {inlineDkpLoading
+                  ? '提交中...'
+                  : activeDkpAction === 'earn'
+                  ? '确认加分'
+                  : '确认支出'}
+              </Button>
+            </form>
           )}
 
-          <form onSubmit={handleInlineDkpSubmit} className="space-y-3">
-            <div>
-              <Label>{inlineDkpType === 'earn' ? '加分分值 *' : '支出分值 *'}</Label>
-              <Input
-                type="number"
-                value={inlineDkpValue}
-                onChange={(e) => setInlineDkpValue(e.target.value)}
-                min="0"
-                step="0.01"
-                placeholder="请输入分值"
-                required
-              />
+          {activeDkpAction === 'makeup' && (
+            <div className="space-y-3">
+              {makeupPreview ? (
+                <>
+                  <div className="rounded-md border border-amber-700/40 bg-amber-900/20 px-3 py-2 text-sm text-amber-100">
+                    职业：<span className="font-semibold">{makeupPreview.className}</span>
+                    {' · '}均分：<span className="font-semibold">{makeupPreview.classAverage}</span>
+                    {' · '}当前：<span className="font-semibold">{makeupPreview.before}</span>
+                    {' · '}补分：
+                    <span className="font-semibold text-amber-300">
+                      {Number(makeupPreview.delta) > 0 ? '+' : ''}
+                      {makeupPreview.delta}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    className="w-full"
+                    onClick={handleAdjustToClassAverage}
+                    disabled={makeupLoading || makeupPreviewLoading}
+                  >
+                    {makeupLoading ? '执行中...' : '确认补至职业平均'}
+                  </Button>
+                </>
+              ) : (
+                <div className="text-sm text-gray-400">正在计算职业平均分...</div>
+              )}
             </div>
-
-            <div>
-              <Label>原因 *</Label>
-              <Textarea
-                value={inlineDkpReason}
-                onChange={(e) => setInlineDkpReason(e.target.value)}
-                rows={2}
-                placeholder={inlineDkpType === 'earn' ? '填写加分原因' : '填写支出原因'}
-                required
-              />
-            </div>
-
-            <div>
-              <Label>时间（可选）</Label>
-              <Input
-                type="datetime-local"
-                value={inlineDkpTime}
-                onChange={(e) => setInlineDkpTime(e.target.value)}
-                placeholder="不填写则使用当前时间"
-              />
-            </div>
-
-            <Button type="submit" className="w-full" disabled={inlineDkpLoading || makeupLoading}>
-              {inlineDkpLoading
-                ? '提交中...'
-                : inlineDkpType === 'earn'
-                ? '确认加分'
-                : '确认支出'}
-            </Button>
-          </form>
+          )}
         </div>
       </DialogContent>
     </Dialog>
