@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ImportDialog } from './ImportDialog';
 import { DecayDialog } from './DecayDialog';
-import { DkpOperationForm } from './DkpOperationForm';
 import { TeamManagement } from './TeamManagement';
 import { BatchDkpImportDialog } from './BatchDkpImportDialog';
 import { AdminManagement } from './AdminManagement';
@@ -25,8 +24,15 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
   const isSuperAdmin = adminRole === 'super_admin';
   const [hasPermission, setHasPermission] = useState(false);
   const [checkingPermission, setCheckingPermission] = useState(true);
-  const [activeTab, setActiveTab] = useState('operation');
+  const [activeTab, setActiveTab] = useState('batch-import');
   const [permittedTeamIds, setPermittedTeamIds] = useState<string[] | null>(null);
+  const availableTabs = useMemo(
+    () =>
+      isSuperAdmin
+        ? ['batch-import', 'import', 'decay', 'logs', 'webdkp', 'team', 'admins', 'loot']
+        : ['batch-import', 'import', 'decay', 'logs', 'webdkp'],
+    [isSuperAdmin],
+  );
 
   const permittedTeams = useMemo(() => {
     if (isSuperAdmin) {
@@ -40,12 +46,19 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
   }, [isSuperAdmin, permittedTeamIds, teams]);
 
   useEffect(() => {
-    // 记住上一次选择的标签，避免组件重渲染后跳回默认
     const stored = typeof window !== 'undefined' ? window.localStorage.getItem('admin_panel_active_tab') : null;
-    if (stored) {
-      setActiveTab(stored);
+    const nextTab = stored && availableTabs.includes(stored) ? stored : availableTabs[0];
+    setActiveTab(nextTab);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('admin_panel_active_tab', nextTab);
     }
-  }, []);
+  }, [availableTabs]);
+
+  useEffect(() => {
+    if (!availableTabs.includes(activeTab)) {
+      setActiveTab(availableTabs[0]);
+    }
+  }, [activeTab, availableTabs]);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -156,10 +169,7 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
       </CardHeader>
       <CardContent className="pt-6">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className={`grid w-full ${isSuperAdmin ? 'grid-cols-9' : 'grid-cols-6'} bg-slate-800/50`}>
-            <TabsTrigger value="operation" className="data-[state=active]:bg-blue-950">
-              DKP操作
-            </TabsTrigger>
+          <TabsList className={`grid w-full ${isSuperAdmin ? 'grid-cols-8' : 'grid-cols-5'} bg-slate-800/50`}>
             <TabsTrigger value="batch-import" className="data-[state=active]:bg-blue-950">
               批量变动
             </TabsTrigger>
@@ -191,10 +201,6 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
               </TabsTrigger>
             )}
           </TabsList>
-
-          <TabsContent value="operation" className="space-y-4">
-            <DkpOperationForm teamId={teamId} onSuccess={onUpdate} />
-          </TabsContent>
 
           <TabsContent value="batch-import" className="space-y-4">
             <BatchDkpImportDialog teamId={teamId} teams={permittedTeams} onSuccess={onUpdate} />

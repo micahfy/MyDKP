@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     let effectiveEventTime = new Date();
-    if (type === 'makeup' && eventTime) {
+    if (eventTime) {
       const parsed = new Date(eventTime);
       if (Number.isNaN(parsed.getTime())) {
         return NextResponse.json({ error: '记录时间格式不正确' }, { status: 400 });
