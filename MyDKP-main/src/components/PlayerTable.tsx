@@ -39,7 +39,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { getClassColor } from '@/lib/utils';
+import { getClassColor, getClassShortName } from '@/lib/utils';
 
 interface PlayerTableProps {
   teamId: string;
@@ -652,7 +652,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                       </TableCell>
                       <TableCell>
                         <span className={`class-badge ${getClassColor(player.class, 'bg')} ${getClassColor(player.class)} border ${getClassColor(player.class, 'border')}`}>
-                          {player.class}
+                          {getClassShortName(player.class)}
                         </span>
                       </TableCell>
                     <TableCell className="text-right">
@@ -810,7 +810,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                       </TableCell>
                       <TableCell>
                         <span className={`class-badge ${getClassColor(p.class, 'bg')} ${getClassColor(p.class)} border ${getClassColor(p.class, 'border')}`}>
-                          {p.class}
+                          {getClassShortName(p.class)}
                         </span>
                       </TableCell>
                       <TableCell className="text-right text-orange-400 font-semibold">

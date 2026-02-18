@@ -173,3 +173,47 @@ export function getClassColor(className: string, type: 'text' | 'textLight' | 'b
          type === 'border' ? 'border-gray-500' :
          'shadow-gray-500/50';
 }
+
+const CLASS_SHORT_NAME_MAP: Record<string, string> = {
+  '骑': '骑',
+  '圣骑士': '骑',
+  '猎': '猎',
+  '猎人': '猎',
+  '贼': '贼',
+  '盗贼': '贼',
+  '潜行者': '贼',
+  '萨': '萨',
+  '萨满祭司': '萨',
+  '法': '法',
+  '法师': '法',
+  '牧': '牧',
+  '牧师': '牧',
+  '德': '德',
+  '德鲁伊': '德',
+  '小德': '德',
+  '战': '战',
+  '战士': '战',
+  '术': '术',
+  '术士': '术',
+};
+
+export function getClassShortName(className: string): string {
+  const cleanClassName = className?.trim() || '';
+  if (!cleanClassName) return '';
+
+  const direct = CLASS_SHORT_NAME_MAP[cleanClassName];
+  if (direct) return direct;
+
+  const mappedName = CLASS_NAME_MAP[cleanClassName];
+  if (mappedName && CLASS_SHORT_NAME_MAP[mappedName]) {
+    return CLASS_SHORT_NAME_MAP[mappedName];
+  }
+
+  for (const [alias, shortName] of Object.entries(CLASS_SHORT_NAME_MAP)) {
+    if (cleanClassName.includes(alias)) {
+      return shortName;
+    }
+  }
+
+  return cleanClassName[0];
+}
