@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdmin, hasTeamPermission } from '@/lib/auth';
 import { isTalentValidForClass, normalizeTalentName } from '@/lib/talents';
+import { normalizeWowClassName } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
     if (search) {
       where.name = { contains: search };
     }
-    if (classFilter) where.class = classFilter;
+    if (classFilter) where.class = normalizeWowClassName(classFilter);
 
     const players = await prisma.player.findMany({
       where,
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
     }
 
     const trimmedName = name.trim();
-    const trimmedClass = playerClass.trim();
+    const trimmedClass = normalizeWowClassName(playerClass.trim());
     const normalizedTalent = normalizeTalentName(talent);
 
     if (normalizedTalent && !isTalentValidForClass(trimmedClass, normalizedTalent)) {

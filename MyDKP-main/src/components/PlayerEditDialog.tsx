@@ -23,6 +23,7 @@ import { Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Player } from '@/types';
 import { getTalentsForClass } from '@/lib/talents';
+import { normalizeWowClassName } from '@/lib/utils';
 
 const WOW_CLASSES = [
   '战士',
@@ -56,7 +57,7 @@ interface PlayerEditDialogProps {
 
 export function PlayerEditDialog({ player, open, onOpenChange, onSuccess }: PlayerEditDialogProps) {
   const [name, setName] = useState(player.name);
-  const [className, setClassName] = useState(player.class);
+  const [className, setClassName] = useState(normalizeWowClassName(player.class));
   const [talent, setTalent] = useState(player.talent ?? UNASSIGNED_TALENT);
   const [attendance, setAttendance] = useState((player.attendance * 100).toFixed(0));
   const [isArchived, setIsArchived] = useState(Boolean(player.isArchived));
@@ -75,7 +76,7 @@ export function PlayerEditDialog({ player, open, onOpenChange, onSuccess }: Play
   useEffect(() => {
     if (open) {
       setName(player.name);
-      setClassName(player.class);
+      setClassName(normalizeWowClassName(player.class));
       setTalent(player.talent ?? UNASSIGNED_TALENT);
       setAttendance((player.attendance * 100).toFixed(0));
       setIsArchived(Boolean(player.isArchived));
@@ -114,7 +115,7 @@ export function PlayerEditDialog({ player, open, onOpenChange, onSuccess }: Play
         return null;
       }
       const nextPreview: MakeupPreview = {
-        className: data.class ?? player.class,
+        className: normalizeWowClassName(data.class ?? player.class),
         classAverage: data.classAverage,
         before: data.before,
         delta: data.delta,
@@ -151,7 +152,7 @@ export function PlayerEditDialog({ player, open, onOpenChange, onSuccess }: Play
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
-          class: className,
+          class: normalizeWowClassName(className),
           talent: talent === UNASSIGNED_TALENT ? null : talent,
           attendance: attendanceValue,
           isArchived,

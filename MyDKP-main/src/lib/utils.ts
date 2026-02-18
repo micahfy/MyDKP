@@ -120,6 +120,56 @@ const CLASS_NAME_MAP: Record<string, string> = {
   'Druid': '德鲁伊',
 };
 
+// Canonical class aliases for import/input normalization.
+const CLASS_CANONICAL_MAP: Record<string, string> = {
+  '\u9a91': '\u5723\u9a91\u58eb',
+  '\u5723\u9a91\u58eb': '\u5723\u9a91\u58eb',
+  '\u730e': '\u730e\u4eba',
+  '\u730e\u4eba': '\u730e\u4eba',
+  '\u8d3c': '\u76d7\u8d3c',
+  '\u76d7\u8d3c': '\u76d7\u8d3c',
+  '\u6f5c\u884c\u8005': '\u76d7\u8d3c',
+  '\u8428': '\u8428\u6ee1\u796d\u53f8',
+  '\u8428\u6ee1\u796d\u53f8': '\u8428\u6ee1\u796d\u53f8',
+  '\u6cd5': '\u6cd5\u5e08',
+  '\u6cd5\u5e08': '\u6cd5\u5e08',
+  '\u7267': '\u7267\u5e08',
+  '\u7267\u5e08': '\u7267\u5e08',
+  '\u5fb7': '\u5fb7\u9c81\u4f0a',
+  '\u5fb7\u9c81\u4f0a': '\u5fb7\u9c81\u4f0a',
+  '\u5c0f\u5fb7': '\u5fb7\u9c81\u4f0a',
+  '\u6218': '\u6218\u58eb',
+  '\u6218\u58eb': '\u6218\u58eb',
+  '\u672f': '\u672f\u58eb',
+  '\u672f\u58eb': '\u672f\u58eb',
+};
+
+export function normalizeWowClassName(className: string): string {
+  const cleanClassName = className?.trim() || '';
+  if (!cleanClassName) return '';
+
+  if (CLASS_CANONICAL_MAP[cleanClassName]) {
+    return CLASS_CANONICAL_MAP[cleanClassName];
+  }
+
+  const mappedName = CLASS_NAME_MAP[cleanClassName];
+  if (mappedName) {
+    return mappedName;
+  }
+
+  const shortName = getClassShortName(cleanClassName);
+  if (CLASS_CANONICAL_MAP[shortName]) {
+    return CLASS_CANONICAL_MAP[shortName];
+  }
+
+  const mappedFromShort = CLASS_NAME_MAP[shortName];
+  if (mappedFromShort) {
+    return mappedFromShort;
+  }
+
+  return cleanClassName;
+}
+
 const CLASS_HEX: Record<string, string> = {
   '战士': '#ca8a04',      // yellow-600
   '圣骑士': '#f472b6',    // pink-400
@@ -135,13 +185,14 @@ const CLASS_HEX: Record<string, string> = {
 export function getClassColor(className: string, type: 'text' | 'textLight' | 'bg' | 'border' | 'glow' | 'hex' = 'text'): string {
   // 先清理职业名称（去除空格和特殊字符）
   const cleanClassName = className?.trim() || '';
+  const normalizedClassName = normalizeWowClassName(cleanClassName);
   
   // 直接匹配
-  if (CLASS_COLORS[cleanClassName]) {
+  if (CLASS_COLORS[normalizedClassName]) {
     if (type === 'hex') {
-      return CLASS_HEX[cleanClassName] || '#9ca3af';
+      return CLASS_HEX[normalizedClassName] || '#9ca3af';
     }
-    return CLASS_COLORS[cleanClassName][type];
+    return CLASS_COLORS[normalizedClassName][type];
   }
   
   // 通过映射表查找

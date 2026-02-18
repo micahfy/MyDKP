@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdmin, hasTeamPermission, getSession } from '@/lib/auth';
 import Papa from 'papaparse';
+import { normalizeWowClassName } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,12 +46,14 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
+      const normalizedClass = normalizeWowClassName(className.trim());
+
       try {
         await prisma.$transaction(async (tx) => {
           const player = await tx.player.create({
             data: {
               name: name.trim(),
-              class: className.trim(),
+              class: normalizedClass,
               currentDkp: dkp,
               totalEarned: dkp,
               teamId,

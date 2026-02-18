@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdmin, hasTeamPermission } from '@/lib/auth';
 import { isTalentValidForClass, normalizeTalentName } from '@/lib/talents';
+import { normalizeWowClassName } from '@/lib/utils';
 export const dynamic = 'force-dynamic';
 export async function GET(
   request: NextRequest,
@@ -51,11 +52,12 @@ export async function PATCH(
     const data = await request.json();
     const updateData: any = { ...data };
     const hasTalentField = Object.prototype.hasOwnProperty.call(data, 'talent');
+    const existingClass = normalizeWowClassName(existingPlayer.class);
     const nextClass =
-      typeof data.class === 'string' ? data.class.trim() : existingPlayer.class;
+      typeof data.class === 'string' ? normalizeWowClassName(data.class.trim()) : existingClass;
     const classChanged =
       typeof data.class === 'string' &&
-      data.class.trim() !== existingPlayer.class;
+      nextClass !== existingClass;
 
     if (typeof data.class === 'string') {
       updateData.class = nextClass;
