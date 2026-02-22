@@ -54,13 +54,26 @@ const typeBadgeClass = (type: string, change: number) => {
   return 'bg-emerald-900/60 text-emerald-100 border border-emerald-500/70';
 };
 
-export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: () => void }) {
+interface DkpLogManagerProps {
+  teams: Team[];
+  currentTeamId?: string;
+  onChange?: () => void;
+}
+
+function resolveDefaultTeamFilter(teams: Team[], currentTeamId?: string) {
+  if (!currentTeamId) return 'all';
+  return teams.some((team) => team.id === currentTeamId) ? currentTeamId : 'all';
+}
+
+export function DkpLogManager({ teams, currentTeamId, onChange }: DkpLogManagerProps) {
   const [logs, setLogs] = useState<ManageLog[]>([]);
   const [events, setEvents] = useState<DkpEventLog[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('events');
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
-  const [teamFilter, setTeamFilter] = useState<string>('all');
+  const [teamFilter, setTeamFilter] = useState<string>(() =>
+    resolveDefaultTeamFilter(teams, currentTeamId),
+  );
   const [statusFilter, setStatusFilter] = useState<'valid' | 'all' | 'deleted'>('valid');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -149,6 +162,12 @@ export function DkpLogManager({ teams, onChange }: { teams: Team[]; onChange?: (
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    const defaultTeamFilter = resolveDefaultTeamFilter(teams, currentTeamId);
+    setTeamFilter(defaultTeamFilter);
+    setPage(1);
+  }, [teams, currentTeamId]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {

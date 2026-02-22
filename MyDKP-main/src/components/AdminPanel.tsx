@@ -215,7 +215,7 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
           </TabsContent>
 
           <TabsContent value="logs" className="space-y-4">
-            <DkpLogManager teams={permittedTeams} onChange={onUpdate} />
+            <DkpLogManager teams={permittedTeams} currentTeamId={teamId} onChange={onUpdate} />
           </TabsContent>
 
           <TabsContent value="webdkp" className="space-y-4">
