@@ -30,8 +30,17 @@ interface ManageLog extends DkpLog {
 
 type ViewMode = 'entries' | 'events';
 type ScoreFilter = 'all' | 'score' | 'positive' | 'negative';
+type TimeRangeFilter = 'latest_activity' | 'one_week' | 'two_weeks' | 'one_month' | 'half_year' | 'all';
 
 const PAGE_SIZE = 25;
+const TIME_RANGE_LABELS: Record<TimeRangeFilter, string> = {
+  latest_activity: '\u6700\u65b0\u6d3b\u52a8',
+  one_week: '\u6700\u8fd1\u4e00\u5468',
+  two_weeks: '\u6700\u8fd1\u4e24\u5468',
+  one_month: '\u4e00\u4e2a\u6708\u5185',
+  half_year: '\u534a\u5e74\u5185',
+  all: '\u5168\u90e8',
+};
 
 const TYPE_LABELS: Record<string, string> = {
   earn: '加分',
@@ -79,7 +88,7 @@ export function DkpLogManager({ teams, currentTeamId, onChange }: DkpLogManagerP
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [timeRangeFilter, setTimeRangeFilter] = useState<TimeRangeFilter>('latest_activity');
   const [scoreFilter, setScoreFilter] = useState<ScoreFilter>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
@@ -116,15 +125,13 @@ export function DkpLogManager({ teams, currentTeamId, onChange }: DkpLogManagerP
         pageSize: PAGE_SIZE.toString(),
         status: statusFilter,
         view: viewMode,
+        timeRange: timeRangeFilter,
       });
       if (teamFilter !== 'all') {
         params.set('teamId', teamFilter);
       }
       if (search.trim()) {
         params.set('search', search.trim());
-      }
-      if (typeFilter !== 'all') {
-        params.set('type', typeFilter);
       }
       if (scoreFilter !== 'all') {
         params.set('score', scoreFilter);
@@ -157,7 +164,7 @@ export function DkpLogManager({ teams, currentTeamId, onChange }: DkpLogManagerP
       setLoading(false);
       setSelectedIds(new Set());
     }
-  }, [page, search, teamFilter, statusFilter, viewMode, typeFilter, scoreFilter]);
+  }, [page, search, teamFilter, statusFilter, viewMode, timeRangeFilter, scoreFilter]);
 
   useEffect(() => {
     fetchData();
@@ -259,20 +266,7 @@ export function DkpLogManager({ teams, currentTeamId, onChange }: DkpLogManagerP
       now.getMinutes(),
     )}${pad(now.getSeconds())}`;
     const teamName = teamFilter === 'all' ? 'all' : teams.find((t) => t.id === teamFilter)?.name || teamFilter;
-    const typeName =
-      typeFilter === 'all'
-        ? 'all'
-        : typeFilter === 'earn'
-        ? 'earn'
-        : typeFilter === 'makeup'
-        ? 'makeup'
-        : typeFilter === 'spend'
-        ? 'spend'
-        : typeFilter === 'decay'
-        ? 'decay'
-        : typeFilter === 'attendance'
-        ? 'attendance'
-        : 'other';
+    const timeName = timeRangeFilter;
     const scoreName =
       scoreFilter === 'all'
         ? 'all'
@@ -283,7 +277,7 @@ export function DkpLogManager({ teams, currentTeamId, onChange }: DkpLogManagerP
         : 'negative';
     const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9\u4e00-\u9fa5_-]+/g, '-');
     const searchPart = search.trim() ? sanitize(search.trim()) : 'all';
-    return `dkp-logs_${viewMode}_${sanitize(teamName)}_${typeName}_${scoreName}_${searchPart}_${statusFilter}_${dateStr}.csv`;
+    return `dkp-logs_${viewMode}_${sanitize(teamName)}_${timeName}_${scoreName}_${searchPart}_${statusFilter}_${dateStr}.csv`;
   };
 
   const handleExportCsv = async () => {
@@ -293,10 +287,10 @@ export function DkpLogManager({ teams, currentTeamId, onChange }: DkpLogManagerP
         status: statusFilter,
         view: viewMode,
         format: 'csv',
+        timeRange: timeRangeFilter,
       });
       if (search.trim()) params.set('search', search.trim());
       if (teamFilter !== 'all') params.set('teamId', teamFilter);
-      if (typeFilter !== 'all') params.set('type', typeFilter);
       if (scoreFilter !== 'all') params.set('score', scoreFilter);
 
       const res = await fetch(`/api/dkp/logs/manage?${params.toString()}`);
@@ -536,23 +530,21 @@ export function DkpLogManager({ teams, currentTeamId, onChange }: DkpLogManagerP
           className="w-64"
         />
         <Select
-          value={typeFilter}
+          value={timeRangeFilter}
           onValueChange={(value) => {
-            setTypeFilter(value);
+            setTimeRangeFilter(value as TimeRangeFilter);
             setPage(1);
           }}
         >
-          <SelectTrigger className="w-36">
-            <SelectValue placeholder="类型筛选" />
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="\u65f6\u95f4\u7b5b\u9009" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部类型</SelectItem>
-            <SelectItem value="earn">加分</SelectItem>
-            <SelectItem value="makeup">补分</SelectItem>
-            <SelectItem value="spend">支出</SelectItem>
-            <SelectItem value="decay">衰减</SelectItem>
-            <SelectItem value="attendance">出勤</SelectItem>
-            <SelectItem value="other">其他</SelectItem>
+            {(Object.entries(TIME_RANGE_LABELS) as [TimeRangeFilter, string][]).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select

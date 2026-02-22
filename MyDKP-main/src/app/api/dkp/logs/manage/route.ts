@@ -6,6 +6,63 @@ export const dynamic = 'force-dynamic';
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
+type TimeRangeFilter = 'latest_activity' | 'one_week' | 'two_weeks' | 'one_month' | 'half_year' | 'all';
+
+function parseTimeRange(value?: string | null): TimeRangeFilter {
+  const parsed = (value || '').trim();
+  const validValues: TimeRangeFilter[] = [
+    'latest_activity',
+    'one_week',
+    'two_weeks',
+    'one_month',
+    'half_year',
+    'all',
+  ];
+  return (validValues as string[]).includes(parsed) ? (parsed as TimeRangeFilter) : 'latest_activity';
+}
+
+function appendAndCondition(where: any, condition: any) {
+  if (!condition) return;
+  where.AND = [...(where.AND || []), condition];
+}
+
+function getLocalDayRange(baseDate: Date) {
+  const start = new Date(baseDate);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { start, end };
+}
+
+function getRollingRangeStart(timeRange: Exclude<TimeRangeFilter, 'latest_activity' | 'all'>, now: Date) {
+  const start = new Date(now);
+  if (timeRange === 'one_week') {
+    start.setDate(start.getDate() - 7);
+    return start;
+  }
+  if (timeRange === 'two_weeks') {
+    start.setDate(start.getDate() - 14);
+    return start;
+  }
+  if (timeRange === 'one_month') {
+    start.setMonth(start.getMonth() - 1);
+    return start;
+  }
+  start.setMonth(start.getMonth() - 6);
+  return start;
+}
+
+function buildLogTimeOrCondition(range: { start: Date; end: Date }, inclusiveEnd = false) {
+  const timeCondition = inclusiveEnd
+    ? { gte: range.start, lte: range.end }
+    : { gte: range.start, lt: range.end };
+  return {
+    OR: [
+      { createdAt: timeCondition },
+      { event: { is: { eventTime: timeCondition } } },
+    ],
+  };
+}
 
 function parsePageParams(searchParams: URLSearchParams) {
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
@@ -50,6 +107,7 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type')?.trim() || '';
     const scoreParam = searchParams.get('score')?.trim() || 'all';
     const teamId = searchParams.get('teamId');
+    const timeRange = parseTimeRange(searchParams.get('timeRange'));
     const statusParam = searchParams.get('status') || 'valid';
     const status: 'valid' | 'all' | 'deleted' = ['all', 'deleted', 'valid'].includes(statusParam)
       ? (statusParam as any)
@@ -74,6 +132,7 @@ export async function GET(request: NextRequest) {
       return exportEntriesCsv({
         search,
         type,
+        timeRange,
         scoreFilter,
         teamId,
         status,
@@ -87,6 +146,7 @@ export async function GET(request: NextRequest) {
         pageSize,
         search,
         type,
+        timeRange,
         scoreFilter,
         teamId,
         status,
@@ -99,6 +159,7 @@ export async function GET(request: NextRequest) {
       pageSize,
       search,
       type,
+      timeRange,
       scoreFilter,
       teamId,
       status,
@@ -115,12 +176,13 @@ async function handleEntryView(options: {
   pageSize: number;
   search: string;
   type: string;
+  timeRange: TimeRangeFilter;
   scoreFilter: 'all' | 'score' | 'positive' | 'negative';
   teamId: string | null;
   status: 'valid' | 'all' | 'deleted';
   superAdmin: boolean;
 }) {
-  const { page, pageSize, search, type, scoreFilter, teamId, status, superAdmin } = options;
+  const { page, pageSize, search, type, timeRange, scoreFilter, teamId, status, superAdmin } = options;
 
   const where: any = {};
   if (status === 'valid') {
@@ -180,6 +242,31 @@ async function handleEntryView(options: {
     ];
   }
 
+  if (timeRange !== 'all') {
+    if (timeRange === 'latest_activity') {
+      const latestLog = await prisma.dkpLog.findFirst({
+        where,
+        select: { createdAt: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (!latestLog) {
+        return NextResponse.json({
+          logs: [],
+          total: 0,
+          page,
+          pageSize,
+          totalPages: 0,
+        });
+      }
+      const latestRange = getLocalDayRange(latestLog.createdAt);
+      appendAndCondition(where, buildLogTimeOrCondition(latestRange));
+    } else {
+      const now = new Date();
+      const start = getRollingRangeStart(timeRange, now);
+      appendAndCondition(where, buildLogTimeOrCondition({ start, end: now }, true));
+    }
+  }
+
   const [logs, total] = await prisma.$transaction([
     prisma.dkpLog.findMany({
       where,
@@ -230,12 +317,13 @@ async function handleEventView(options: {
   pageSize: number;
   search: string;
   type: string;
+  timeRange: TimeRangeFilter;
   scoreFilter: 'all' | 'score' | 'positive' | 'negative';
   teamId: string | null;
   status: 'valid' | 'all' | 'deleted';
   superAdmin: boolean;
 }) {
-  const { page, pageSize, search, type, scoreFilter, teamId, status, superAdmin } = options;
+  const { page, pageSize, search, type, timeRange, scoreFilter, teamId, status, superAdmin } = options;
 
   const filters: any[] = [];
   const logFilter =
@@ -282,6 +370,32 @@ async function handleEventView(options: {
         ? { lt: 0 }
         : { not: 0 };
     filters.push({ change: scoreCondition });
+  }
+
+  if (timeRange !== 'all') {
+    if (timeRange === 'latest_activity') {
+      const baseWhere = filters.length ? { AND: filters } : {};
+      const latestEvent = await prisma.dkpEvent.findFirst({
+        where: baseWhere,
+        select: { eventTime: true },
+        orderBy: { eventTime: 'desc' },
+      });
+      if (!latestEvent) {
+        return NextResponse.json({
+          events: [],
+          total: 0,
+          page,
+          pageSize,
+          totalPages: 0,
+        });
+      }
+      const latestRange = getLocalDayRange(latestEvent.eventTime);
+      filters.push({ eventTime: { gte: latestRange.start, lt: latestRange.end } });
+    } else {
+      const now = new Date();
+      const start = getRollingRangeStart(timeRange, now);
+      filters.push({ eventTime: { gte: start, lte: now } });
+    }
   }
 
   const where = filters.length ? { AND: filters } : {};
@@ -490,12 +604,13 @@ export async function DELETE(request: NextRequest) {
 async function exportEntriesCsv(options: {
   search: string;
   type: string;
+  timeRange: TimeRangeFilter;
   scoreFilter: 'all' | 'score' | 'positive' | 'negative';
   teamId: string | null;
   status: 'valid' | 'all' | 'deleted';
   superAdmin: boolean;
 }) {
-  const { search, type, scoreFilter, teamId, status, superAdmin } = options;
+  const { search, type, timeRange, scoreFilter, teamId, status, superAdmin } = options;
 
   const where: any = {};
   if (status === 'valid') {
@@ -553,6 +668,29 @@ async function exportEntriesCsv(options: {
         ],
       },
     ];
+  }
+
+  if (timeRange !== 'all') {
+    if (timeRange === 'latest_activity') {
+      const latestLog = await prisma.dkpLog.findFirst({
+        where,
+        select: { createdAt: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (!latestLog) {
+        const emptyCsv = '\uFEFF' + '玩家,分数,原因,日期,时间,团队';
+        const response = new NextResponse(emptyCsv);
+        response.headers.set('Content-Type', 'text/csv; charset=utf-8');
+        response.headers.set('Content-Disposition', 'attachment; filename="dkp_logs.csv"');
+        return response;
+      }
+      const latestRange = getLocalDayRange(latestLog.createdAt);
+      appendAndCondition(where, buildLogTimeOrCondition(latestRange));
+    } else {
+      const now = new Date();
+      const start = getRollingRangeStart(timeRange, now);
+      appendAndCondition(where, buildLogTimeOrCondition({ start, end: now }, true));
+    }
   }
 
   const logs = await prisma.dkpLog.findMany({
