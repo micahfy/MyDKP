@@ -7,6 +7,8 @@ export const dynamic = 'force-dynamic';
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
 type TimeRangeFilter = 'latest_activity' | 'one_week' | 'two_weeks' | 'one_month' | 'half_year' | 'all';
+const ACTIVITY_SOURCE_TYPES = ['earn', 'makeup'] as const;
+const MASS_ACTIVITY_MIN_PLAYERS = 5;
 
 function parseTimeRange(value?: string | null): TimeRangeFilter {
   const parsed = (value || '').trim();
@@ -62,6 +64,66 @@ function buildLogTimeOrCondition(range: { start: Date; end: Date }, inclusiveEnd
       { event: { is: { eventTime: timeCondition } } },
     ],
   };
+}
+
+async function buildTeamScopeWhere(teamId: string | null, superAdmin: boolean) {
+  if (teamId) {
+    return { teamId };
+  }
+  if (!superAdmin) {
+    const adminTeams = await getAdminTeams();
+    return { teamId: { in: adminTeams } };
+  }
+  return {};
+}
+
+async function resolveLatestActivityAnchor(options: { teamId: string | null; superAdmin: boolean }) {
+  const teamScopeWhere = await buildTeamScopeWhere(options.teamId, options.superAdmin);
+  const positiveAwardWhere = {
+    ...teamScopeWhere,
+    isDeleted: false,
+    type: { in: [...ACTIVITY_SOURCE_TYPES] },
+    OR: [
+      { change: { gt: 0 } },
+      { event: { is: { change: { gt: 0 } } } },
+    ],
+  };
+
+  const grouped = await prisma.dkpLog.groupBy({
+    by: ['eventId'],
+    where: {
+      ...positiveAwardWhere,
+      eventId: { not: null },
+    },
+    _count: { _all: true },
+    _max: { createdAt: true },
+    orderBy: { _max: { createdAt: 'desc' } },
+    take: 300,
+  });
+
+  const massAward = grouped.find((group) => group._count._all >= MASS_ACTIVITY_MIN_PLAYERS && group._max.createdAt);
+  if (massAward?._max.createdAt) {
+    return massAward._max.createdAt;
+  }
+
+  const latestPositiveAward = await prisma.dkpLog.findFirst({
+    where: positiveAwardWhere,
+    select: { createdAt: true },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (latestPositiveAward?.createdAt) {
+    return latestPositiveAward.createdAt;
+  }
+
+  const latestAnyLog = await prisma.dkpLog.findFirst({
+    where: {
+      ...teamScopeWhere,
+      isDeleted: false,
+    },
+    select: { createdAt: true },
+    orderBy: { createdAt: 'desc' },
+  });
+  return latestAnyLog?.createdAt || null;
 }
 
 function parsePageParams(searchParams: URLSearchParams) {
@@ -243,13 +305,10 @@ async function handleEntryView(options: {
   }
 
   if (timeRange !== 'all') {
+    const now = new Date();
     if (timeRange === 'latest_activity') {
-      const latestLog = await prisma.dkpLog.findFirst({
-        where,
-        select: { createdAt: true },
-        orderBy: { createdAt: 'desc' },
-      });
-      if (!latestLog) {
+      const activityAnchor = await resolveLatestActivityAnchor({ teamId, superAdmin });
+      if (!activityAnchor) {
         return NextResponse.json({
           logs: [],
           total: 0,
@@ -258,10 +317,9 @@ async function handleEntryView(options: {
           totalPages: 0,
         });
       }
-      const latestRange = getLocalDayRange(latestLog.createdAt);
-      appendAndCondition(where, buildLogTimeOrCondition(latestRange));
+      const latestRange = getLocalDayRange(activityAnchor);
+      appendAndCondition(where, buildLogTimeOrCondition({ start: latestRange.start, end: now }, true));
     } else {
-      const now = new Date();
       const start = getRollingRangeStart(timeRange, now);
       appendAndCondition(where, buildLogTimeOrCondition({ start, end: now }, true));
     }
@@ -373,14 +431,10 @@ async function handleEventView(options: {
   }
 
   if (timeRange !== 'all') {
+    const now = new Date();
     if (timeRange === 'latest_activity') {
-      const baseWhere = filters.length ? { AND: filters } : {};
-      const latestEvent = await prisma.dkpEvent.findFirst({
-        where: baseWhere,
-        select: { eventTime: true },
-        orderBy: { eventTime: 'desc' },
-      });
-      if (!latestEvent) {
+      const activityAnchor = await resolveLatestActivityAnchor({ teamId, superAdmin });
+      if (!activityAnchor) {
         return NextResponse.json({
           events: [],
           total: 0,
@@ -389,10 +443,9 @@ async function handleEventView(options: {
           totalPages: 0,
         });
       }
-      const latestRange = getLocalDayRange(latestEvent.eventTime);
-      filters.push({ eventTime: { gte: latestRange.start, lt: latestRange.end } });
+      const latestRange = getLocalDayRange(activityAnchor);
+      filters.push({ eventTime: { gte: latestRange.start, lte: now } });
     } else {
-      const now = new Date();
       const start = getRollingRangeStart(timeRange, now);
       filters.push({ eventTime: { gte: start, lte: now } });
     }
@@ -671,23 +724,19 @@ async function exportEntriesCsv(options: {
   }
 
   if (timeRange !== 'all') {
+    const now = new Date();
     if (timeRange === 'latest_activity') {
-      const latestLog = await prisma.dkpLog.findFirst({
-        where,
-        select: { createdAt: true },
-        orderBy: { createdAt: 'desc' },
-      });
-      if (!latestLog) {
+      const activityAnchor = await resolveLatestActivityAnchor({ teamId, superAdmin });
+      if (!activityAnchor) {
         const emptyCsv = '\uFEFF' + '玩家,分数,原因,日期,时间,团队';
         const response = new NextResponse(emptyCsv);
         response.headers.set('Content-Type', 'text/csv; charset=utf-8');
         response.headers.set('Content-Disposition', 'attachment; filename="dkp_logs.csv"');
         return response;
       }
-      const latestRange = getLocalDayRange(latestLog.createdAt);
-      appendAndCondition(where, buildLogTimeOrCondition(latestRange));
+      const latestRange = getLocalDayRange(activityAnchor);
+      appendAndCondition(where, buildLogTimeOrCondition({ start: latestRange.start, end: now }, true));
     } else {
-      const now = new Date();
       const start = getRollingRangeStart(timeRange, now);
       appendAndCondition(where, buildLogTimeOrCondition({ start, end: now }, true));
     }
