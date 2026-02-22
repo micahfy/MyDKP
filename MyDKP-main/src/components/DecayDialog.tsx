@@ -25,6 +25,16 @@ interface DecayDialogProps {
   onSuccess: () => void;
 }
 
+function truncateToTwoDecimals(value: number): number {
+  const factor = 100;
+  const truncated = value >= 0 ? Math.floor(value * factor) : Math.ceil(value * factor);
+  return truncated / factor;
+}
+
+function formatTruncatedTwoDecimals(value: number): string {
+  return truncateToTwoDecimals(value).toFixed(2);
+}
+
 export function DecayDialog({ teamId, teams = [], onSuccess }: DecayDialogProps) {
   const [decayRate, setDecayRate] = useState('15');
   const [selectedTeamId, setSelectedTeamId] = useState(teamId || '');
@@ -117,7 +127,7 @@ export function DecayDialog({ teamId, teams = [], onSuccess }: DecayDialogProps)
             <p className="text-sm text-gray-500 mt-2">
               {decayRate &&
                 !isNaN(parseFloat(decayRate)) &&
-                `将对所有玩家执行 ${parseFloat(decayRate).toFixed(1)}% 的衰减`}
+                `将对所有玩家执行 ${formatTruncatedTwoDecimals(parseFloat(decayRate))}% 的衰减`}
             </p>
           </div>
 
@@ -151,7 +161,7 @@ export function DecayDialog({ teamId, teams = [], onSuccess }: DecayDialogProps)
                 <AlertDialogDescription>
                   此操作将对当前团队所有玩家执行{' '}
                   {decayRate && !isNaN(parseFloat(decayRate))
-                    ? parseFloat(decayRate).toFixed(1)
+                    ? formatTruncatedTwoDecimals(parseFloat(decayRate))
                     : 0}
                   %
                   的DKP衰减。此操作可以撤销。
@@ -173,7 +183,13 @@ export function DecayDialog({ teamId, teams = [], onSuccess }: DecayDialogProps)
           <AlertDialogHeader>
             <AlertDialogTitle>衰减完成小结</AlertDialogTitle>
             <AlertDialogDescription>
-              已对当前团队 {summary?.affected ?? 0} 名玩家执行 {summary ? summary.rate.toFixed(1) : decayRate}% 衰减。
+              已对当前团队 {summary?.affected ?? 0} 名玩家执行{' '}
+              {summary
+                ? formatTruncatedTwoDecimals(summary.rate)
+                : !isNaN(parseFloat(decayRate))
+                ? formatTruncatedTwoDecimals(parseFloat(decayRate))
+                : '0.00'}
+              % 衰减。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

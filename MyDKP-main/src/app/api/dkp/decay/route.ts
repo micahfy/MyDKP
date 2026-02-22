@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdmin, hasTeamPermission, getSession } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
+
+function truncateToTwoDecimals(value: number): number {
+  const factor = 100;
+  const truncated = value >= 0 ? Math.floor(value * factor) : Math.ceil(value * factor);
+  return truncated / factor;
+}
+
+function formatTruncatedTwoDecimals(value: number): string {
+  return truncateToTwoDecimals(value).toFixed(2);
+}
+
 export async function POST(request: NextRequest) {
   try {
     const adminStatus = await isAdmin();
@@ -47,12 +58,12 @@ export async function POST(request: NextRequest) {
       });
 
       for (const player of players) {
-        const beforeDkp = Number(player.currentDkp.toFixed(2));
+        const beforeDkp = truncateToTwoDecimals(player.currentDkp);
         const baseForDecay = player.currentDkp > 0 ? player.currentDkp : 0;
-        const decayAmount = baseForDecay * rate;
-        const newDkp = player.currentDkp - decayAmount;
+        const decayAmount = truncateToTwoDecimals(baseForDecay * rate);
+        const newDkp = truncateToTwoDecimals(player.currentDkp - decayAmount);
         const changeValue = -decayAmount;
-        const eventReason = `衰减 ${(rate * 100).toFixed(1)}%，衰减前DKP为 ${beforeDkp.toFixed(2)}`;
+        const eventReason = `衰减 ${formatTruncatedTwoDecimals(rate * 100)}%，衰减前DKP为 ${formatTruncatedTwoDecimals(beforeDkp)}`;
 
         await tx.player.update({
           where: { id: player.id },
