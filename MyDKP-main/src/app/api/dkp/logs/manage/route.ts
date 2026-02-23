@@ -10,6 +10,70 @@ type TimeRangeFilter = 'latest_activity' | 'one_week' | 'two_weeks' | 'one_month
 const ACTIVITY_SOURCE_TYPES = ['earn', 'makeup'] as const;
 const MASS_ACTIVITY_MIN_PLAYERS = 5;
 
+function truncateToTwoDecimals(value: number): number {
+  const factor = 100;
+  const truncated = value >= 0 ? Math.floor(value * factor) : Math.ceil(value * factor);
+  return truncated / factor;
+}
+
+function sanitizeFloat(value: number): number {
+  return Math.abs(value) < 1e-9 ? 0 : value;
+}
+
+type ReplayLog = {
+  id: string;
+  type: string;
+  change: number | null;
+  createdAt: Date;
+  event: { change: number; eventTime: Date } | null;
+  decayHistory: { rate: number } | null;
+};
+
+function recalculatePlayerSnapshot(logs: ReplayLog[]) {
+  const orderedLogs = [...logs].sort((a, b) => {
+    const aTime = new Date(a.event?.eventTime ?? a.createdAt).getTime();
+    const bTime = new Date(b.event?.eventTime ?? b.createdAt).getTime();
+    if (aTime !== bTime) return aTime - bTime;
+    const createdAtDiff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    if (createdAtDiff !== 0) return createdAtDiff;
+    return a.id.localeCompare(b.id);
+  });
+
+  let currentDkp = 0;
+  let totalEarned = 0;
+  let totalSpent = 0;
+  let totalDecay = 0;
+
+  for (const log of orderedLogs) {
+    const effectiveChange = Number(log.change ?? log.event?.change ?? 0);
+
+    if (log.type === 'decay') {
+      const rate = log.decayHistory?.rate;
+      const decayAmount =
+        typeof rate === 'number' && Number.isFinite(rate)
+          ? truncateToTwoDecimals((currentDkp > 0 ? currentDkp : 0) * Number(rate))
+          : truncateToTwoDecimals(Math.abs(effectiveChange));
+      currentDkp = truncateToTwoDecimals(currentDkp - decayAmount);
+      totalDecay += decayAmount;
+      continue;
+    }
+
+    currentDkp += effectiveChange;
+    if (effectiveChange > 0) {
+      totalEarned += effectiveChange;
+    } else if (effectiveChange < 0) {
+      totalSpent += Math.abs(effectiveChange);
+    }
+  }
+
+  return {
+    currentDkp: sanitizeFloat(currentDkp),
+    totalEarned: sanitizeFloat(totalEarned),
+    totalSpent: sanitizeFloat(totalSpent),
+    totalDecay: sanitizeFloat(totalDecay),
+  };
+}
+
 function parseTimeRange(value?: string | null): TimeRangeFilter {
   const parsed = (value || '').trim();
   const validValues: TimeRangeFilter[] = [
@@ -591,64 +655,51 @@ export async function DELETE(request: NextRequest) {
     }
 
     const now = new Date();
+    const logIdsToDelete = logsToDelete.map((log) => log.id);
+    const affectedPlayerIds = [...new Set(logsToDelete.map((log) => log.playerId))];
 
     await prisma.$transaction(async (tx) => {
-      for (const log of logsToDelete) {
-        const effectiveChange = log.change ?? log.event?.change ?? 0;
-        const isDecayLog = log.type === 'decay';
-        let currentDelta = -effectiveChange; // 默认完全回滚该条日志的影响
-        let decayPortionToRevert = 0;
+      await tx.dkpLog.updateMany({
+        where: {
+          id: { in: logIdsToDelete },
+          isDeleted: false,
+        },
+        data: {
+          isDeleted: true,
+          deletedAt: now,
+          deletedByAdminId: session.adminId || null,
+        },
+      });
 
-        // 对非衰减日志，仅计算该日志之后执行的衰减对它的影响
-        if (!isDecayLog) {
-          const anchorTime = log.event?.eventTime ?? log.createdAt;
-          const decayHistories = await tx.decayHistory.findMany({
-            where: {
-              teamId: log.teamId,
-              executedAt: { gt: anchorTime },
-            },
-            select: { rate: true },
-          });
+      const remainingLogs = await tx.dkpLog.findMany({
+        where: {
+          playerId: { in: affectedPlayerIds },
+          isDeleted: false,
+        },
+        select: {
+          id: true,
+          playerId: true,
+          type: true,
+          change: true,
+          createdAt: true,
+          event: { select: { change: true, eventTime: true } },
+          decayHistory: { select: { rate: true } },
+        },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      });
 
-          const decayMultiplier = decayHistories.reduce((acc, h) => acc * (1 - Number(h.rate)), 1);
-          // 这条日志在当前分数中的实际贡献 = 原始变动 *（后续衰减乘积）
-          const decayAdjustedChange = effectiveChange * decayMultiplier;
-          // currentDelta 是需要加/减回去的量（去掉这条日志的实际贡献）
-          currentDelta = -decayAdjustedChange;
-          // totalDecay 需要扣掉因这条日志而产生的衰减份额
-          decayPortionToRevert = Math.abs(effectiveChange - decayAdjustedChange);
-        }
+      const logsByPlayer = new Map<string, ReplayLog[]>();
+      for (const log of remainingLogs) {
+        const existingLogs = logsByPlayer.get(log.playerId) || [];
+        existingLogs.push(log);
+        logsByPlayer.set(log.playerId, existingLogs);
+      }
 
-        const playerUpdate: any = {
-          // 移除当前仍然生效的分值贡献（已考虑后续衰减的影响）
-          currentDkp: { increment: currentDelta },
-        };
-
-        if (isDecayLog) {
-          playerUpdate.totalDecay = { decrement: Math.abs(effectiveChange) };
-        } else {
-          if (effectiveChange > 0) {
-            playerUpdate.totalEarned = { decrement: effectiveChange };
-          } else if (effectiveChange < 0) {
-            playerUpdate.totalSpent = { decrement: Math.abs(effectiveChange) };
-          }
-          if (decayPortionToRevert > 0) {
-            playerUpdate.totalDecay = { decrement: decayPortionToRevert };
-          }
-        }
-
+      for (const playerId of affectedPlayerIds) {
+        const snapshot = recalculatePlayerSnapshot(logsByPlayer.get(playerId) || []);
         await tx.player.update({
-          where: { id: log.playerId },
-          data: playerUpdate,
-        });
-
-        await tx.dkpLog.update({
-          where: { id: log.id },
-          data: {
-            isDeleted: true,
-            deletedAt: now,
-            deletedByAdminId: session.adminId || null,
-          },
+          where: { id: playerId },
+          data: snapshot,
         });
       }
     });
