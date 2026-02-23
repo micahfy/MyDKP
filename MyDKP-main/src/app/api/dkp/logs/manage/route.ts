@@ -503,24 +503,30 @@ async function handleEventView(options: {
 
   // 合并同一时间的衰减事件，避免每人一条导致过度拆分
   const mergedEvents: any[] = [];
-  const decayMergeMap = new Map<string, any>();
+  const mergeMap = new Map<string, any>();
 
   for (const evt of normalizedEvents) {
-    if (evt.type === 'decay') {
-      const key = `${evt.teamId}|${new Date(evt.eventTime).toISOString()}`;
-      const existing = decayMergeMap.get(key);
-      if (existing) {
-        existing.players.push(...evt.players);
+    const eventTimeISO = new Date(evt.eventTime).toISOString();
+    const key =
+      evt.type === 'decay'
+        ? `decay|${evt.teamId}|${eventTimeISO}`
+        : `event|${evt.teamId}|${eventTimeISO}|${evt.type}|${String(evt.change ?? '')}|${evt.reason ?? ''}|${evt.item ?? ''}|${evt.boss ?? ''}`;
+
+    const existing = mergeMap.get(key);
+    if (existing) {
+      existing.players.push(...evt.players);
+      if (evt.type === 'decay') {
         existing.change += evt.change ?? 0;
-        if (!existing.reason && evt.reason) existing.reason = evt.reason;
-        continue;
       }
-      const clone = { ...evt, players: [...evt.players] };
-      decayMergeMap.set(key, clone);
-      mergedEvents.push(clone);
-    } else {
-      mergedEvents.push(evt);
+      if (!existing.reason && evt.reason) existing.reason = evt.reason;
+      if (!existing.item && evt.item) existing.item = evt.item;
+      if (!existing.boss && evt.boss) existing.boss = evt.boss;
+      continue;
     }
+
+    const clone = { ...evt, players: [...evt.players] };
+    mergeMap.set(key, clone);
+    mergedEvents.push(clone);
   }
 
   // 重新分页（按事件时间降序）
