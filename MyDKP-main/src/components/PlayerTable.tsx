@@ -53,6 +53,7 @@ interface ShameRankEntry {
   playerClass: string;
   totalCount: number;
   totalScore: number;
+  lastMonthCount: number;
   weeks: {
     current: { count: number; score: number };
     last: { count: number; score: number };
@@ -855,6 +856,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                     <TableHead className="text-right text-gray-300">本周</TableHead>
                     <TableHead className="text-right text-gray-300">上周</TableHead>
                     <TableHead className="text-right text-gray-300">上上周</TableHead>
+                    <TableHead className="text-center text-gray-300">上月总计</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -878,6 +880,9 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                       </TableCell>
                       <TableCell className="text-right text-red-300">
                         {formatWeekStat(entry.weeks.prev)}
+                      </TableCell>
+                      <TableCell className="text-center text-red-200">
+                        {entry.lastMonthCount}
                       </TableCell>
                     </TableRow>
                   ))}

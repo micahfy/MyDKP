@@ -20,6 +20,13 @@ const startOfWeek = (date: Date) => {
   return d;
 };
 
+const startOfMonth = (date: Date) => {
+  const d = new Date(date);
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
 const addDays = (date: Date, days: number) => new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 
 type WeekBucket = 'current' | 'last' | 'prev';
@@ -37,6 +44,9 @@ export async function GET(request: NextRequest) {
     const currentWeekStart = startOfWeek(now);
     const lastWeekStart = addDays(currentWeekStart, -7);
     const prevWeekStart = addDays(currentWeekStart, -14);
+    const currentMonthStart = startOfMonth(now);
+    const lastMonthStart = startOfMonth(addDays(currentMonthStart, -1));
+    const timeQueryStart = prevWeekStart < lastMonthStart ? prevWeekStart : lastMonthStart;
 
     const faultKeywords = await fetchFaultKeywordNames(teamId);
     if (faultKeywords.length === 0) {
@@ -47,7 +57,7 @@ export async function GET(request: NextRequest) {
       where: {
         teamId,
         isDeleted: false,
-        createdAt: { gte: prevWeekStart },
+        createdAt: { gte: timeQueryStart },
         OR: [
           { change: { lt: 0 } },
           { event: { is: { change: { lt: 0 } } } },
@@ -67,6 +77,7 @@ export async function GET(request: NextRequest) {
         playerClass: string;
         totalCount: number;
         totalScore: number;
+        lastMonthCount: number;
         weeks: Record<WeekBucket, { count: number; score: number }>;
       }
     >();
@@ -77,6 +88,8 @@ export async function GET(request: NextRequest) {
       if (time >= prevWeekStart) return 'prev';
       return null;
     };
+
+    const isInLastMonth = (time: Date) => time >= lastMonthStart && time < currentMonthStart;
 
     for (const log of logs) {
       const reason = (log.reason ?? log.event?.reason ?? '').trim();
@@ -91,9 +104,6 @@ export async function GET(request: NextRequest) {
 
       const logTime = log.event?.eventTime ?? log.createdAt;
       const bucket = getBucket(logTime);
-      if (!bucket) {
-        continue;
-      }
 
       const player = log.player;
       if (!player) {
@@ -107,6 +117,7 @@ export async function GET(request: NextRequest) {
           playerClass: player.class,
           totalCount: 0,
           totalScore: 0,
+          lastMonthCount: 0,
           weeks: {
             current: { count: 0, score: 0 },
             last: { count: 0, score: 0 },
@@ -116,16 +127,23 @@ export async function GET(request: NextRequest) {
       }
 
       const entry = stats.get(player.id)!;
-      entry.totalCount += 1;
-      entry.totalScore += effectiveChange;
-      entry.weeks[bucket].count += 1;
-      entry.weeks[bucket].score += effectiveChange;
+      if (bucket) {
+        entry.totalCount += 1;
+        entry.totalScore += effectiveChange;
+        entry.weeks[bucket].count += 1;
+        entry.weeks[bucket].score += effectiveChange;
+      }
+      if (isInLastMonth(logTime)) {
+        entry.lastMonthCount += 1;
+      }
     }
 
-    const items = Array.from(stats.values()).sort((a, b) => {
-      if (b.totalCount !== a.totalCount) return b.totalCount - a.totalCount;
-      return a.totalScore - b.totalScore;
-    });
+    const items = Array.from(stats.values())
+      .filter((entry) => entry.totalCount > 0)
+      .sort((a, b) => {
+        if (b.totalCount !== a.totalCount) return b.totalCount - a.totalCount;
+        return a.totalScore - b.totalScore;
+      });
 
     return NextResponse.json({
       items,
