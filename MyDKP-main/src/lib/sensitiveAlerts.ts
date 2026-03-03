@@ -111,27 +111,47 @@ function parseMatchedKeywords(value: string): string[] {
   }
 }
 
-function buildMailSubject(alert: ParsedAlert) {
-  const teamText = alert.teamId ? `team:${alert.teamId}` : 'team:unknown';
-  return `[MyDKP Sensitive Alert] ${alert.sourceType} ${teamText}`;
+function buildMailSubject(alerts: ParsedAlert[]) {
+  if (alerts.length === 1) {
+    const alert = alerts[0];
+    const teamText = alert.teamId ? `team:${alert.teamId}` : 'team:unknown';
+    return `[MyDKP Sensitive Alert] ${alert.sourceType} ${teamText}`;
+  }
+
+  const teamCount = new Set(alerts.map((item) => item.teamId || 'unknown')).size;
+  return `[MyDKP Sensitive Alert] ${alerts.length} records (teams:${teamCount})`;
 }
 
-function buildMailBody(alert: ParsedAlert) {
+function buildMailBody(alerts: ParsedAlert[]) {
+  const sortedAlerts = [...alerts].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  const first = sortedAlerts[0];
+  const last = sortedAlerts[sortedAlerts.length - 1];
+  const sourceTypes = [...new Set(sortedAlerts.map((item) => item.sourceType))];
+
   const lines = [
     'Sensitive content detected in MyDKP.',
     '',
-    `Alert ID: ${alert.id}`,
-    `Created At: ${alert.createdAt.toISOString()}`,
-    `Team ID: ${alert.teamId || 'N/A'}`,
-    `Source Type: ${alert.sourceType}`,
-    `Source ID: ${alert.sourceId || 'N/A'}`,
-    `Player ID: ${alert.playerId || 'N/A'}`,
-    `Player Name: ${alert.playerName || 'N/A'}`,
-    `Matched Keywords: ${alert.matchedKeywords.join(', ') || 'N/A'}`,
-    '',
-    'Content:',
-    alert.content || '(empty)',
+    `Batch Count: ${sortedAlerts.length}`,
+    `Time Range: ${first.createdAt.toISOString()} ~ ${last.createdAt.toISOString()}`,
+    `Source Types: ${sourceTypes.join(', ')}`,
   ];
+
+  for (let index = 0; index < sortedAlerts.length; index++) {
+    const alert = sortedAlerts[index];
+    lines.push('');
+    lines.push(`----- #${index + 1} -----`);
+    lines.push(`Alert ID: ${alert.id}`);
+    lines.push(`Created At: ${alert.createdAt.toISOString()}`);
+    lines.push(`Team ID: ${alert.teamId || 'N/A'}`);
+    lines.push(`Source Type: ${alert.sourceType}`);
+    lines.push(`Source ID: ${alert.sourceId || 'N/A'}`);
+    lines.push(`Player ID: ${alert.playerId || 'N/A'}`);
+    lines.push(`Player Name: ${alert.playerName || 'N/A'}`);
+    lines.push(`Matched Keywords: ${alert.matchedKeywords.join(', ') || 'N/A'}`);
+    lines.push('Content:');
+    lines.push(alert.content || '(empty)');
+  }
+
   return lines.join('\n');
 }
 
@@ -253,7 +273,7 @@ function getSmtpTransporter(config: SmtpConfig) {
   return transporter;
 }
 
-async function sendSmtpMail(alert: ParsedAlert) {
+async function sendSmtpMail(alerts: ParsedAlert[]) {
   const recipients = getRecipients();
   if (recipients.length === 0) {
     throw new Error('Missing SENSITIVE_ALERT_RECIPIENTS.');
@@ -265,12 +285,12 @@ async function sendSmtpMail(alert: ParsedAlert) {
   await transporter.sendMail({
     from: config.from,
     to: recipients.join(','),
-    subject: buildMailSubject(alert),
-    text: buildMailBody(alert),
+    subject: buildMailSubject(alerts),
+    text: buildMailBody(alerts),
   });
 }
 
-async function sendOffice365Mail(alert: ParsedAlert) {
+async function sendOffice365Mail(alerts: ParsedAlert[]) {
   const sender = (process.env.O365_SENDER || '').trim();
   const recipients = getRecipients();
 
@@ -282,8 +302,8 @@ async function sendOffice365Mail(alert: ParsedAlert) {
   }
 
   const token = await getOffice365AccessToken();
-  const subject = buildMailSubject(alert);
-  const bodyText = buildMailBody(alert);
+  const subject = buildMailSubject(alerts);
+  const bodyText = buildMailBody(alerts);
 
   const payload = {
     message: {
@@ -317,13 +337,15 @@ async function sendOffice365Mail(alert: ParsedAlert) {
   }
 }
 
-async function sendAlertMail(alert: ParsedAlert) {
+async function sendAlertMail(alerts: ParsedAlert[]) {
+  if (alerts.length === 0) return;
+
   const provider = getMailProvider();
   if (provider === 'smtp') {
-    await sendSmtpMail(alert);
+    await sendSmtpMail(alerts);
     return;
   }
-  await sendOffice365Mail(alert);
+  await sendOffice365Mail(alerts);
 }
 
 function normalizeAlertInput(input: SensitiveAlertInput) {
@@ -448,6 +470,7 @@ export async function dispatchSensitiveAlertsBatch(): Promise<DispatchResult> {
   let claimed = 0;
   let sent = 0;
   let failed = 0;
+  const claimedAlerts: ParsedAlert[] = [];
 
   for (const candidate of candidates) {
     const claimRes = await prisma.sensitiveAlert.updateMany({
@@ -464,7 +487,7 @@ export async function dispatchSensitiveAlertsBatch(): Promise<DispatchResult> {
     if (claimRes.count === 0) continue;
     claimed++;
 
-    const parsedAlert: ParsedAlert = {
+    claimedAlerts.push({
       id: candidate.id,
       teamId: candidate.teamId,
       sourceType: candidate.sourceType,
@@ -475,25 +498,36 @@ export async function dispatchSensitiveAlertsBatch(): Promise<DispatchResult> {
       matchedKeywords: parseMatchedKeywords(candidate.matchedKeywords),
       attemptCount: candidate.attemptCount + 1,
       createdAt: candidate.createdAt,
-    };
+    });
+  }
 
-    try {
-      await sendAlertMail(parsedAlert);
+  if (claimedAlerts.length === 0) {
+    return {
+      scanned: candidates.length,
+      claimed,
+      sent,
+      failed,
+    };
+  }
+
+  try {
+    await sendAlertMail(claimedAlerts);
+    await prisma.sensitiveAlert.updateMany({
+      where: { id: { in: claimedAlerts.map((item) => item.id) } },
+      data: {
+        status: 'sent',
+        sentAt: new Date(),
+        lastError: null,
+      },
+    });
+    sent = claimedAlerts.length;
+  } catch (error: any) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    for (const alert of claimedAlerts) {
       await prisma.sensitiveAlert.update({
-        where: { id: candidate.id },
+        where: { id: alert.id },
         data: {
-          status: 'sent',
-          sentAt: new Date(),
-          lastError: null,
-        },
-      });
-      sent++;
-    } catch (error: any) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      await prisma.sensitiveAlert.update({
-        where: { id: candidate.id },
-        data: {
-          status: parsedAlert.attemptCount >= maxAttempts ? 'failed_permanent' : 'failed',
+          status: alert.attemptCount >= maxAttempts ? 'failed_permanent' : 'failed',
           lastError: errorMessage.slice(0, 2000),
         },
       });

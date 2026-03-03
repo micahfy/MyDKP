@@ -1,8 +1,8 @@
 import { dispatchSensitiveAlertsBatch } from '../src/lib/sensitiveAlerts';
 
 function getIntervalMs() {
-  const value = Number(process.env.SENSITIVE_ALERT_WORKER_INTERVAL_MS || 15000);
-  if (!Number.isFinite(value) || value < 1000) return 15000;
+  const value = Number(process.env.SENSITIVE_ALERT_WORKER_INTERVAL_MS || 60000);
+  if (!Number.isFinite(value) || value < 1000) return 60000;
   return Math.floor(value);
 }
 
