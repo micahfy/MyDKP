@@ -254,6 +254,7 @@ npx prisma db push
 ```bash
 APP_BASE_URL="https://your-domain.com"
 ADMIN_PASSWORD_RESET_TOKEN_TTL_MINUTES=30
+ADMIN_PASSWORD_RESET_MIN_INTERVAL_SECONDS=60
 ```
 
 ### 13.3 Admin email

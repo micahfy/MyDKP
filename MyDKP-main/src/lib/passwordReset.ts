@@ -4,10 +4,19 @@ import { sendMail } from '@/lib/mailer';
 import { renderEmailTemplate } from '@/lib/emailTemplates';
 
 const RESET_TOKEN_TTL_MINUTES_DEFAULT = 30;
+const RESET_MAIL_MIN_INTERVAL_SECONDS_DEFAULT = 60;
 
 function getResetTokenTtlMinutes() {
   const value = Number(process.env.ADMIN_PASSWORD_RESET_TOKEN_TTL_MINUTES || RESET_TOKEN_TTL_MINUTES_DEFAULT);
   if (!Number.isFinite(value) || value <= 0) return RESET_TOKEN_TTL_MINUTES_DEFAULT;
+  return Math.floor(value);
+}
+
+function getResetMailMinIntervalSeconds() {
+  const value = Number(
+    process.env.ADMIN_PASSWORD_RESET_MIN_INTERVAL_SECONDS || RESET_MAIL_MIN_INTERVAL_SECONDS_DEFAULT,
+  );
+  if (!Number.isFinite(value) || value < 0) return RESET_MAIL_MIN_INTERVAL_SECONDS_DEFAULT;
   return Math.floor(value);
 }
 
@@ -46,18 +55,31 @@ export async function requestAdminPasswordReset(identifier: string) {
     return { sent: false };
   }
 
+  const minIntervalSeconds = getResetMailMinIntervalSeconds();
+  if (minIntervalSeconds > 0) {
+    const latestToken = await prisma.passwordResetToken.findFirst({
+      where: { adminId: admin.id },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+
+    if (latestToken) {
+      const elapsedMs = Date.now() - latestToken.createdAt.getTime();
+      const minIntervalMs = minIntervalSeconds * 1000;
+      if (elapsedMs < minIntervalMs) {
+        return {
+          sent: false,
+          throttled: true,
+          retryAfterSeconds: Math.ceil((minIntervalMs - elapsedMs) / 1000),
+        };
+      }
+    }
+  }
+
   const rawToken = randomBytes(32).toString('hex');
   const tokenHash = hashResetToken(rawToken);
   const ttlMinutes = getResetTokenTtlMinutes();
   const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
-
-  await prisma.passwordResetToken.create({
-    data: {
-      adminId: admin.id,
-      tokenHash,
-      expiresAt,
-    },
-  });
 
   const resetLink = `${getAppBaseUrl()}/reset-password?token=${encodeURIComponent(rawToken)}`;
   const requestTime = new Date().toISOString();
@@ -82,11 +104,31 @@ export async function requestAdminPasswordReset(identifier: string) {
     },
   );
 
-  await sendMail({
-    to: [admin.email],
-    subject: rendered.subject,
-    text: rendered.bodyText,
-  });
+  let createdTokenId: string | null = null;
+  try {
+    const created = await prisma.passwordResetToken.create({
+      data: {
+        adminId: admin.id,
+        tokenHash,
+        expiresAt,
+      },
+      select: { id: true },
+    });
+    createdTokenId = created.id;
+
+    await sendMail({
+      to: [admin.email],
+      subject: rendered.subject,
+      text: rendered.bodyText,
+    });
+  } catch (error) {
+    if (createdTokenId) {
+      await prisma.passwordResetToken
+        .delete({ where: { id: createdTokenId } })
+        .catch(() => null);
+    }
+    throw error;
+  }
 
   return { sent: true };
 }

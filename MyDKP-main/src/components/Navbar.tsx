@@ -42,6 +42,7 @@ export function Navbar({
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotIdentifier, setForgotIdentifier] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<{
@@ -91,6 +92,7 @@ export function Navbar({
         setIsLoginOpen(false);
         setUsername('');
         setPassword('');
+        setShowForgotPassword(false);
         setForgotIdentifier('');
         fetchCurrentUser();
       } else {
@@ -138,6 +140,14 @@ export function Navbar({
       setCurrentUser(null);
     } catch (error) {
       toast.error('退出失败');
+    }
+  };
+
+  const handleLoginDialogChange = (open: boolean) => {
+    setIsLoginOpen(open);
+    if (!open) {
+      setShowForgotPassword(false);
+      setForgotIdentifier('');
     }
   };
 
@@ -202,7 +212,7 @@ export function Navbar({
                 </Button>
               </>
             ) : (
-              <Dialog open={isLoginOpen} onOpenChange={setIsLoginOpen}>
+              <Dialog open={isLoginOpen} onOpenChange={handleLoginDialogChange}>
                 <DialogTrigger asChild>
                   <Button
                     size="sm"
@@ -243,24 +253,37 @@ export function Navbar({
                         className="bg-slate-900/50 border-blue-900 text-gray-200"
                       />
                     </div>
-                    <div className="space-y-2 rounded border border-slate-700 bg-slate-900/40 p-3">
-                      <Label htmlFor="forgotIdentifier" className="text-gray-300">忘记密码</Label>
-                      <Input
-                        id="forgotIdentifier"
-                        value={forgotIdentifier}
-                        onChange={(e) => setForgotIdentifier(e.target.value)}
-                        placeholder="输入用户名或邮箱"
-                        className="bg-slate-900/50 border-blue-900 text-gray-200"
-                      />
+                    <div className="space-y-2">
                       <Button
                         type="button"
-                        variant="outline"
-                        className="w-full border-blue-700 text-blue-300 hover:bg-blue-950"
-                        onClick={handleForgotPassword}
-                        disabled={forgotLoading}
+                        variant="ghost"
+                        className="h-auto p-0 text-sm text-blue-300 hover:text-blue-200 hover:bg-transparent"
+                        onClick={() => setShowForgotPassword((prev) => !prev)}
                       >
-                        {forgotLoading ? '发送中...' : '发送重置邮件'}
+                        {showForgotPassword ? '收起密码找回' : '忘记密码？'}
                       </Button>
+
+                      {showForgotPassword && (
+                        <div className="space-y-2 rounded border border-slate-700 bg-slate-900/40 p-3">
+                          <Label htmlFor="forgotIdentifier" className="text-gray-300">找回密码</Label>
+                          <Input
+                            id="forgotIdentifier"
+                            value={forgotIdentifier}
+                            onChange={(e) => setForgotIdentifier(e.target.value)}
+                            placeholder="输入用户名或邮箱"
+                            className="bg-slate-900/50 border-blue-900 text-gray-200"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full border-blue-700 text-blue-300 hover:bg-blue-950"
+                            onClick={handleForgotPassword}
+                            disabled={forgotLoading}
+                          >
+                            {forgotLoading ? '发送中...' : '发送重置邮件'}
+                          </Button>
+                        </div>
+                      )}
                     </div>
                     <Button
                       type="submit"

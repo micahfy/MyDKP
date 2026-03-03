@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 
 const RESERVED_PREFIXES = [
   '/api',
@@ -10,15 +10,20 @@ const RESERVED_PREFIXES = [
   '/assets',
 ];
 
+const RESERVED_PATHS = new Set([
+  '/',
+  '/reset-password',
+]);
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 已知前缀直接放行
-  if (pathname === '/' || RESERVED_PREFIXES.some((p) => pathname.startsWith(p))) {
+  // Skip known framework/app routes
+  if (RESERVED_PATHS.has(pathname) || RESERVED_PREFIXES.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
 
-  // 只接受简单短链（单层路径，无子路径）
+  // Rewrite single-segment slug to home query for team slug mode
   const match = pathname.match(/^\/([a-zA-Z0-9_-]{1,32})$/);
   if (!match) {
     return NextResponse.next();
