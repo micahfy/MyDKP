@@ -139,10 +139,12 @@ export async function GET(request: NextRequest) {
     }
 
     const items = Array.from(stats.values())
-      .filter((entry) => entry.totalCount > 0)
+      .filter((entry) => entry.totalCount > 0 || entry.lastMonthCount > 0)
       .sort((a, b) => {
         if (b.totalCount !== a.totalCount) return b.totalCount - a.totalCount;
-        return a.totalScore - b.totalScore;
+        if (b.lastMonthCount !== a.lastMonthCount) return b.lastMonthCount - a.lastMonthCount;
+        if (a.totalScore !== b.totalScore) return a.totalScore - b.totalScore;
+        return a.playerName.localeCompare(b.playerName, 'zh-CN');
       });
 
     return NextResponse.json({
