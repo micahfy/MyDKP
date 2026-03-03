@@ -161,3 +161,65 @@ pm2 startup
 - **定期备份**：SQLite 数据文件默认在 `DATABASE_URL` 指定位置，建议定期备份。
 
 完成以上步骤后，MirAcLe DKP 即可通过 PM2 以生产模式稳定运行。若环境或需求有变动，可在此基础上调整。祝部署顺利！
+
+---
+
+## 12. Sensitive Alert (keyword monitor)
+
+This project now supports a non-blocking sensitive keyword alert flow:
+
+- Username and log reason are still saved normally.
+- If content matches keywords, an alert record is queued in DB.
+- Mail is sent asynchronously by a worker process.
+
+### 12.1 Prisma sync
+
+```bash
+npx prisma generate
+npx prisma db push
+```
+
+### 12.2 Configure env
+
+Add/adjust these variables in `.env`:
+
+```bash
+SENSITIVE_ALERT_ENABLED=true
+SENSITIVE_KEYWORD_FILE_PATH="./config/sensitive_keywords.txt"
+SENSITIVE_ALERT_MAIL_ENABLED=true
+SENSITIVE_ALERT_RECIPIENTS="you@example.com"
+O365_TENANT_ID="..."
+O365_CLIENT_ID="..."
+O365_CLIENT_SECRET="..."
+O365_SENDER="sender@yourtenant.onmicrosoft.com"
+```
+
+### 12.3 Keyword file
+
+Edit:
+
+```bash
+config/sensitive_keywords.txt
+```
+
+One keyword per line. Lines starting with `#` are comments.
+
+### 12.4 Start worker (PM2)
+
+Add a second app in `ecosystem.config.js` (single instance recommended):
+
+```js
+{
+  name: 'dkp-sensitive-alert-worker',
+  cwd: '/var/www/MyDKP/MyDKP-main',
+  script: 'npm',
+  args: 'run alerts:worker',
+  env: {
+    NODE_ENV: 'production',
+  },
+  exec_mode: 'fork',
+  instances: 1,
+  autorestart: true,
+  watch: false,
+}
+```

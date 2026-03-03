@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { isAdmin, hasTeamPermission, getSession } from '@/lib/auth';
 import { recalculateTeamAttendance } from '@/lib/attendance';
 import { applyLootHighlight, fetchLootItems } from '@/lib/loot';
+import { queueSensitiveAlertsIfNeeded } from '@/lib/sensitiveAlerts';
 export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
@@ -47,6 +48,8 @@ export async function POST(request: NextRequest) {
     const lootItems = await fetchLootItems();
     const highlightedReason = applyLootHighlight(reason, lootItems);
 
+    let createdLogId: string | null = null;
+
     await prisma.$transaction(async (tx) => {
       await tx.player.update({
         where: { id: playerId },
@@ -74,7 +77,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      await tx.dkpLog.create({
+      const createdLog = await tx.dkpLog.create({
         data: {
           playerId,
           teamId,
@@ -88,7 +91,27 @@ export async function POST(request: NextRequest) {
           createdAt: event.eventTime,
         },
       });
+      createdLogId = createdLog.id;
     });
+
+    await queueSensitiveAlertsIfNeeded([
+      {
+        sourceType: 'player_name',
+        content: player.name,
+        teamId,
+        playerId: player.id,
+        playerName: player.name,
+        sourceId: player.id,
+      },
+      {
+        sourceType: 'log_reason',
+        content: highlightedReason || '',
+        teamId,
+        playerId: player.id,
+        playerName: player.name,
+        sourceId: createdLogId,
+      },
+    ]);
 
     if (type === 'attendance') {
       await recalculateTeamAttendance(teamId);

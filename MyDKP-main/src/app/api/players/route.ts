@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { isAdmin, hasTeamPermission } from '@/lib/auth';
 import { isTalentValidForClass, normalizeTalentName } from '@/lib/talents';
 import { normalizeWowClassName } from '@/lib/utils';
+import { queueSensitiveAlertIfNeeded } from '@/lib/sensitiveAlerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,6 +94,16 @@ export async function POST(request: NextRequest) {
         attendance,
       },
     });
+
+    await queueSensitiveAlertIfNeeded({
+      sourceType: 'player_name',
+      content: trimmedName,
+      teamId,
+      playerId: player.id,
+      playerName: trimmedName,
+      sourceId: player.id,
+    });
+
     return NextResponse.json(player);
   } catch (error) {
     console.error('Create player error:', error);

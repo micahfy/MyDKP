@@ -3,6 +3,7 @@ import { isAdmin, hasTeamPermission, getSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { buildImportPayload, buildUpdatedLua, buildWebdkpTable, WebdkpLogRow } from '@/lib/webdkp';
 import { runBatchImport } from '@/lib/dkpBatchImport';
+import { queueSensitiveAlertsIfNeeded, type SensitiveAlertInput } from '@/lib/sensitiveAlerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,6 +76,8 @@ export async function POST(
         });
 
       if (toCreate.length > 0) {
+        const pendingSensitiveInputs: SensitiveAlertInput[] = [];
+
         await prisma.$transaction(async (tx) => {
           for (const item of toCreate) {
             const newPlayer = await tx.player.create({
@@ -113,8 +116,19 @@ export async function POST(
                 createdAt: event.eventTime,
               },
             });
+
+            pendingSensitiveInputs.push({
+              sourceType: 'player_name',
+              content: item.name,
+              teamId: item.teamId,
+              playerId: newPlayer.id,
+              playerName: item.name,
+              sourceId: newPlayer.id,
+            });
           }
         });
+
+        await queueSensitiveAlertsIfNeeded(pendingSensitiveInputs);
       }
     }
 

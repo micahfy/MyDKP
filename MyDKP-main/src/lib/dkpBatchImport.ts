@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { recalculateTeamAttendance } from '@/lib/attendance';
 import { applyLootHighlight, fetchLootItems, normalizeReason } from '@/lib/loot';
+import { queueSensitiveAlertsIfNeeded, type SensitiveAlertInput } from '@/lib/sensitiveAlerts';
 
 const DUPLICATE_LOOKBACK_DAYS = 30;
 const DEFAULT_NEW_PLAYER_CLASS = '待指派';
@@ -186,6 +187,8 @@ export async function runBatchImport(params: BatchImportParams): Promise<BatchIm
   const successList: string[] = [];
   const errors: Array<{ line: string; error: string }> = [];
   const duplicateList: string[] = [];
+  const pendingSensitiveInputs: SensitiveAlertInput[] = [];
+  const checkedPlayerIds = new Set<string>();
 
   const teamPlayers = await prisma.player.findMany({
     where: { teamId },
@@ -300,6 +303,7 @@ export async function runBatchImport(params: BatchImportParams): Promise<BatchIm
         eventCache.set(eventKey, eventId);
       }
 
+      let createdLogId = '';
       await prisma.$transaction(async (tx) => {
         const updatedPlayer = await tx.player.update({
           where: { id: player!.id },
@@ -310,7 +314,7 @@ export async function runBatchImport(params: BatchImportParams): Promise<BatchIm
           },
         });
 
-        await tx.dkpLog.create({
+        const createdLog = await tx.dkpLog.create({
           data: {
             playerId: player!.id,
             teamId,
@@ -322,10 +326,32 @@ export async function runBatchImport(params: BatchImportParams): Promise<BatchIm
             eventId,
           },
         });
+        createdLogId = createdLog.id;
 
         player!.currentDkp = updatedPlayer.currentDkp;
         player!.totalEarned = updatedPlayer.totalEarned;
         player!.totalSpent = updatedPlayer.totalSpent;
+      });
+
+      if (player && !checkedPlayerIds.has(player.id)) {
+        pendingSensitiveInputs.push({
+          sourceType: 'player_name',
+          content: player.name,
+          teamId,
+          playerId: player.id,
+          playerName: player.name,
+          sourceId: player.id,
+        });
+        checkedPlayerIds.add(player.id);
+      }
+
+      pendingSensitiveInputs.push({
+        sourceType: 'log_reason',
+        content: highlightedReason,
+        teamId,
+        playerId: player!.id,
+        playerName: player!.name,
+        sourceId: createdLogId || null,
       });
 
       processedHashes.add(recordHash);
@@ -342,6 +368,8 @@ export async function runBatchImport(params: BatchImportParams): Promise<BatchIm
       errors.push({ line: line.substring(0, 80), error: error?.message || '未知错误' });
     }
   }
+
+  await queueSensitiveAlertsIfNeeded(pendingSensitiveInputs);
 
   await recalculateTeamAttendance(teamId);
 

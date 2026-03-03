@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { isAdmin, hasTeamPermission } from '@/lib/auth';
 import { isTalentValidForClass, normalizeTalentName } from '@/lib/talents';
 import { normalizeWowClassName } from '@/lib/utils';
+import { queueSensitiveAlertIfNeeded } from '@/lib/sensitiveAlerts';
 export const dynamic = 'force-dynamic';
 export async function GET(
   request: NextRequest,
@@ -36,7 +37,7 @@ export async function PATCH(
     // 先获取玩家信息以检查团队权限
     const existingPlayer = await prisma.player.findUnique({
       where: { id: params.id },
-      select: { teamId: true, class: true, talent: true },
+      select: { teamId: true, class: true, talent: true, name: true },
     });
 
     if (!existingPlayer) {
@@ -63,6 +64,10 @@ export async function PATCH(
       updateData.class = nextClass;
     }
 
+    if (typeof data.name === 'string') {
+      updateData.name = data.name.trim();
+    }
+
     if (hasTalentField) {
       const normalizedTalent = normalizeTalentName(data.talent);
       if (normalizedTalent && !isTalentValidForClass(nextClass, normalizedTalent)) {
@@ -82,6 +87,18 @@ export async function PATCH(
       where: { id: params.id },
       data: updateData,
     });
+
+    if (typeof updateData.name === 'string') {
+      await queueSensitiveAlertIfNeeded({
+        sourceType: 'player_name',
+        content: player.name || updateData.name || existingPlayer.name,
+        teamId: existingPlayer.teamId,
+        playerId: params.id,
+        playerName: player.name || updateData.name || existingPlayer.name,
+        sourceId: params.id,
+      });
+    }
+
     return NextResponse.json(player);
   } catch (error) {
     return NextResponse.json({ error: '更新失败' }, { status: 500 });

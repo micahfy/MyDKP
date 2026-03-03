@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdmin, hasTeamPermission, getSession } from '@/lib/auth';
+import { queueSensitiveAlertsIfNeeded, type SensitiveAlertInput } from '@/lib/sensitiveAlerts';
 export const dynamic = 'force-dynamic';
 
 function truncateToTwoDecimals(value: number): number {
@@ -46,6 +47,8 @@ export async function POST(request: NextRequest) {
 
     const executedAt = new Date();
 
+    const pendingSensitiveInputs: SensitiveAlertInput[] = [];
+
     await prisma.$transaction(async (tx) => {
       const history = await tx.decayHistory.create({
         data: {
@@ -84,7 +87,7 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        await tx.dkpLog.create({
+        const createdLog = await tx.dkpLog.create({
           data: {
             playerId: player.id,
             teamId,
@@ -97,8 +100,27 @@ export async function POST(request: NextRequest) {
             eventId: event.id,
           },
         });
+
+        pendingSensitiveInputs.push({
+          sourceType: 'player_name',
+          content: player.name,
+          teamId,
+          playerId: player.id,
+          playerName: player.name,
+          sourceId: player.id,
+        });
+        pendingSensitiveInputs.push({
+          sourceType: 'log_reason',
+          content: eventReason,
+          teamId,
+          playerId: player.id,
+          playerName: player.name,
+          sourceId: createdLog.id,
+        });
       }
     });
+
+    await queueSensitiveAlertsIfNeeded(pendingSensitiveInputs);
 
     return NextResponse.json({ success: true, affected: players.length });
   } catch (error) {

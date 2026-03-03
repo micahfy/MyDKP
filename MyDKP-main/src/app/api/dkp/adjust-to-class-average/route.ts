@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdmin, hasTeamPermission, getSession } from '@/lib/auth';
+import { queueSensitiveAlertsIfNeeded } from '@/lib/sensitiveAlerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      await prisma.dkpLog.create({
+      const createdLog = await prisma.dkpLog.create({
         data: {
           playerId: player.id,
           teamId,
@@ -101,6 +102,25 @@ export async function POST(request: NextRequest) {
           eventId: event.id,
         },
       });
+
+      await queueSensitiveAlertsIfNeeded([
+        {
+          sourceType: 'player_name',
+          content: player.name,
+          teamId,
+          playerId: player.id,
+          playerName: player.name,
+          sourceId: player.id,
+        },
+        {
+          sourceType: 'log_reason',
+          content: reason,
+          teamId,
+          playerId: player.id,
+          playerName: player.name,
+          sourceId: createdLog.id,
+        },
+      ]);
 
       return NextResponse.json({
         success: true,
@@ -129,6 +149,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    let createdLogId: string | null = null;
     await prisma.$transaction(async (tx) => {
       await tx.player.update({
         where: { id: player.id },
@@ -139,7 +160,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      await tx.dkpLog.create({
+      const createdLog = await tx.dkpLog.create({
         data: {
           playerId: player.id,
           teamId,
@@ -150,7 +171,27 @@ export async function POST(request: NextRequest) {
           eventId: event.id,
         },
       });
+      createdLogId = createdLog.id;
     });
+
+    await queueSensitiveAlertsIfNeeded([
+      {
+        sourceType: 'player_name',
+        content: player.name,
+        teamId,
+        playerId: player.id,
+        playerName: player.name,
+        sourceId: player.id,
+      },
+      {
+        sourceType: 'log_reason',
+        content: reason,
+        teamId,
+        playerId: player.id,
+        playerName: player.name,
+        sourceId: createdLogId,
+      },
+    ]);
 
     return NextResponse.json({
       success: true,

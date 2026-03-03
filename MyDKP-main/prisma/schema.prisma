@@ -55,6 +55,7 @@ model Team {
   teamPermissions TeamPermission[]
   dkpEvents       DkpEvent[]
   faultKeywords   FaultKeyword[]
+  sensitiveAlerts SensitiveAlert[]
 
   @@map("teams")
 }
@@ -108,6 +109,29 @@ model DkpLog {
   @@index([teamId, isDeleted, createdAt])
   @@index([playerId, createdAt])
   @@map("dkp_logs")
+}
+
+model SensitiveAlert {
+  id             String   @id @default(cuid())
+  teamId         String?
+  sourceType     String
+  sourceId       String?
+  playerId       String?
+  playerName     String?
+  content        String
+  matchedKeywords String
+  status         String   @default("pending")
+  attemptCount   Int      @default(0)
+  lastError      String?
+  sentAt         DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  team Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([teamId, createdAt])
+  @@map("sensitive_alerts")
 }
 
 model DkpEvent {

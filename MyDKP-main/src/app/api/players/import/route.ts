@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { isAdmin, hasTeamPermission, getSession } from '@/lib/auth';
 import Papa from 'papaparse';
 import { normalizeWowClassName } from '@/lib/utils';
+import { queueSensitiveAlertIfNeeded } from '@/lib/sensitiveAlerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,18 +48,21 @@ export async function POST(request: NextRequest) {
       }
 
       const normalizedClass = normalizeWowClassName(className.trim());
+      const playerName = name.trim();
 
       try {
+        let createdPlayerId = '';
         await prisma.$transaction(async (tx) => {
           const player = await tx.player.create({
             data: {
-              name: name.trim(),
+              name: playerName,
               class: normalizedClass,
               currentDkp: dkp,
               totalEarned: dkp,
               teamId,
             },
           });
+          createdPlayerId = player.id;
 
           const event = await tx.dkpEvent.create({
             data: {
@@ -83,6 +87,15 @@ export async function POST(request: NextRequest) {
               createdAt: event.eventTime,
             },
           });
+        });
+
+        await queueSensitiveAlertIfNeeded({
+          sourceType: 'player_name',
+          content: playerName,
+          teamId,
+          playerId: createdPlayerId || null,
+          playerName,
+          sourceId: createdPlayerId || null,
         });
 
         successCount++;

@@ -1,0 +1,389 @@
+import { prisma } from '@/lib/prisma';
+import { isSensitiveAlertEnabled, matchSensitiveKeywords } from '@/lib/sensitiveKeywords';
+
+type SensitiveSourceType = 'player_name' | 'log_reason';
+
+export type SensitiveAlertInput = {
+  sourceType: SensitiveSourceType;
+  content: string;
+  teamId?: string | null;
+  sourceId?: string | null;
+  playerId?: string | null;
+  playerName?: string | null;
+};
+
+type DispatchResult = {
+  scanned: number;
+  claimed: number;
+  sent: number;
+  failed: number;
+};
+
+type ParsedAlert = {
+  id: string;
+  teamId: string | null;
+  sourceType: string;
+  sourceId: string | null;
+  playerId: string | null;
+  playerName: string | null;
+  content: string;
+  matchedKeywords: string[];
+  attemptCount: number;
+  createdAt: Date;
+};
+
+const MAX_ATTEMPTS_DEFAULT = 5;
+const DISPATCH_BATCH_SIZE_DEFAULT = 50;
+const RETRY_INTERVAL_SECONDS_DEFAULT = 300;
+
+let tokenCache: { token: string; expiresAtMs: number } | null = null;
+
+function toBool(value: string | undefined, defaultValue = false) {
+  if (value === undefined) return defaultValue;
+  return ['1', 'true', 'yes', 'on'].includes(value.trim().toLowerCase());
+}
+
+function getDispatchBatchSize() {
+  const value = Number(process.env.SENSITIVE_ALERT_BATCH_SIZE || DISPATCH_BATCH_SIZE_DEFAULT);
+  if (!Number.isFinite(value) || value <= 0) return DISPATCH_BATCH_SIZE_DEFAULT;
+  return Math.floor(value);
+}
+
+function getRetryIntervalSeconds() {
+  const value = Number(process.env.SENSITIVE_ALERT_RETRY_INTERVAL_SECONDS || RETRY_INTERVAL_SECONDS_DEFAULT);
+  if (!Number.isFinite(value) || value < 0) return RETRY_INTERVAL_SECONDS_DEFAULT;
+  return Math.floor(value);
+}
+
+function getMaxAttempts() {
+  const value = Number(process.env.SENSITIVE_ALERT_MAX_ATTEMPTS || MAX_ATTEMPTS_DEFAULT);
+  if (!Number.isFinite(value) || value <= 0) return MAX_ATTEMPTS_DEFAULT;
+  return Math.floor(value);
+}
+
+function getRecipients() {
+  return (process.env.SENSITIVE_ALERT_RECIPIENTS || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function shouldSendMail() {
+  return toBool(process.env.SENSITIVE_ALERT_MAIL_ENABLED, false);
+}
+
+function serializeMatchedKeywords(keywords: string[]) {
+  return JSON.stringify([...new Set(keywords)].slice(0, 200));
+}
+
+function parseMatchedKeywords(value: string): string[] {
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((item) => String(item)).filter(Boolean);
+  } catch (error) {
+    return [];
+  }
+}
+
+function buildMailSubject(alert: ParsedAlert) {
+  const teamText = alert.teamId ? `team:${alert.teamId}` : 'team:unknown';
+  return `[MyDKP Sensitive Alert] ${alert.sourceType} ${teamText}`;
+}
+
+function buildMailBody(alert: ParsedAlert) {
+  const lines = [
+    'Sensitive content detected in MyDKP.',
+    '',
+    `Alert ID: ${alert.id}`,
+    `Created At: ${alert.createdAt.toISOString()}`,
+    `Team ID: ${alert.teamId || 'N/A'}`,
+    `Source Type: ${alert.sourceType}`,
+    `Source ID: ${alert.sourceId || 'N/A'}`,
+    `Player ID: ${alert.playerId || 'N/A'}`,
+    `Player Name: ${alert.playerName || 'N/A'}`,
+    `Matched Keywords: ${alert.matchedKeywords.join(', ') || 'N/A'}`,
+    '',
+    'Content:',
+    alert.content || '(empty)',
+  ];
+  return lines.join('\n');
+}
+
+async function getOffice365AccessToken() {
+  const tenantId = (process.env.O365_TENANT_ID || '').trim();
+  const clientId = (process.env.O365_CLIENT_ID || '').trim();
+  const clientSecret = (process.env.O365_CLIENT_SECRET || '').trim();
+
+  if (!tenantId || !clientId || !clientSecret) {
+    throw new Error('Missing Office365 credentials (O365_TENANT_ID/O365_CLIENT_ID/O365_CLIENT_SECRET).');
+  }
+
+  const now = Date.now();
+  if (tokenCache && tokenCache.expiresAtMs > now + 60_000) {
+    return tokenCache.token;
+  }
+
+  const body = new URLSearchParams({
+    grant_type: 'client_credentials',
+    client_id: clientId,
+    client_secret: clientSecret,
+    scope: 'https://graph.microsoft.com/.default',
+  });
+
+  const tokenUrl = `https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/token`;
+  const tokenRes = await fetch(tokenUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
+
+  if (!tokenRes.ok) {
+    const text = await tokenRes.text();
+    throw new Error(`Office365 token request failed: ${tokenRes.status} ${text}`);
+  }
+
+  const tokenData = await tokenRes.json();
+  const accessToken = String(tokenData.access_token || '');
+  const expiresIn = Number(tokenData.expires_in || 3600);
+
+  if (!accessToken) {
+    throw new Error('Office365 token missing access_token.');
+  }
+
+  tokenCache = {
+    token: accessToken,
+    expiresAtMs: now + Math.max(300, expiresIn - 120) * 1000,
+  };
+  return accessToken;
+}
+
+async function sendOffice365Mail(alert: ParsedAlert) {
+  const sender = (process.env.O365_SENDER || '').trim();
+  const recipients = getRecipients();
+
+  if (!sender) {
+    throw new Error('Missing O365_SENDER.');
+  }
+  if (recipients.length === 0) {
+    throw new Error('Missing SENSITIVE_ALERT_RECIPIENTS.');
+  }
+
+  const token = await getOffice365AccessToken();
+  const subject = buildMailSubject(alert);
+  const bodyText = buildMailBody(alert);
+
+  const payload = {
+    message: {
+      subject,
+      body: {
+        contentType: 'Text',
+        content: bodyText,
+      },
+      toRecipients: recipients.map((address) => ({
+        emailAddress: { address },
+      })),
+    },
+    saveToSentItems: 'false',
+  };
+
+  const res = await fetch(
+    `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(sender)}/sendMail`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Office365 sendMail failed: ${res.status} ${text}`);
+  }
+}
+
+function normalizeAlertInput(input: SensitiveAlertInput) {
+  return {
+    sourceType: input.sourceType,
+    content: (input.content || '').trim(),
+    teamId: input.teamId || null,
+    sourceId: input.sourceId || null,
+    playerId: input.playerId || null,
+    playerName: input.playerName || null,
+  };
+}
+
+export async function queueSensitiveAlertIfNeeded(input: SensitiveAlertInput) {
+  if (!isSensitiveAlertEnabled()) {
+    return { queued: false, matchedKeywords: [] as string[] };
+  }
+
+  try {
+    const normalized = normalizeAlertInput(input);
+    if (!normalized.content) {
+      return { queued: false, matchedKeywords: [] as string[] };
+    }
+
+    const matchedKeywords = matchSensitiveKeywords(normalized.content);
+    if (matchedKeywords.length === 0) {
+      return { queued: false, matchedKeywords: [] as string[] };
+    }
+
+    await prisma.sensitiveAlert.create({
+      data: {
+        teamId: normalized.teamId,
+        sourceType: normalized.sourceType,
+        sourceId: normalized.sourceId,
+        playerId: normalized.playerId,
+        playerName: normalized.playerName,
+        content: normalized.content,
+        matchedKeywords: serializeMatchedKeywords(matchedKeywords),
+        status: 'pending',
+      },
+    });
+
+    return { queued: true, matchedKeywords };
+  } catch (error) {
+    console.error('queueSensitiveAlertIfNeeded error:', error);
+    return { queued: false, matchedKeywords: [] as string[] };
+  }
+}
+
+export async function queueSensitiveAlertsIfNeeded(inputs: SensitiveAlertInput[]) {
+  if (!isSensitiveAlertEnabled() || inputs.length === 0) {
+    return { queued: 0, matched: 0 };
+  }
+
+  const createData: Array<{
+    teamId: string | null;
+    sourceType: string;
+    sourceId: string | null;
+    playerId: string | null;
+    playerName: string | null;
+    content: string;
+    matchedKeywords: string;
+    status: string;
+  }> = [];
+
+  for (const input of inputs) {
+    const normalized = normalizeAlertInput(input);
+    if (!normalized.content) continue;
+
+    const matchedKeywords = matchSensitiveKeywords(normalized.content);
+    if (matchedKeywords.length === 0) continue;
+
+    createData.push({
+      teamId: normalized.teamId,
+      sourceType: normalized.sourceType,
+      sourceId: normalized.sourceId,
+      playerId: normalized.playerId,
+      playerName: normalized.playerName,
+      content: normalized.content,
+      matchedKeywords: serializeMatchedKeywords(matchedKeywords),
+      status: 'pending',
+    });
+  }
+
+  if (createData.length === 0) {
+    return { queued: 0, matched: 0 };
+  }
+
+  try {
+    const result = await prisma.sensitiveAlert.createMany({ data: createData });
+    return { queued: result.count, matched: createData.length };
+  } catch (error) {
+    console.error('queueSensitiveAlertsIfNeeded error:', error);
+    return { queued: 0, matched: createData.length };
+  }
+}
+
+export async function dispatchSensitiveAlertsBatch(): Promise<DispatchResult> {
+  if (!isSensitiveAlertEnabled() || !shouldSendMail()) {
+    return { scanned: 0, claimed: 0, sent: 0, failed: 0 };
+  }
+
+  const maxAttempts = getMaxAttempts();
+  const retryIntervalSeconds = getRetryIntervalSeconds();
+  const retryBefore = new Date(Date.now() - retryIntervalSeconds * 1000);
+
+  const candidates = await prisma.sensitiveAlert.findMany({
+    where: {
+      OR: [
+        { status: 'pending' },
+        {
+          status: 'failed',
+          attemptCount: { lt: maxAttempts },
+          updatedAt: { lte: retryBefore },
+        },
+      ],
+    },
+    orderBy: { createdAt: 'asc' },
+    take: getDispatchBatchSize(),
+  });
+
+  let claimed = 0;
+  let sent = 0;
+  let failed = 0;
+
+  for (const candidate of candidates) {
+    const claimRes = await prisma.sensitiveAlert.updateMany({
+      where: {
+        id: candidate.id,
+        OR: [{ status: 'pending' }, { status: 'failed' }],
+      },
+      data: {
+        status: 'processing',
+        attemptCount: { increment: 1 },
+      },
+    });
+
+    if (claimRes.count === 0) continue;
+    claimed++;
+
+    const parsedAlert: ParsedAlert = {
+      id: candidate.id,
+      teamId: candidate.teamId,
+      sourceType: candidate.sourceType,
+      sourceId: candidate.sourceId,
+      playerId: candidate.playerId,
+      playerName: candidate.playerName,
+      content: candidate.content,
+      matchedKeywords: parseMatchedKeywords(candidate.matchedKeywords),
+      attemptCount: candidate.attemptCount + 1,
+      createdAt: candidate.createdAt,
+    };
+
+    try {
+      await sendOffice365Mail(parsedAlert);
+      await prisma.sensitiveAlert.update({
+        where: { id: candidate.id },
+        data: {
+          status: 'sent',
+          sentAt: new Date(),
+          lastError: null,
+        },
+      });
+      sent++;
+    } catch (error: any) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      await prisma.sensitiveAlert.update({
+        where: { id: candidate.id },
+        data: {
+          status: parsedAlert.attemptCount >= maxAttempts ? 'failed_permanent' : 'failed',
+          lastError: errorMessage.slice(0, 2000),
+        },
+      });
+      failed++;
+    }
+  }
+
+  return {
+    scanned: candidates.length,
+    claimed,
+    sent,
+    failed,
+  };
+}
