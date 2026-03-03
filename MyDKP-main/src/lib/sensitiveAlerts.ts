@@ -34,6 +34,11 @@ type ParsedAlert = {
   createdAt: Date;
 };
 
+type EnrichedParsedAlert = ParsedAlert & {
+  teamName: string | null;
+  operatorName: string | null;
+};
+
 type SmtpConfig = {
   host: string;
   port: number;
@@ -111,18 +116,58 @@ function parseMatchedKeywords(value: string): string[] {
   }
 }
 
-function buildMailSubject(alerts: ParsedAlert[]) {
+async function enrichAlertsForMail(alerts: ParsedAlert[]): Promise<EnrichedParsedAlert[]> {
+  if (alerts.length === 0) return [];
+
+  const teamIds = [...new Set(alerts.map((item) => item.teamId).filter((id): id is string => !!id))];
+  const logIds = [
+    ...new Set(
+      alerts
+        .filter((item) => item.sourceType === 'log_reason' && !!item.sourceId)
+        .map((item) => item.sourceId as string),
+    ),
+  ];
+
+  const [teams, logs] = await Promise.all([
+    teamIds.length > 0
+      ? prisma.team.findMany({
+          where: { id: { in: teamIds } },
+          select: { id: true, name: true },
+        })
+      : Promise.resolve([]),
+    logIds.length > 0
+      ? prisma.dkpLog.findMany({
+          where: { id: { in: logIds } },
+          select: { id: true, operator: true },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const teamNameById = new Map(teams.map((item) => [item.id, item.name]));
+  const operatorByLogId = new Map(logs.map((item) => [item.id, item.operator || '']));
+
+  return alerts.map((alert) => ({
+    ...alert,
+    teamName: alert.teamId ? teamNameById.get(alert.teamId) || null : null,
+    operatorName:
+      alert.sourceType === 'log_reason' && alert.sourceId
+        ? operatorByLogId.get(alert.sourceId) || null
+        : null,
+  }));
+}
+
+function buildMailSubject(alerts: EnrichedParsedAlert[]) {
   if (alerts.length === 1) {
     const alert = alerts[0];
-    const teamText = alert.teamId ? `team:${alert.teamId}` : 'team:unknown';
+    const teamText = alert.teamName || alert.teamId || 'unknown';
     return `[MyDKP Sensitive Alert] ${alert.sourceType} ${teamText}`;
   }
 
-  const teamCount = new Set(alerts.map((item) => item.teamId || 'unknown')).size;
+  const teamCount = new Set(alerts.map((item) => item.teamName || item.teamId || 'unknown')).size;
   return `[MyDKP Sensitive Alert] ${alerts.length} records (teams:${teamCount})`;
 }
 
-function buildMailBody(alerts: ParsedAlert[]) {
+function buildMailBody(alerts: EnrichedParsedAlert[]) {
   const sortedAlerts = [...alerts].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   const first = sortedAlerts[0];
   const last = sortedAlerts[sortedAlerts.length - 1];
@@ -142,10 +187,9 @@ function buildMailBody(alerts: ParsedAlert[]) {
     lines.push(`----- #${index + 1} -----`);
     lines.push(`Alert ID: ${alert.id}`);
     lines.push(`Created At: ${alert.createdAt.toISOString()}`);
-    lines.push(`Team ID: ${alert.teamId || 'N/A'}`);
+    lines.push(`Team Name: ${alert.teamName || 'N/A'}`);
+    lines.push(`Operator: ${alert.operatorName || 'N/A'}`);
     lines.push(`Source Type: ${alert.sourceType}`);
-    lines.push(`Source ID: ${alert.sourceId || 'N/A'}`);
-    lines.push(`Player ID: ${alert.playerId || 'N/A'}`);
     lines.push(`Player Name: ${alert.playerName || 'N/A'}`);
     lines.push(`Matched Keywords: ${alert.matchedKeywords.join(', ') || 'N/A'}`);
     lines.push('Content:');
@@ -273,7 +317,7 @@ function getSmtpTransporter(config: SmtpConfig) {
   return transporter;
 }
 
-async function sendSmtpMail(alerts: ParsedAlert[]) {
+async function sendSmtpMail(alerts: EnrichedParsedAlert[]) {
   const recipients = getRecipients();
   if (recipients.length === 0) {
     throw new Error('Missing SENSITIVE_ALERT_RECIPIENTS.');
@@ -290,7 +334,7 @@ async function sendSmtpMail(alerts: ParsedAlert[]) {
   });
 }
 
-async function sendOffice365Mail(alerts: ParsedAlert[]) {
+async function sendOffice365Mail(alerts: EnrichedParsedAlert[]) {
   const sender = (process.env.O365_SENDER || '').trim();
   const recipients = getRecipients();
 
@@ -337,7 +381,7 @@ async function sendOffice365Mail(alerts: ParsedAlert[]) {
   }
 }
 
-async function sendAlertMail(alerts: ParsedAlert[]) {
+async function sendAlertMail(alerts: EnrichedParsedAlert[]) {
   if (alerts.length === 0) return;
 
   const provider = getMailProvider();
@@ -511,7 +555,8 @@ export async function dispatchSensitiveAlertsBatch(): Promise<DispatchResult> {
   }
 
   try {
-    await sendAlertMail(claimedAlerts);
+    const enrichedAlerts = await enrichAlertsForMail(claimedAlerts);
+    await sendAlertMail(enrichedAlerts);
     await prisma.sensitiveAlert.updateMany({
       where: { id: { in: claimedAlerts.map((item) => item.id) } },
       data: {
