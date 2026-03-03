@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,8 @@ interface TeamManagementProps {
 }
 
 export function TeamManagement({ onUpdate }: TeamManagementProps) {
+  const [serverName, setServerName] = useState('');
+  const [guildName, setGuildName] = useState('');
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
@@ -45,10 +47,8 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
       const res = await fetch('/api/teams');
       if (res.ok) {
         const data = await res.json();
-        // 确保 data 是数组
         setTeams(Array.isArray(data) ? data : []);
       } else {
-        console.error('Failed to fetch teams');
         setTeams([]);
         toast.error('获取团队列表失败');
       }
@@ -63,6 +63,14 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
 
   const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!serverName.trim()) {
+      toast.error('请输入服务器名称');
+      return;
+    }
+    if (!guildName.trim()) {
+      toast.error('请输入工会名称');
+      return;
+    }
     if (!name.trim()) {
       toast.error('请输入团队名称');
       return;
@@ -73,13 +81,21 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
       const res = await fetch('/api/teams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, description, slug }),
+        body: JSON.stringify({
+          serverName,
+          guildName,
+          name,
+          description,
+          slug,
+        }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        toast.success('团队创建成功！');
+        toast.success('团队创建成功');
+        setServerName('');
+        setGuildName('');
         setName('');
         setSlug('');
         setDescription('');
@@ -123,19 +139,19 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
   const moveTeam = async (index: number, direction: 'up' | 'down') => {
     const newTeams = [...teams];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    
+
     if (targetIndex < 0 || targetIndex >= newTeams.length) return;
-    
+
     [newTeams[index], newTeams[targetIndex]] = [newTeams[targetIndex], newTeams[index]];
-    
+
     setTeams(newTeams);
-    
+
     try {
       const res = await fetch('/api/teams/reorder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          teamIds: newTeams.map(t => t.id) 
+        body: JSON.stringify({
+          teamIds: newTeams.map((t) => t.id),
         }),
       });
 
@@ -163,11 +179,33 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
 
           <form onSubmit={handleCreateTeam} className="space-y-4">
             <div>
+              <Label className="text-gray-200">服务器 *</Label>
+              <Input
+                value={serverName}
+                onChange={(e) => setServerName(e.target.value)}
+                placeholder="例如：国王之谷"
+                required
+                className="bg-slate-800/80 border-slate-600 text-gray-200"
+              />
+            </div>
+
+            <div>
+              <Label className="text-gray-200">工会 *</Label>
+              <Input
+                value={guildName}
+                onChange={(e) => setGuildName(e.target.value)}
+                placeholder="例如：MirAcLe"
+                required
+                className="bg-slate-800/80 border-slate-600 text-gray-200"
+              />
+            </div>
+
+            <div>
               <Label className="text-gray-200">团队名称 *</Label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="例如: 乌龟公会"
+                placeholder="例如：一团"
                 required
                 className="bg-slate-800/80 border-slate-600 text-gray-200"
               />
@@ -178,7 +216,7 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
               <Input
                 value={slug}
                 onChange={(e) => setSlug(e.target.value)}
-                placeholder="例如: a 或 group-2，留空则自动生成"
+                placeholder="例如：group-1，留空自动生成"
                 className="bg-slate-800/80 border-slate-600 text-gray-200"
               />
             </div>
@@ -188,26 +226,20 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
               <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="例如: 主力团队，专注开荒"
+                placeholder="例如：主力团队"
                 rows={3}
                 className="bg-slate-800/80 border-slate-600 text-gray-200"
               />
             </div>
 
-            <Button 
-              type="submit" 
-              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700" 
+            <Button
+              type="submit"
+              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
               disabled={loading}
             >
               {loading ? '创建中...' : '创建团队'}
             </Button>
           </form>
-
-          <div className="bg-green-900/30 border border-green-700/50 p-4 rounded-lg">
-            <p className="text-sm text-gray-300">
-              💡 提示：每个团队的DKP数据完全独立。
-            </p>
-          </div>
         </div>
       </Card>
 
@@ -215,20 +247,16 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-100">现有团队</h3>
-            <div className="text-sm text-gray-400">
-              使用 ↑↓ 调整团队显示顺序
-            </div>
+            <div className="text-sm text-gray-400">使用 ↑↓ 调整顺序</div>
           </div>
-          
+
           {fetchLoading ? (
             <div className="text-center py-8 text-gray-400">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
               <p className="mt-4">加载中...</p>
             </div>
           ) : teams.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">
-              暂无团队
-            </div>
+            <div className="text-center py-8 text-gray-400">暂无团队</div>
           ) : (
             <div className="space-y-2">
               {teams.map((team, index) => (
@@ -239,9 +267,9 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
                   <div className="flex items-center space-x-3 flex-1">
                     <GripVertical className="h-5 w-5 text-gray-500" />
                     <div className="flex-1">
-                      <div className="font-semibold text-gray-100">{team.name}</div>
+                      <div className="font-semibold text-gray-100">{team.serverName} / {team.guildName} / {team.name}</div>
                       <div className="text-sm text-gray-400">
-                        {team.description || '暂无描述'} • {team._count?.players || 0} 名玩家
+                        短链: {team.slug || '(无)'} · {team.description || '暂无描述'} · {team._count?.players || 0} 名玩家
                       </div>
                     </div>
                   </div>
@@ -275,11 +303,7 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button 
-                          variant="destructive" 
-                          size="sm"
-                          className="bg-red-600 hover:bg-red-700"
-                        >
+                        <Button variant="destructive" size="sm" className="bg-red-600 hover:bg-red-700">
                           <Trash2 className="h-4 w-4 mr-1" />
                           删除
                         </Button>
@@ -288,7 +312,7 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
                         <AlertDialogHeader>
                           <AlertDialogTitle className="text-gray-100">确认删除团队？</AlertDialogTitle>
                           <AlertDialogDescription className="text-gray-400">
-                            此操作将删除团队 <strong className="text-red-400">{team.name}</strong> 及其所有玩家数据和DKP记录。此操作无法撤销！
+                            此操作将删除团队 <strong className="text-red-400">{team.name}</strong> 及其所有玩家和DKP数据，且无法撤销。
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

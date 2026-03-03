@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { Card } from '@/components/ui/card';
@@ -28,6 +28,34 @@ type MailTemplate = {
 const PLACEHOLDERS_BY_KEY: Record<string, string[]> = {
   admin_password_reset: ['{{username}}', '{{resetLink}}', '{{expiresMinutes}}', '{{requestTime}}'],
   sensitive_alert_summary: ['{{batchCount}}', '{{teamCount}}', '{{timeRange}}', '{{sourceTypes}}', '{{records}}'],
+  join_request_verification_code: ['{{email}}', '{{code}}', '{{expiresMinutes}}', '{{requestTime}}'],
+  join_request_submitted_notify_admin: [
+    '{{requestId}}',
+    '{{serverName}}',
+    '{{guildName}}',
+    '{{teamName}}',
+    '{{requestedUsername}}',
+    '{{email}}',
+    '{{createdAt}}',
+  ],
+  join_request_approved_notify_applicant: [
+    '{{requestId}}',
+    '{{serverName}}',
+    '{{guildName}}',
+    '{{teamName}}',
+    '{{requestedUsername}}',
+    '{{reviewedAt}}',
+    '{{approvalNote}}',
+  ],
+  join_request_rejected_notify_applicant: [
+    '{{requestId}}',
+    '{{serverName}}',
+    '{{guildName}}',
+    '{{teamName}}',
+    '{{requestedUsername}}',
+    '{{reviewedAt}}',
+    '{{approvalNote}}',
+  ],
 };
 
 export function EmailTemplateManagement() {
@@ -43,10 +71,7 @@ export function EmailTemplateManagement() {
     [templates, selectedKey],
   );
 
-  const placeholders = useMemo(
-    () => PLACEHOLDERS_BY_KEY[selectedKey] || [],
-    [selectedKey],
-  );
+  const placeholders = useMemo(() => PLACEHOLDERS_BY_KEY[selectedKey] || [], [selectedKey]);
 
   const loadTemplates = async () => {
     setLoading(true);

@@ -1,113 +1,106 @@
-'use client';
+﻿'use client';
 
-import { useState, useEffect, Suspense } from 'react';
-import dynamic from 'next/dynamic';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Navbar } from '@/components/Navbar';
-import { PlayerTable } from '@/components/PlayerTable';
+import { JoinRequestDialog } from '@/components/JoinRequestDialog';
 import { Toaster } from 'sonner';
-import { useSearchParams } from 'next/navigation';
-import { usePathname } from 'next/navigation';
+import { resolveTeamSlug } from '@/lib/teamSlug';
 
-const AdminPanel = dynamic(() => import('@/components/AdminPanel').then((mod) => mod.AdminPanel), {
-  ssr: false,
-});
+type TeamItem = {
+  id: string;
+  name: string;
+  serverName: string;
+  guildName: string;
+  slug?: string | null;
+};
 
-const TEAM_STORAGE_KEY = 'mydkp:selectedTeamId';
+const ENTRY_STORAGE_KEY = 'mydkp:entrySelection';
 
-function HomeContent() {
-  const [selectedTeam, setSelectedTeam] = useState<string>('');
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [adminRole, setAdminRole] = useState<string>('');
-  const [teams, setTeams] = useState([]);
+export default function Home() {
+  const router = useRouter();
+
+  const [teams, setTeams] = useState<TeamItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [playerRefreshKey, setPlayerRefreshKey] = useState(0);
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
+  const [selectedServer, setSelectedServer] = useState('');
+  const [selectedGuild, setSelectedGuild] = useState('');
+  const [selectedTeamId, setSelectedTeamId] = useState('');
 
-  const slugParam = (() => {
-    const fromQuery = searchParams?.get('teamSlug');
-    if (fromQuery) return fromQuery;
-    const path = pathname || '';
-    const segments = path.split('/').filter(Boolean);
-    const reserved = ['api', '_next', 'favicon.ico', 'robots.txt', 'sitemap.xml', 'assets', 'public'];
-    if (segments.length === 1 && !reserved.includes(segments[0])) {
-      return segments[0];
-    }
-    return null;
-  })();
+  const serverOptions = useMemo(() => {
+    return Array.from(new Set(teams.map((team) => team.serverName).filter(Boolean)));
+  }, [teams]);
+
+  const guildOptions = useMemo(() => {
+    if (!selectedServer) return [];
+    return Array.from(
+      new Set(
+        teams
+          .filter((team) => team.serverName === selectedServer)
+          .map((team) => team.guildName)
+          .filter(Boolean),
+      ),
+    );
+  }, [teams, selectedServer]);
+
+  const teamOptions = useMemo(() => {
+    if (!selectedServer || !selectedGuild) return [];
+    return teams.filter((team) => team.serverName === selectedServer && team.guildName === selectedGuild);
+  }, [teams, selectedServer, selectedGuild]);
 
   useEffect(() => {
-    checkAuth();
+    initializePage();
   }, []);
 
   useEffect(() => {
-    if (!selectedTeam) return;
-    try {
-      localStorage.setItem(TEAM_STORAGE_KEY, selectedTeam);
-    } catch (error) {
-      console.error('Persist selected team failed:', error);
+    if (serverOptions.length === 0) return;
+    if (!selectedServer || !serverOptions.includes(selectedServer)) {
+      setSelectedServer(serverOptions[0]);
     }
-  }, [selectedTeam]);
-
-  // 只在管理员登录后才加载完整团队信息
-  useEffect(() => {
-    if (isAdmin) {
-      fetchFullTeams();
-    } else {
-      fetchBasicTeams();
-    }
-  }, [isAdmin]);
+  }, [serverOptions, selectedServer]);
 
   useEffect(() => {
-    if (!isAdmin) return;
-    
-    // 降低检查频率到30秒，减少服务器负载（仅管理员）
-    const authCheckInterval = setInterval(() => {
-      checkAuth();
-    }, 30000); // 30秒
-    
-    return () => clearInterval(authCheckInterval);
-  }, [isAdmin]);
+    if (guildOptions.length === 0) {
+      setSelectedGuild('');
+      return;
+    }
+    if (!selectedGuild || !guildOptions.includes(selectedGuild)) {
+      setSelectedGuild(guildOptions[0]);
+    }
+  }, [guildOptions, selectedGuild]);
 
-  const checkAuth = async () => {
+  useEffect(() => {
+    if (teamOptions.length === 0) {
+      setSelectedTeamId('');
+      return;
+    }
+    if (!selectedTeamId || !teamOptions.some((team) => team.id === selectedTeamId)) {
+      setSelectedTeamId(teamOptions[0].id);
+    }
+  }, [teamOptions, selectedTeamId]);
+
+  const initializePage = async () => {
+    await Promise.all([checkAdminAndRedirect(), fetchBasicTeams()]);
+  };
+
+  const checkAdminAndRedirect = async () => {
     try {
       const res = await fetch('/api/auth/check');
       const data = await res.json();
-      
-      // 如果角色发生变化，不再强制刷新页面，直接更新状态即可，避免正在查看的导入结果被刷掉
-      if (data.isAdmin && data.role && adminRole && data.role !== adminRole) {
-        console.log('Role changed from', adminRole, 'to', data.role, '- updating state');
-      }
-
-      setIsAdmin(data.isAdmin === true);
-      setAdminRole(data.role || '');
-    } catch (error) {
-      console.error('Auth check failed:', error);
-      setIsAdmin(false);
-    }
-  };
-
-  // 访客用户：只加载基本团队信息（不含玩家数量等统计数据）
-  const resolvePreferredTeamId = (teamList: any[]): string => {
-    if (!Array.isArray(teamList) || teamList.length === 0) return '';
-
-    const slugMatched = slugParam ? teamList.find((t: any) => t.slug === slugParam)?.id : '';
-    if (slugMatched) return slugMatched;
-
-    if (selectedTeam && teamList.some((t: any) => t.id === selectedTeam)) {
-      return selectedTeam;
-    }
-
-    try {
-      const storedTeamId = localStorage.getItem(TEAM_STORAGE_KEY) || '';
-      if (storedTeamId && teamList.some((t: any) => t.id === storedTeamId)) {
-        return storedTeamId;
+      if (data.isAdmin === true) {
+        await redirectToFirstAdminTeam();
       }
     } catch (error) {
-      console.error('Read selected team from storage failed:', error);
+      console.error('check auth on entry page failed:', error);
     }
-
-    return teamList[0].id;
   };
 
   const fetchBasicTeams = async () => {
@@ -115,157 +108,154 @@ function HomeContent() {
     try {
       const res = await fetch('/api/teams/basic');
       const data = await res.json();
-      setTeams(data);
-      if (data.length > 0) {
-        const nextTeamId = resolvePreferredTeamId(data);
-        if (nextTeamId && nextTeamId !== selectedTeam) {
-          setSelectedTeam(nextTeamId);
+      const teamList = Array.isArray(data) ? data : [];
+      setTeams(teamList);
+
+      try {
+        const raw = localStorage.getItem(ENTRY_STORAGE_KEY);
+        if (raw) {
+          const stored = JSON.parse(raw);
+          if (stored.serverName) setSelectedServer(stored.serverName);
+          if (stored.guildName) setSelectedGuild(stored.guildName);
+          if (stored.teamId) setSelectedTeamId(stored.teamId);
         }
+      } catch (error) {
+        console.error('read entry selection failed:', error);
       }
     } catch (error) {
       console.error('Fetch basic teams failed:', error);
+      setTeams([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // 管理员用户：加载完整团队信息
-  const fetchFullTeams = async () => {
-    setLoading(true);
+  const redirectToFirstAdminTeam = async () => {
+    const res = await fetch('/api/teams');
+    if (!res.ok) return;
+
+    const adminTeams = await res.json();
+    if (!Array.isArray(adminTeams) || adminTeams.length === 0) return;
+
+    const firstTeam = adminTeams[0] as TeamItem;
+    const slug = resolveTeamSlug(firstTeam);
+    router.replace(`/team/${encodeURIComponent(slug)}`);
+  };
+
+  const handleEnterTeam = () => {
+    const selectedTeam = teamOptions.find((team) => team.id === selectedTeamId);
+    if (!selectedTeam) return;
+
     try {
-      const res = await fetch('/api/teams');
-      const data = await res.json();
-      setTeams(data);
-      if (data.length > 0) {
-        const nextTeamId = resolvePreferredTeamId(data);
-        if (nextTeamId && nextTeamId !== selectedTeam) {
-          setSelectedTeam(nextTeamId);
-        }
-      }
+      localStorage.setItem(
+        ENTRY_STORAGE_KEY,
+        JSON.stringify({
+          serverName: selectedServer,
+          guildName: selectedGuild,
+          teamId: selectedTeam.id,
+        }),
+      );
     } catch (error) {
-      console.error('Fetch teams failed:', error);
-    } finally {
-      setLoading(false);
+      console.error('save entry selection failed:', error);
     }
-  };
 
-  const handleAuthChange = (newIsAdmin: boolean) => {
-    setIsAdmin(newIsAdmin);
-    if (newIsAdmin) {
-      checkAuth();
-      fetchFullTeams(); // 登录后立即加载完整数据
-    } else {
-      setAdminRole('');
-      fetchBasicTeams(); // 登出后只加载基本数据
-    }
+    const slug = resolveTeamSlug(selectedTeam);
+    router.push(`/team/${encodeURIComponent(slug)}`);
   };
-
-  const handleUpdate = () => {
-    if (isAdmin) {
-      fetchFullTeams();
-    } else {
-      fetchBasicTeams();
-    }
-    checkAuth(); // 同时检查权限
-    setPlayerRefreshKey((key) => key + 1);
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mb-4"></div>
-            <div className="text-xl text-gray-300">加载中...</div>
-          </div>
-        </div>
-        <footer className="border-t border-slate-700/50">
-          <div className="container mx-auto px-4 py-6 text-center text-sm text-gray-400">
-            <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300 transition-colors inline-flex items-center gap-2">
-              <img src="/logo.png" alt="ICP备" className="h-4 w-auto" />
-              京ICP备12345678号
-            </a>
-          </div>
-        </footer>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <Navbar
-        teams={teams}
-        selectedTeam={selectedTeam}
-        onTeamChange={setSelectedTeam}
-        isAdmin={isAdmin}
-        onAuthChange={handleAuthChange}
+        teams={[]}
+        selectedTeam=""
+        onTeamChange={() => undefined}
+        isAdmin={false}
+        onAuthChange={() => undefined}
+        onLoginSuccess={redirectToFirstAdminTeam}
       />
-      
-      <main className="container mx-auto px-4 py-8">
-        {isAdmin && (
-          <Suspense fallback={null}>
-            <AdminPanel 
-              teamId={selectedTeam} 
-              teams={teams} 
-              adminRole={adminRole} 
-              onUpdate={handleUpdate} 
-            />
-          </Suspense>
-        )}
-        
-        {teams.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="text-gray-400 text-lg mb-4">
-              {isAdmin ? '暂无团队，请先创建一个团队' : '暂无团队数据'}
-            </div>
-            {isAdmin && adminRole === 'super_admin' && (
-              <div className="text-sm text-gray-500">
-                请在上方管理面板的"团队管理"标签中创建团队
-              </div>
-            )}
-          </div>
-        ) : (
-          <PlayerTable teamId={selectedTeam} isAdmin={isAdmin} refreshKey={playerRefreshKey} />
-        )}
+
+      <main className="container mx-auto px-4 py-10">
+        <div className="max-w-3xl mx-auto space-y-6">
+          <Card className="bg-slate-900/70 border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-gray-100">进入团队 DKP 页面</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {loading ? (
+                <div className="text-gray-400">加载中...</div>
+              ) : teams.length === 0 ? (
+                <div className="text-gray-400">暂无可用团队</div>
+              ) : (
+                <>
+                  <div>
+                    <div className="text-sm text-gray-300 mb-1">选择服务器</div>
+                    <Select value={selectedServer} onValueChange={setSelectedServer}>
+                      <SelectTrigger className="bg-slate-800/60 border-slate-600 text-gray-200">
+                        <SelectValue placeholder="请选择服务器" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-800 border-slate-600">
+                        {serverOptions.map((item) => (
+                          <SelectItem key={item} value={item} className="text-gray-200">
+                            {item}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <div className="text-sm text-gray-300 mb-1">选择工会</div>
+                    <Select value={selectedGuild} onValueChange={setSelectedGuild}>
+                      <SelectTrigger className="bg-slate-800/60 border-slate-600 text-gray-200">
+                        <SelectValue placeholder="请选择工会" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-800 border-slate-600">
+                        {guildOptions.map((item) => (
+                          <SelectItem key={item} value={item} className="text-gray-200">
+                            {item}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <div className="text-sm text-gray-300 mb-1">选择团队</div>
+                    <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
+                      <SelectTrigger className="bg-slate-800/60 border-slate-600 text-gray-200">
+                        <SelectValue placeholder="请选择团队" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-800 border-slate-600">
+                        {teamOptions.map((team) => (
+                          <SelectItem key={team.id} value={team.id} className="text-gray-200">
+                            {team.name} ({resolveTeamSlug(team)})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Button className="w-full" onClick={handleEnterTeam} disabled={!selectedTeamId}>
+                    进入团队页面
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-slate-900/70 border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-gray-100">申请加入</CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center justify-between gap-3">
+              <p className="text-sm text-gray-400">提交申请后将通知超级管理员审批，审批通过后自动创建账号与团队。</p>
+              <JoinRequestDialog />
+            </CardContent>
+          </Card>
+        </div>
       </main>
 
       <Toaster position="top-right" richColors />
-
-      <footer className="border-t border-slate-700/50 mt-auto">
-        <div className="container mx-auto px-4 py-6 text-center text-sm text-gray-400">
-          <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300 transition-colors inline-flex items-center gap-2">
-            <img src="/logo.png" alt="ICP备" className="h-4 w-auto" />
-            京ICP备12345678号
-          </a>
-        </div>
-      </footer>
     </div>
-  );
-}
-
-export default function Home() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mb-4"></div>
-              <div className="text-xl text-gray-300">加载中...</div>
-            </div>
-          </div>
-          <footer className="border-t border-slate-700/50">
-            <div className="container mx-auto px-4 py-6 text-center text-sm text-gray-400">
-              <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300 transition-colors inline-flex items-center gap-2">
-                <img src="/logo.png" alt="ICP备" className="h-4 w-auto" />
-                京ICP备12345678号
-              </a>
-            </div>
-          </footer>
-        </div>
-      }
-    >
-      <HomeContent />
-    </Suspense>
   );
 }

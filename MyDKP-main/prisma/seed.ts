@@ -1,22 +1,22 @@
-import { PrismaClient } from '@prisma/client';
+﻿import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 const WOW_CLASSES = [
-  '战士',
-  '圣骑士',
-  '猎人',
-  '盗贼',
-  '牧师',
-  '萨满祭司',
-  '法师',
-  '术士',
-  '德鲁伊',
+  'Warrior',
+  'Paladin',
+  'Hunter',
+  'Rogue',
+  'Priest',
+  'Shaman',
+  'Mage',
+  'Warlock',
+  'Druid',
 ];
 
 async function main() {
-  console.log('🌱 开始初始化数据...');
+  console.log('[seed] start');
 
   const adminUsername = process.env.ADMIN_USERNAME || 'admin';
   const adminPassword = process.env.ADMIN_PASSWORD || 'wow@admin123';
@@ -38,30 +38,46 @@ async function main() {
         needPasswordChange: false,
       },
     });
-    console.log(`✅ 创建超级管理员 ${adminUsername}`);
+    console.log(`[seed] created super admin: ${adminUsername}`);
   } else {
-    console.log(`ℹ️ 超级管理员已存在: ${adminUsername}`);
+    console.log(`[seed] super admin exists: ${adminUsername}`);
   }
 
   const team1 = await prisma.team.upsert({
-    where: { name: '荣耀公会' },
+    where: {
+      serverName_guildName_name: {
+        serverName: 'default-server',
+        guildName: 'default-guild',
+        name: 'GloryGuild',
+      },
+    },
     update: {},
     create: {
-      name: '荣耀公会',
-      description: '主力团队，专注黑翼之巢和安其拉',
+      name: 'GloryGuild',
+      serverName: 'default-server',
+      guildName: 'default-guild',
+      slug: 'gloryguild',
+      description: 'Main raid team',
     },
   });
 
-  const team2 = await prisma.team.upsert({
-    where: { name: '开荒小队' },
+  await prisma.team.upsert({
+    where: {
+      serverName_guildName_name: {
+        serverName: 'default-server',
+        guildName: 'default-guild',
+        name: 'Progression',
+      },
+    },
     update: {},
     create: {
-      name: '开荒小队',
-      description: '新副本开荒团队',
+      name: 'Progression',
+      serverName: 'default-server',
+      guildName: 'default-guild',
+      slug: 'progression',
+      description: 'Progression team',
     },
   });
-
-  console.log('✅ 团队创建完成');
 
   const admin = await prisma.admin.findUnique({
     where: { username: adminUsername },
@@ -84,20 +100,20 @@ async function main() {
         },
       });
     }
-    console.log('✅ 超级管理员权限配置完成');
+    console.log('[seed] ensured super admin team permissions');
   }
 
   const playerNames = [
-    '无敌小战士',
-    '神圣奶妈',
-    '狂暴猎人',
-    '暗影刺客',
-    '暗牧大佬',
-    '元素萨满',
-    '奥术法神',
-    '痛苦术士',
-    '野性德鲁伊',
-    '防护骑士',
+    'TankOne',
+    'HolyOne',
+    'HunterOne',
+    'RogueOne',
+    'PriestOne',
+    'ShamanOne',
+    'MageOne',
+    'WarlockOne',
+    'DruidOne',
+    'PaladinOne',
   ];
 
   for (let i = 0; i < playerNames.length; i++) {
@@ -121,18 +137,15 @@ async function main() {
     });
   }
 
-  console.log('✅ 玩家创建完成');
-
   const players = await prisma.player.findMany({ where: { teamId: team1.id } });
-
   for (const player of players.slice(0, 5)) {
     const event = await prisma.dkpEvent.create({
       data: {
         teamId: team1.id,
         type: 'earn',
         change: 50,
-        boss: '奈法利安',
-        reason: '击杀Boss',
+        boss: 'Nefarian',
+        reason: 'Boss kill',
         operator: 'system',
         eventTime: new Date(),
       },
@@ -144,7 +157,7 @@ async function main() {
         teamId: team1.id,
         type: 'earn',
         change: 50,
-        reason: '击杀Boss',
+        reason: 'Boss kill',
         operator: 'system',
         createdAt: event.eventTime,
         eventId: event.id,
@@ -152,13 +165,7 @@ async function main() {
     });
   }
 
-  console.log('✅ 日志创建完成');
-  console.log('🎉 数据初始化完成！');
-  console.log('');
-  console.log('📌 管理员账号信息：');
-  console.log(`   用户名: ${adminUsername}`);
-  console.log(`   密码: ${adminPassword}`);
-  console.log('');
+  console.log('[seed] done');
 }
 
 main()

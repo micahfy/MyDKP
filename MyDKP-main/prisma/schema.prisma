@@ -25,6 +25,7 @@ model Admin {
   deletedLogs     DkpLog[] @relation("DeletedByAdmin")
   faultKeywords   FaultKeyword[]
   passwordResetTokens PasswordResetToken[]
+  reviewedJoinRequests JoinRequest[] @relation("JoinRequestReviewer")
 
   @@map("admins")
 }
@@ -44,7 +45,9 @@ model TeamPermission {
 
 model Team {
   id          String   @id @default(cuid())
-  name        String   @unique
+  name        String
+  serverName  String   @default("default-server")
+  guildName   String   @default("default-guild")
   slug        String?  @unique
   description String?
   sortOrder   Int      @default(0)
@@ -59,6 +62,7 @@ model Team {
   faultKeywords   FaultKeyword[]
   sensitiveAlerts SensitiveAlert[]
 
+  @@unique([serverName, guildName, name])
   @@map("teams")
 }
 
@@ -236,4 +240,52 @@ model EmailTemplate {
   updatedAt   DateTime @updatedAt
 
   @@map("email_templates")
+}
+
+model JoinRequest {
+  id                String   @id @default(cuid())
+  serverName        String
+  guildName         String
+  teamName          String
+  requestedUsername String
+  passwordHash      String
+  email             String
+  status            String   @default("pending")
+  approvalNote      String?
+  reviewedByAdminId String?
+  reviewedAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  reviewedByAdmin Admin? @relation("JoinRequestReviewer", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([email, createdAt])
+  @@map("join_requests")
+}
+
+model EmailVerificationCode {
+  id           String   @id @default(cuid())
+  email        String
+  purpose      String
+  codeHash     String
+  expiresAt    DateTime
+  usedAt       DateTime?
+  attemptCount Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([email, purpose, createdAt])
+  @@index([expiresAt, usedAt])
+  @@map("email_verification_codes")
+}
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
 }

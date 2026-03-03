@@ -1,8 +1,10 @@
 export interface Team {
   id: string;
   name: string;
+  serverName: string;
+  guildName: string;
   slug?: string | null;
-  description?: string;
+  description?: string | null;
   _count?: {
     players: number;
   };

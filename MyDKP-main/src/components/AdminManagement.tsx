@@ -46,6 +46,8 @@ interface Admin {
     team: {
       id: string;
       name: string;
+      serverName?: string;
+      guildName?: string;
     };
   }>;
 }
@@ -53,6 +55,8 @@ interface Admin {
 interface Team {
   id: string;
   name: string;
+  serverName?: string;
+  guildName?: string;
 }
 
 interface AdminManagementProps {
@@ -77,6 +81,15 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
 
   // 确保 teams 是数组
   const teams = Array.isArray(propTeams) ? propTeams : [];
+
+  const formatTeamLabel = (team: { serverName?: string; guildName?: string; name: string }) => {
+    const serverName = String(team.serverName || '').trim();
+    const guildName = String(team.guildName || '').trim();
+    if (serverName && guildName) {
+      return `${serverName} / ${guildName} / ${team.name}`;
+    }
+    return team.name;
+  };
 
   useEffect(() => {
     if (currentAdminRole === 'super_admin') {
@@ -328,7 +341,7 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
                     ) : admin.teamPermissions.length > 0 ? (
                       <span>
                         权限团队：
-                        {admin.teamPermissions.map((p) => p.team.name).join('、')}
+                        {admin.teamPermissions.map((p) => formatTeamLabel(p.team)).join('、')}
                       </span>
                     ) : (
                       <span>无团队权限</span>
@@ -558,7 +571,7 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
                         }}
                         className="rounded"
                       />
-                      <span className="text-sm text-gray-200">{team.name}</span>
+                      <span className="text-sm text-gray-200">{formatTeamLabel(team)}</span>
                     </label>
                   ))}
                 </div>
@@ -625,7 +638,7 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
                           }}
                           className="rounded"
                         />
-                        <span className="text-sm text-gray-200">{team.name}</span>
+                        <span className="text-sm text-gray-200">{formatTeamLabel(team)}</span>
                       </label>
                     ))}
                   </div>

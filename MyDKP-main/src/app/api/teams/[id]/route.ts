@@ -1,11 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isSuperAdmin } from '@/lib/auth';
+import { generateUniqueTeamSlug } from '@/lib/teamSlug';
+
 export const dynamic = 'force-dynamic';
-// GET /api/teams/[id] - 获取单个团队信息
+
+function normalizeText(input: unknown) {
+  return String(input || '').trim();
+}
+
+function normalizeSlug(input: unknown) {
+  const raw = String(input || '').trim().toLowerCase();
+  if (!raw) return '';
+  if (!/^[a-z0-9_-]{1,48}$/.test(raw)) {
+    throw new Error('短链接只允许 a-z、0-9、_、-，长度 1-48');
+  }
+  return raw;
+}
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const team = await prisma.team.findUnique({
@@ -13,6 +28,8 @@ export async function GET(
       select: {
         id: true,
         name: true,
+        serverName: true,
+        guildName: true,
         slug: true,
         description: true,
         sortOrder: true,
@@ -28,122 +45,122 @@ export async function GET(
     });
 
     if (!team) {
-      return NextResponse.json(
-        { error: '团队不存在' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: '团队不存在' }, { status: 404 });
     }
 
     return NextResponse.json(team);
   } catch (error) {
     console.error('Get team error:', error);
-    return NextResponse.json(
-      { error: '获取团队失败' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: '获取团队失败' }, { status: 500 });
   }
 }
 
-// PATCH /api/teams/[id] - 更新团队信息（仅超管）
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
-    // 只有超级管理员可以修改团队
     if (!(await isSuperAdmin())) {
-      return NextResponse.json(
-        { error: '权限不足，只有超级管理员可以修改团队' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: '权限不足，只有超级管理员可以修改团队' }, { status: 403 });
     }
 
-    const { name, description, slug } = await request.json();
+    const payload = await request.json();
+    const name = normalizeText(payload.name);
+    const serverName = normalizeText(payload.serverName);
+    const guildName = normalizeText(payload.guildName);
+    const description = normalizeText(payload.description) || null;
 
-    if (!name || name.trim().length === 0) {
-      return NextResponse.json(
-        { error: '团队名称不能为空' },
-        { status: 400 }
-      );
+    if (!name) {
+      return NextResponse.json({ error: '团队名称不能为空' }, { status: 400 });
+    }
+    if (!serverName) {
+      return NextResponse.json({ error: '服务器不能为空' }, { status: 400 });
+    }
+    if (!guildName) {
+      return NextResponse.json({ error: '工会不能为空' }, { status: 400 });
     }
 
-    // 检查团队是否存在
     const existingTeam = await prisma.team.findUnique({
       where: { id: params.id },
     });
 
     if (!existingTeam) {
-      return NextResponse.json(
-        { error: '团队不存在' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: '团队不存在' }, { status: 404 });
     }
 
-    // 检查新名称是否与其他团队冲突
-    if (name !== existingTeam.name) {
-      const duplicateTeam = await prisma.team.findUnique({
-        where: { name },
+    if (
+      name !== existingTeam.name ||
+      serverName !== existingTeam.serverName ||
+      guildName !== existingTeam.guildName
+    ) {
+      const duplicate = await prisma.team.findUnique({
+        where: {
+          serverName_guildName_name: {
+            serverName,
+            guildName,
+            name,
+          },
+        },
+        select: { id: true },
       });
-
-      if (duplicateTeam) {
-        return NextResponse.json(
-          { error: '团队名称已存在' },
-          { status: 409 }
-        );
+      if (duplicate && duplicate.id !== params.id) {
+        return NextResponse.json({ error: '该服务器和工会下已存在同名团队' }, { status: 409 });
       }
     }
 
-    if (slug && slug.trim().length > 0 && slug !== existingTeam.slug) {
-      const duplicateSlug = await prisma.team.findUnique({
-        where: { slug },
+    let slug = '';
+    try {
+      slug = normalizeSlug(payload.slug);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '短链接格式不正确';
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+
+    if (slug) {
+      const duplicateSlug = await prisma.team.findFirst({
+        where: {
+          slug,
+          NOT: { id: params.id },
+        },
+        select: { id: true },
       });
       if (duplicateSlug) {
         return NextResponse.json({ error: '短链接已被占用' }, { status: 409 });
       }
+    } else {
+      slug = await generateUniqueTeamSlug(name, params.id);
     }
 
     const team = await prisma.team.update({
       where: { id: params.id },
       data: {
-        name: name.trim(),
-        slug: slug?.trim() || null,
-        description: description?.trim() || null,
+        name,
+        serverName,
+        guildName,
+        slug,
+        description,
       },
     });
 
     return NextResponse.json(team);
   } catch (error: any) {
     console.error('Update team error:', error);
-    
     if (error.code === 'P2002') {
-      return NextResponse.json(
-        { error: '团队名称已存在' },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: '团队信息冲突，请检查后重试' }, { status: 409 });
     }
-    
-    return NextResponse.json(
-      { error: '更新团队失败' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: '更新团队失败' }, { status: 500 });
   }
 }
 
-// DELETE /api/teams/[id] - 删除团队（仅超管）
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
-    // 只有超级管理员可以删除团队
     if (!(await isSuperAdmin())) {
-      return NextResponse.json(
-        { error: '权限不足，只有超级管理员可以删除团队' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: '权限不足，只有超级管理员可以删除团队' }, { status: 403 });
     }
 
-    // 检查团队是否存在
     const team = await prisma.team.findUnique({
       where: { id: params.id },
       include: {
@@ -154,25 +171,17 @@ export async function DELETE(
     });
 
     if (!team) {
-      return NextResponse.json(
-        { error: '团队不存在' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: '团队不存在' }, { status: 404 });
     }
 
-    await prisma.team.delete({
-      where: { id: params.id },
-    });
+    await prisma.team.delete({ where: { id: params.id } });
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
-      message: `已删除团队 ${team.name}，包含 ${team._count.players} 名玩家的所有数据`
+      message: `已删除团队 ${team.name}，包含 ${team._count.players} 名玩家的数据`,
     });
   } catch (error) {
     console.error('Delete team error:', error);
-    return NextResponse.json(
-      { error: '删除团队失败' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: '删除团队失败' }, { status: 500 });
   }
 }

@@ -8,6 +8,7 @@ const RESERVED_PREFIXES = [
   '/sitemap.xml',
   '/public',
   '/assets',
+  '/team',
 ];
 
 const RESERVED_PATHS = new Set([
@@ -23,7 +24,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Rewrite single-segment slug to home query for team slug mode
+  // Rewrite single-segment slug to /team/[slug]
   const match = pathname.match(/^\/([a-zA-Z0-9_-]{1,32})$/);
   if (!match) {
     return NextResponse.next();
@@ -31,8 +32,7 @@ export function middleware(request: NextRequest) {
 
   const slug = match[1];
   const url = request.nextUrl.clone();
-  url.pathname = '/';
-  url.searchParams.set('teamSlug', slug);
+  url.pathname = `/team/${slug}`;
   return NextResponse.rewrite(url);
 }
 

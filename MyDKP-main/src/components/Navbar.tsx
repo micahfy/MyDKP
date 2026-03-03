@@ -29,6 +29,7 @@ interface NavbarProps {
   onTeamChange: (teamId: string) => void;
   isAdmin: boolean;
   onAuthChange: (isAdmin: boolean) => void;
+  onLoginSuccess?: () => void | Promise<void>;
 }
 
 export function Navbar({
@@ -37,6 +38,7 @@ export function Navbar({
   onTeamChange,
   isAdmin,
   onAuthChange,
+  onLoginSuccess,
 }: NavbarProps) {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [username, setUsername] = useState('');
@@ -95,6 +97,9 @@ export function Navbar({
         setShowForgotPassword(false);
         setForgotIdentifier('');
         fetchCurrentUser();
+        if (onLoginSuccess) {
+          await onLoginSuccess();
+        }
       } else {
         toast.error(data.error || '登录失败');
       }
@@ -175,7 +180,10 @@ export function Navbar({
                       value={team.id}
                       className="hover:bg-blue-950 text-gray-200"
                     >
-                      {team.name} {isAdmin && team._count ? `(${team._count.players}人)` : ''}
+                      {team.serverName && team.guildName
+                        ? `${team.serverName} / ${team.guildName} / ${team.name}`
+                        : team.name}{' '}
+                      {isAdmin && team._count ? `(${team._count.players}人)` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>

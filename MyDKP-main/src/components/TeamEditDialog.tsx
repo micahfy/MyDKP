@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,8 @@ interface TeamEditDialogProps {
 }
 
 export function TeamEditDialog({ team, open, onOpenChange, onSuccess }: TeamEditDialogProps) {
+  const [serverName, setServerName] = useState(team.serverName || '');
+  const [guildName, setGuildName] = useState(team.guildName || '');
   const [name, setName] = useState(team.name);
   const [slug, setSlug] = useState(team.slug || '');
   const [description, setDescription] = useState(team.description || '');
@@ -31,6 +33,8 @@ export function TeamEditDialog({ team, open, onOpenChange, onSuccess }: TeamEdit
 
   useEffect(() => {
     if (open) {
+      setServerName(team.serverName || '');
+      setGuildName(team.guildName || '');
       setName(team.name);
       setSlug(team.slug || '');
       setDescription(team.description || '');
@@ -39,7 +43,15 @@ export function TeamEditDialog({ team, open, onOpenChange, onSuccess }: TeamEdit
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    if (!serverName.trim()) {
+      toast.error('请输入服务器');
+      return;
+    }
+    if (!guildName.trim()) {
+      toast.error('请输入工会');
+      return;
+    }
     if (!name.trim()) {
       toast.error('请输入团队名称');
       return;
@@ -50,13 +62,19 @@ export function TeamEditDialog({ team, open, onOpenChange, onSuccess }: TeamEdit
       const res = await fetch(`/api/teams/${team.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), slug: slug.trim(), description: description.trim() }),
+        body: JSON.stringify({
+          serverName: serverName.trim(),
+          guildName: guildName.trim(),
+          name: name.trim(),
+          slug: slug.trim(),
+          description: description.trim(),
+        }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        toast.success('团队信息更新成功！');
+        toast.success('团队信息更新成功');
         onOpenChange(false);
         onSuccess();
       } else {
@@ -80,12 +98,34 @@ export function TeamEditDialog({ team, open, onOpenChange, onSuccess }: TeamEdit
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
+            <Label htmlFor="teamServer">服务器 *</Label>
+            <Input
+              id="teamServer"
+              value={serverName}
+              onChange={(e) => setServerName(e.target.value)}
+              placeholder="例如：国王之谷"
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="teamGuild">工会 *</Label>
+            <Input
+              id="teamGuild"
+              value={guildName}
+              onChange={(e) => setGuildName(e.target.value)}
+              placeholder="例如：MirAcLe"
+              required
+            />
+          </div>
+
+          <div>
             <Label htmlFor="teamName">团队名称 *</Label>
             <Input
               id="teamName"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="例如: 乌龟公会"
+              placeholder="例如：一团"
               required
             />
           </div>
@@ -96,7 +136,7 @@ export function TeamEditDialog({ team, open, onOpenChange, onSuccess }: TeamEdit
               id="teamSlug"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              placeholder="例如: a 或 group-2，留空则自动生成/保持不变"
+              placeholder="例如：group-1，留空自动生成"
             />
           </div>
 
@@ -106,18 +146,13 @@ export function TeamEditDialog({ team, open, onOpenChange, onSuccess }: TeamEdit
               id="teamDescription"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="例如: 主力团队，专注开荒"
+              placeholder="例如：主力团队"
               rows={3}
             />
           </div>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={loading}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
               取消
             </Button>
             <Button type="submit" disabled={loading}>
