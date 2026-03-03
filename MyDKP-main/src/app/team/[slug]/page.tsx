@@ -1,7 +1,7 @@
-﻿import { TeamDashboard } from '@/components/TeamDashboard';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
-export default function TeamSlugPage({ params }: { params: { slug: string } }) {
-  return <TeamDashboard teamSlug={params.slug} />;
+export default function TeamLegacySlugPage({ params }: { params: { slug: string } }) {
+  redirect(`/${encodeURIComponent(params.slug)}`);
 }

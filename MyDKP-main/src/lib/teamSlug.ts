@@ -23,8 +23,8 @@ export function resolveTeamSlug(team: { id: string; slug?: string | null }) {
   return (team.slug || '').trim() || team.id;
 }
 
-export async function generateUniqueTeamSlug(teamName: string, excludeTeamId?: string) {
-  const base = slugifyTeamName(teamName);
+export async function generateUniqueSlugFromBase(baseInput: string, excludeTeamId?: string) {
+  const base = slugifyTeamName(baseInput);
 
   for (let index = 0; index < 5000; index++) {
     const candidate = index === 0 ? base : `${base}-${index + 1}`;
@@ -48,4 +48,8 @@ export async function generateUniqueTeamSlug(teamName: string, excludeTeamId?: s
   }
 
   return `${base}-${Date.now().toString(36)}`;
+}
+
+export async function generateUniqueTeamSlug(teamName: string, excludeTeamId?: string) {
+  return generateUniqueSlugFromBase(teamName, excludeTeamId);
 }

@@ -75,7 +75,7 @@ export function TeamDashboard({ teamSlug }: TeamDashboardProps) {
   useEffect(() => {
     if (!selectedTeam || !selectedTeamSlug) return;
     if (selectedTeamSlug !== teamSlug) {
-      router.replace(`/team/${encodeURIComponent(selectedTeamSlug)}`);
+      router.replace(`/${encodeURIComponent(selectedTeamSlug)}`);
     }
   }, [selectedTeam, selectedTeamSlug, teamSlug, router]);
 
@@ -124,7 +124,7 @@ export function TeamDashboard({ teamSlug }: TeamDashboardProps) {
     if (matched) {
       const nextSlug = resolveTeamSlug(matched);
       if (nextSlug && nextSlug !== teamSlug) {
-        router.replace(`/team/${encodeURIComponent(nextSlug)}`);
+        router.replace(`/${encodeURIComponent(nextSlug)}`);
       }
     }
   };
@@ -188,7 +188,7 @@ export function TeamDashboard({ teamSlug }: TeamDashboardProps) {
     const target = teams.find((team) => team.id === teamId);
     if (target) {
       const slug = resolveTeamSlug(target);
-      router.push(`/team/${encodeURIComponent(slug)}`);
+      router.push(`/${encodeURIComponent(slug)}`);
     }
   };
 

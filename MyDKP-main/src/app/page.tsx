@@ -139,7 +139,7 @@ export default function Home() {
 
     const firstTeam = adminTeams[0] as TeamItem;
     const slug = resolveTeamSlug(firstTeam);
-    router.replace(`/team/${encodeURIComponent(slug)}`);
+    router.replace(`/${encodeURIComponent(slug)}`);
   };
 
   const handleEnterTeam = () => {
@@ -160,7 +160,7 @@ export default function Home() {
     }
 
     const slug = resolveTeamSlug(selectedTeam);
-    router.push(`/team/${encodeURIComponent(slug)}`);
+    router.push(`/${encodeURIComponent(slug)}`);
   };
 
   return (

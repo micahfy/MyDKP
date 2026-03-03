@@ -1,12 +1,20 @@
 ﻿'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
-import { Plus, Edit2, Trash2, GripVertical, ArrowUp, ArrowDown } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Plus, Edit2, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { Team } from '@/types';
 import { TeamEditDialog } from './TeamEditDialog';
@@ -26,6 +34,28 @@ interface TeamManagementProps {
   onUpdate: () => void;
 }
 
+type ManageTeamRow = Team & {
+  sortOrder?: number;
+  updatedAt?: string;
+};
+
+type ServerOption = {
+  serverName: string;
+  count: number;
+};
+
+type GuildOption = {
+  serverName: string;
+  guildName: string;
+  count: number;
+};
+
+const PAGE_SIZE = 20;
+
+function guildKey(serverName: string, guildName: string) {
+  return `${serverName}::${guildName}`;
+}
+
 export function TeamManagement({ onUpdate }: TeamManagementProps) {
   const [serverName, setServerName] = useState('');
   const [guildName, setGuildName] = useState('');
@@ -33,29 +63,102 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+
   const [fetchLoading, setFetchLoading] = useState(true);
+  const [teams, setTeams] = useState<ManageTeamRow[]>([]);
+  const [editingTeam, setEditingTeam] = useState<ManageTeamRow | null>(null);
+
+  const [search, setSearch] = useState('');
+  const [filterServer, setFilterServer] = useState('all');
+  const [filterGuildKey, setFilterGuildKey] = useState('all');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [serverOptions, setServerOptions] = useState<ServerOption[]>([]);
+  const [guildOptions, setGuildOptions] = useState<GuildOption[]>([]);
+
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [batchServerName, setBatchServerName] = useState('');
+  const [batchGuildName, setBatchGuildName] = useState('');
+  const [batchSlugPrefix, setBatchSlugPrefix] = useState('');
+  const [batchLoading, setBatchLoading] = useState(false);
+
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const currentPageAllSelected = teams.length > 0 && teams.every((team) => selectedSet.has(team.id));
 
   useEffect(() => {
     fetchTeams();
-  }, []);
+  }, [page, filterServer, filterGuildKey]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchTeams();
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    if (filterGuildKey !== 'all') {
+      const [server] = filterGuildKey.split('::');
+      if (filterServer === 'all') {
+        setFilterServer(server);
+      }
+    }
+  }, [filterGuildKey]);
+
+  const filteredGuildOptions = useMemo(() => {
+    if (filterServer === 'all') return guildOptions;
+    return guildOptions.filter((item) => item.serverName === filterServer);
+  }, [guildOptions, filterServer]);
+
+  const resetCreateForm = () => {
+    setServerName('');
+    setGuildName('');
+    setName('');
+    setSlug('');
+    setDescription('');
+  };
 
   const fetchTeams = async () => {
     setFetchLoading(true);
     try {
-      const res = await fetch('/api/teams');
-      if (res.ok) {
-        const data = await res.json();
-        setTeams(Array.isArray(data) ? data : []);
-      } else {
-        setTeams([]);
-        toast.error('获取团队列表失败');
+      const params = new URLSearchParams();
+      params.set('page', String(page));
+      params.set('pageSize', String(PAGE_SIZE));
+      if (search.trim()) params.set('q', search.trim());
+      if (filterServer !== 'all') params.set('serverName', filterServer);
+      if (filterGuildKey !== 'all') {
+        const [server, guild] = filterGuildKey.split('::');
+        if (server && guild) {
+          params.set('serverName', server);
+          params.set('guildName', guild);
+        }
       }
-    } catch (error) {
+
+      const res = await fetch(`/api/teams/manage?${params.toString()}`);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || '获取团队列表失败');
+      }
+
+      const list = Array.isArray(data.items) ? data.items : [];
+      setTeams(list);
+      setTotal(Number(data.total || 0));
+      setTotalPages(Math.max(1, Number(data.totalPages || 1)));
+      setServerOptions(Array.isArray(data.serverOptions) ? data.serverOptions : []);
+      setGuildOptions(Array.isArray(data.guildOptions) ? data.guildOptions : []);
+
+      setSelectedIds((prev) => prev.filter((id) => list.some((team: ManageTeamRow) => team.id === id)));
+    } catch (error: any) {
       console.error('Fetch teams error:', error);
+      toast.error(error?.message || '获取团队列表失败');
       setTeams([]);
-      toast.error('获取团队列表失败');
+      setTotal(0);
+      setTotalPages(1);
     } finally {
       setFetchLoading(false);
     }
@@ -85,27 +188,23 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
           serverName,
           guildName,
           name,
-          description,
           slug,
+          description,
         }),
       });
-
       const data = await res.json();
 
-      if (res.ok) {
-        toast.success('团队创建成功');
-        setServerName('');
-        setGuildName('');
-        setName('');
-        setSlug('');
-        setDescription('');
-        fetchTeams();
-        onUpdate();
-      } else {
-        toast.error(data.error || '创建失败');
+      if (!res.ok) {
+        throw new Error(data.error || '创建失败');
       }
-    } catch (error) {
-      toast.error('创建失败，请重试');
+
+      toast.success('团队创建成功');
+      resetCreateForm();
+      setPage(1);
+      await fetchTeams();
+      onUpdate();
+    } catch (error: any) {
+      toast.error(error?.message || '创建失败');
     } finally {
       setLoading(false);
     }
@@ -113,58 +212,81 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
 
   const handleDeleteTeam = async (teamId: string, teamName: string) => {
     try {
-      const res = await fetch(`/api/teams/${teamId}`, {
-        method: 'DELETE',
-      });
-
+      const res = await fetch(`/api/teams/${teamId}`, { method: 'DELETE' });
       const data = await res.json();
-
-      if (res.ok) {
-        toast.success(data.message || `团队 ${teamName} 已删除`);
-        fetchTeams();
-        onUpdate();
-      } else {
-        toast.error(data.error || '删除失败');
+      if (!res.ok) {
+        throw new Error(data.error || '删除失败');
       }
-    } catch (error) {
-      toast.error('删除失败，请重试');
+
+      toast.success(data.message || `团队 ${teamName} 已删除`);
+      await fetchTeams();
+      onUpdate();
+    } catch (error: any) {
+      toast.error(error?.message || '删除失败');
     }
   };
 
-  const handleEditSuccess = () => {
-    fetchTeams();
+  const handleEditSuccess = async () => {
+    await fetchTeams();
     onUpdate();
   };
 
-  const moveTeam = async (index: number, direction: 'up' | 'down') => {
-    const newTeams = [...teams];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+  const toggleSelectAllCurrentPage = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(Array.from(new Set([...selectedIds, ...teams.map((team) => team.id)])));
+    } else {
+      const pageSet = new Set(teams.map((team) => team.id));
+      setSelectedIds(selectedIds.filter((id) => !pageSet.has(id)));
+    }
+  };
 
-    if (targetIndex < 0 || targetIndex >= newTeams.length) return;
+  const toggleTeamSelection = (teamId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds(Array.from(new Set([...selectedIds, teamId])));
+    } else {
+      setSelectedIds(selectedIds.filter((id) => id !== teamId));
+    }
+  };
 
-    [newTeams[index], newTeams[targetIndex]] = [newTeams[targetIndex], newTeams[index]];
+  const handleBatchUpdate = async () => {
+    if (selectedIds.length === 0) {
+      toast.error('请先选择团队');
+      return;
+    }
 
-    setTeams(newTeams);
+    if (!batchServerName.trim() && !batchGuildName.trim() && !batchSlugPrefix.trim()) {
+      toast.error('请至少填写一个批量修改项');
+      return;
+    }
 
+    setBatchLoading(true);
     try {
-      const res = await fetch('/api/teams/reorder', {
-        method: 'POST',
+      const res = await fetch('/api/teams/manage/batch', {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          teamIds: newTeams.map((t) => t.id),
+          teamIds: selectedIds,
+          serverName: batchServerName.trim() || undefined,
+          guildName: batchGuildName.trim() || undefined,
+          slugPrefix: batchSlugPrefix.trim() || undefined,
         }),
       });
-
-      if (res.ok) {
-        toast.success('排序已更新');
-        onUpdate();
-      } else {
-        toast.error('排序更新失败');
-        fetchTeams();
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || '批量修改失败');
       }
-    } catch (error) {
-      toast.error('排序更新失败');
-      fetchTeams();
+
+      toast.success(`已批量修改 ${data.updatedCount || selectedIds.length} 个团队`);
+      setSelectedIds([]);
+      setBatchServerName('');
+      setBatchGuildName('');
+      setBatchSlugPrefix('');
+      await fetchTeams();
+      onUpdate();
+    } catch (error: any) {
+      toast.error(error?.message || '批量修改失败');
+    } finally {
+      setBatchLoading(false);
     }
   };
 
@@ -177,158 +299,187 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
             <h3 className="text-lg font-semibold text-gray-100">创建新团队</h3>
           </div>
 
-          <form onSubmit={handleCreateTeam} className="space-y-4">
+          <form onSubmit={handleCreateTeam} className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <Label className="text-gray-200">服务器 *</Label>
-              <Input
-                value={serverName}
-                onChange={(e) => setServerName(e.target.value)}
-                placeholder="例如：国王之谷"
-                required
-                className="bg-slate-800/80 border-slate-600 text-gray-200"
-              />
+              <Input value={serverName} onChange={(e) => setServerName(e.target.value)} className="bg-slate-800/80 border-slate-600 text-gray-200" />
             </div>
-
             <div>
               <Label className="text-gray-200">工会 *</Label>
-              <Input
-                value={guildName}
-                onChange={(e) => setGuildName(e.target.value)}
-                placeholder="例如：MirAcLe"
-                required
-                className="bg-slate-800/80 border-slate-600 text-gray-200"
-              />
+              <Input value={guildName} onChange={(e) => setGuildName(e.target.value)} className="bg-slate-800/80 border-slate-600 text-gray-200" />
             </div>
-
             <div>
               <Label className="text-gray-200">团队名称 *</Label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="例如：一团"
-                required
-                className="bg-slate-800/80 border-slate-600 text-gray-200"
-              />
+              <Input value={name} onChange={(e) => setName(e.target.value)} className="bg-slate-800/80 border-slate-600 text-gray-200" />
             </div>
-
             <div>
               <Label className="text-gray-200">短链接（可选）</Label>
-              <Input
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                placeholder="例如：group-1，留空自动生成"
-                className="bg-slate-800/80 border-slate-600 text-gray-200"
-              />
+              <Input value={slug} onChange={(e) => setSlug(e.target.value)} className="bg-slate-800/80 border-slate-600 text-gray-200" />
             </div>
-
-            <div>
+            <div className="md:col-span-2">
               <Label className="text-gray-200">团队描述</Label>
-              <Textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="例如：主力团队"
-                rows={3}
-                className="bg-slate-800/80 border-slate-600 text-gray-200"
-              />
+              <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className="bg-slate-800/80 border-slate-600 text-gray-200" />
             </div>
-
-            <Button
-              type="submit"
-              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-              disabled={loading}
-            >
-              {loading ? '创建中...' : '创建团队'}
-            </Button>
+            <div className="md:col-span-2">
+              <Button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
+                {loading ? '创建中...' : '创建团队'}
+              </Button>
+            </div>
           </form>
         </div>
       </Card>
 
       <Card className="p-6 bg-gradient-to-br from-blue-900/30 to-indigo-900/30 border-blue-700/50">
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-100">现有团队</h3>
-            <div className="text-sm text-gray-400">使用 ↑↓ 调整顺序</div>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h3 className="text-lg font-semibold text-gray-100">团队管理（自动按名称排序）</h3>
+            <div className="text-sm text-gray-400">每页 {PAGE_SIZE} 条 · 共 {total} 条</div>
           </div>
 
-          {fetchLoading ? (
-            <div className="text-center py-8 text-gray-400">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
-              <p className="mt-4">加载中...</p>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+            <div className="md:col-span-2 relative">
+              <Search className="h-4 w-4 absolute left-2 top-2.5 text-gray-500" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="搜索团队/服务器/工会/短链"
+                className="pl-8 bg-slate-900/50 border-slate-600 text-gray-200"
+              />
             </div>
+            <Select value={filterServer} onValueChange={(value) => { setFilterServer(value); setFilterGuildKey('all'); setPage(1); }}>
+              <SelectTrigger className="bg-slate-900/50 border-slate-600 text-gray-200">
+                <SelectValue placeholder="服务器" />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-800 border-slate-600">
+                <SelectItem value="all">全部服务器</SelectItem>
+                {serverOptions.map((option) => (
+                  <SelectItem key={option.serverName} value={option.serverName}>{option.serverName} ({option.count})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterGuildKey} onValueChange={(value) => { setFilterGuildKey(value); setPage(1); }}>
+              <SelectTrigger className="bg-slate-900/50 border-slate-600 text-gray-200">
+                <SelectValue placeholder="工会" />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-800 border-slate-600">
+                <SelectItem value="all">全部工会</SelectItem>
+                {filteredGuildOptions.map((option) => (
+                  <SelectItem key={guildKey(option.serverName, option.guildName)} value={guildKey(option.serverName, option.guildName)}>
+                    {option.serverName} / {option.guildName} ({option.count})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedIds.length > 0 && (
+            <div className="rounded border border-amber-700/60 bg-amber-950/20 p-3 space-y-2">
+              <div className="text-sm text-amber-200">已选中 {selectedIds.length} 个团队，可批量修改</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <Input
+                  value={batchServerName}
+                  onChange={(e) => setBatchServerName(e.target.value)}
+                  placeholder="批量改服务器（可选）"
+                  className="bg-slate-900/50 border-slate-600 text-gray-200"
+                />
+                <Input
+                  value={batchGuildName}
+                  onChange={(e) => setBatchGuildName(e.target.value)}
+                  placeholder="批量改工会（可选）"
+                  className="bg-slate-900/50 border-slate-600 text-gray-200"
+                />
+                <Input
+                  value={batchSlugPrefix}
+                  onChange={(e) => setBatchSlugPrefix(e.target.value)}
+                  placeholder="批量改短链前缀（可选）"
+                  className="bg-slate-900/50 border-slate-600 text-gray-200"
+                />
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={handleBatchUpdate} disabled={batchLoading}>
+                  {batchLoading ? '批量修改中...' : '执行批量修改'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {fetchLoading ? (
+            <div className="text-center py-8 text-gray-400">加载中...</div>
           ) : teams.length === 0 ? (
             <div className="text-center py-8 text-gray-400">暂无团队</div>
           ) : (
             <div className="space-y-2">
-              {teams.map((team, index) => (
-                <div
-                  key={team.id}
-                  className="flex items-center justify-between p-4 border border-blue-700/50 rounded-lg hover:bg-blue-900/20 transition-colors"
-                >
-                  <div className="flex items-center space-x-3 flex-1">
-                    <GripVertical className="h-5 w-5 text-gray-500" />
-                    <div className="flex-1">
-                      <div className="font-semibold text-gray-100">{team.serverName} / {team.guildName} / {team.name}</div>
-                      <div className="text-sm text-gray-400">
-                        短链: {team.slug || '(无)'} · {team.description || '暂无描述'} · {team._count?.players || 0} 名玩家
-                      </div>
+              <div className="flex items-center gap-2 text-sm text-gray-300">
+                <Checkbox
+                  checked={currentPageAllSelected}
+                  onCheckedChange={(value) => toggleSelectAllCurrentPage(value === true)}
+                />
+                选择当前页全部
+              </div>
+
+              <div className="rounded border border-slate-700 overflow-hidden">
+                <div className="grid grid-cols-12 bg-slate-900/70 px-3 py-2 text-xs text-gray-400">
+                  <div className="col-span-1">选择</div>
+                  <div className="col-span-3">团队名称</div>
+                  <div className="col-span-3">服务器 / 工会</div>
+                  <div className="col-span-2">短链</div>
+                  <div className="col-span-1">人数</div>
+                  <div className="col-span-2 text-right">操作</div>
+                </div>
+
+                {teams.map((team) => (
+                  <div key={team.id} className="grid grid-cols-12 items-center px-3 py-2 border-t border-slate-800 text-sm">
+                    <div className="col-span-1">
+                      <Checkbox
+                        checked={selectedSet.has(team.id)}
+                        onCheckedChange={(value) => toggleTeamSelection(team.id, value === true)}
+                      />
+                    </div>
+                    <div className="col-span-3 text-gray-100 truncate" title={team.name}>{team.name}</div>
+                    <div className="col-span-3 text-gray-300 truncate" title={`${team.serverName} / ${team.guildName}`}>
+                      {team.serverName} / {team.guildName}
+                    </div>
+                    <div className="col-span-2 text-gray-300 truncate">{team.slug || '(无)'}</div>
+                    <div className="col-span-1 text-gray-300">{team._count?.players || 0}</div>
+                    <div className="col-span-2 flex justify-end gap-1">
+                      <Button variant="outline" size="sm" onClick={() => setEditingTeam(team)}>
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="sm">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="bg-slate-800 border-red-900">
+                          <AlertDialogHeader>
+                            <AlertDialogTitle className="text-gray-100">确认删除团队？</AlertDialogTitle>
+                            <AlertDialogDescription className="text-gray-400">
+                              将删除团队 <strong className="text-red-400">{team.name}</strong> 及其全部数据，无法撤销。
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>取消</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteTeam(team.id, team.name)}>
+                              确认删除
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => moveTeam(index, 'up')}
-                      disabled={index === 0}
-                      className="text-blue-400 hover:text-blue-300 hover:bg-blue-950"
-                    >
-                      <ArrowUp className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => moveTeam(index, 'down')}
-                      disabled={index === teams.length - 1}
-                      className="text-blue-400 hover:text-blue-300 hover:bg-blue-950"
-                    >
-                      <ArrowDown className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setEditingTeam(team)}
-                      className="border-blue-700 text-blue-400 hover:bg-blue-950"
-                    >
-                      <Edit2 className="h-4 w-4 mr-1" />
-                      编辑
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm" className="bg-red-600 hover:bg-red-700">
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          删除
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent className="bg-slate-800 border-red-900">
-                        <AlertDialogHeader>
-                          <AlertDialogTitle className="text-gray-100">确认删除团队？</AlertDialogTitle>
-                          <AlertDialogDescription className="text-gray-400">
-                            此操作将删除团队 <strong className="text-red-400">{team.name}</strong> 及其所有玩家和DKP数据，且无法撤销。
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel className="bg-slate-700 border-slate-600 text-gray-300">取消</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDeleteTeam(team.id, team.name)}
-                            className="bg-red-600 hover:bg-red-700"
-                          >
-                            确认删除
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <Button variant="outline" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+                  上一页
+                </Button>
+                <div className="text-sm text-gray-300">第 {page} / {totalPages} 页</div>
+                <Button variant="outline" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+                  下一页
+                </Button>
+              </div>
             </div>
           )}
         </div>
