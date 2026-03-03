@@ -10,10 +10,10 @@ function normalizeText(input: unknown) {
 }
 
 function normalizeSlug(input: unknown) {
-  const raw = String(input || '').trim().toLowerCase();
+  const raw = String(input || '').trim();
   if (!raw) return '';
-  if (!/^[a-z0-9_-]{1,48}$/.test(raw)) {
-    throw new Error('短链接只允许 a-z、0-9、_、-，长度 1-48');
+  if (!/^[A-Za-z0-9_-]{1,48}$/.test(raw)) {
+    throw new Error('短链接只允许 A-Z、a-z、0-9、_、-，长度 1-48');
   }
   return raw;
 }
