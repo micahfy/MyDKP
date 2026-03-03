@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -161,12 +162,12 @@ export function Navbar({
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-3">
+            <Link href="/" className="flex items-center space-x-3">
               <Swords className="h-8 w-8 text-yellow-400" />
               <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400">
-                WoW DKP Manager
+                MirDKP
               </h1>
-            </div>
+            </Link>
 
             {teams.length > 0 && (
               <Select value={selectedTeam} onValueChange={onTeamChange}>
