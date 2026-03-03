@@ -20,6 +20,7 @@ async function main() {
 
   const adminUsername = process.env.ADMIN_USERNAME || 'admin';
   const adminPassword = process.env.ADMIN_PASSWORD || 'wow@admin123';
+  const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase() || null;
 
   const existingAdmin = await prisma.admin.findUnique({
     where: { username: adminUsername },
@@ -30,6 +31,7 @@ async function main() {
     await prisma.admin.create({
       data: {
         username: adminUsername,
+        email: adminEmail,
         password: hashedPassword,
         role: 'super_admin',
         isActive: true,

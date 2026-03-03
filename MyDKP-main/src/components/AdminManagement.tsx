@@ -36,6 +36,7 @@ import { toast } from 'sonner';
 interface Admin {
   id: string;
   username: string;
+  email?: string | null;
   role: string;
   isActive: boolean;
   isProtected: boolean; // 添加保护标记
@@ -68,9 +69,11 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
 
   // 创建管理员表单
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
   const [selectedRole, setSelectedRole] = useState<'admin' | 'super_admin'>('admin');
+  const [editEmail, setEditEmail] = useState('');
 
   // 确保 teams 是数组
   const teams = Array.isArray(propTeams) ? propTeams : [];
@@ -84,6 +87,7 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
   useEffect(() => {
     if (editingAdmin) {
       setEditTeamIds(editingAdmin.teamPermissions.map(p => p.team.id));
+      setEditEmail(editingAdmin.email || '');
     }
   }, [editingAdmin]);
 
@@ -120,6 +124,7 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username,
+          email: email.trim() || null,
           password,
           role: selectedRole,
           teamIds: selectedRole === 'super_admin' ? [] : selectedTeams,
@@ -132,6 +137,7 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
         toast.success('管理员创建成功！');
         setIsCreateOpen(false);
         setUsername('');
+        setEmail('');
         setPassword('');
         setSelectedTeams([]);
         setSelectedRole('admin');
@@ -156,6 +162,7 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           teamIds: editTeamIds,
+          email: editEmail.trim() || null,
           role: editingAdmin.role,
         }),
       });
@@ -327,6 +334,9 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
                       <span>无团队权限</span>
                     )}
                   </div>
+                  <div className="mt-1 text-xs text-gray-500">
+                    邮箱：{admin.email || '未设置'}
+                  </div>
                   {admin.lastLoginAt && (
                     <div className="mt-1 text-xs text-gray-500">
                       最后登录：{new Date(admin.lastLoginAt).toLocaleString('zh-CN')}
@@ -497,6 +507,16 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
               />
             </div>
             <div>
+              <Label className="text-gray-200">邮箱（用于找回密码）</Label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="admin@example.com"
+                className="bg-slate-900/50 border-slate-600 text-gray-200"
+              />
+            </div>
+            <div>
               <Label className="text-gray-200">密码</Label>
               <Input
                 type="password"
@@ -570,6 +590,16 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
+              <div>
+                <Label className="text-gray-200">邮箱（用于找回密码）</Label>
+                <Input
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  placeholder="admin@example.com"
+                  className="bg-slate-900/50 border-slate-600 text-gray-200"
+                />
+              </div>
               <div>
                 <Label className="text-gray-200">授权团队</Label>
                 {teams.length === 0 ? (

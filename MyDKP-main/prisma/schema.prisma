@@ -10,6 +10,7 @@ datasource db {
 model Admin {
   id              String   @id @default(cuid())
   username        String   @unique
+  email           String?  @unique
   password        String
   role            String   @default("admin") // super_admin, admin
   isActive        Boolean  @default(true)
@@ -23,6 +24,7 @@ model Admin {
   teamPermissions TeamPermission[]
   deletedLogs     DkpLog[] @relation("DeletedByAdmin")
   faultKeywords   FaultKeyword[]
+  passwordResetTokens PasswordResetToken[]
 
   @@map("admins")
 }
@@ -206,4 +208,32 @@ model WebdkpSession {
   updatedAt   DateTime @updatedAt
 
   @@map("webdkp_sessions")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  adminId   String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId, expiresAt])
+  @@index([expiresAt, usedAt])
+  @@map("password_reset_tokens")
+}
+
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String?
+  subject     String
+  bodyText    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("email_templates")
 }

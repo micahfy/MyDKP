@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import { DkpLogManager } from './DkpLogManager';
 import { Shield, Lock } from 'lucide-react';
 import { LootLibrary } from './LootLibrary';
 import { WebdkpImportTab } from './WebdkpImportTab';
+import { EmailTemplateManagement } from './EmailTemplateManagement';
 
 interface AdminPanelProps {
   teamId: string;
@@ -26,10 +27,11 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
   const [checkingPermission, setCheckingPermission] = useState(true);
   const [activeTab, setActiveTab] = useState('batch-import');
   const [permittedTeamIds, setPermittedTeamIds] = useState<string[] | null>(null);
+
   const availableTabs = useMemo(
     () =>
       isSuperAdmin
-        ? ['batch-import', 'import', 'decay', 'logs', 'webdkp', 'team', 'admins', 'loot']
+        ? ['batch-import', 'import', 'decay', 'logs', 'webdkp', 'team', 'admins', 'loot', 'mail']
         : ['batch-import', 'import', 'decay', 'logs', 'webdkp'],
     [isSuperAdmin],
   );
@@ -112,7 +114,6 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
       return;
     }
 
-    // 超级管理员总是有权限
     if (isSuperAdmin) {
       setHasPermission(true);
       setCheckingPermission(false);
@@ -132,7 +133,6 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
     }
   };
 
-  // 如果正在检查权限
   if (checkingPermission) {
     return (
       <Card className="mb-6 card-bg card-glow">
@@ -144,19 +144,18 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
     );
   }
 
-  // 如果没有权限且不是超管
   if (!hasPermission && !isSuperAdmin) {
     return (
       <Card className="mb-6 card-bg card-glow border-red-900/50">
         <CardContent className="py-10 text-center">
           <Lock className="h-16 w-16 mx-auto mb-4 text-red-400" />
           <p className="text-xl text-red-400 mb-2">您没有权限管理当前团队</p>
-          <p className="text-gray-400">请联系超级管理员为您分配权限，或切换到您有权限的团队</p>
+          <p className="text-gray-400">请联系超级管理员分配权限，或切换到您有权限的团队</p>
         </CardContent>
       </Card>
     );
   }
-  
+
   return (
     <Card className="mb-6 card-bg card-glow">
       <CardHeader className="bg-gradient-to-r from-purple-900/50 to-blue-900/50">
@@ -169,7 +168,7 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
       </CardHeader>
       <CardContent className="pt-6">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className={`grid w-full ${isSuperAdmin ? 'grid-cols-8' : 'grid-cols-5'} bg-slate-800/50`}>
+          <TabsList className={`grid w-full ${isSuperAdmin ? 'grid-cols-9' : 'grid-cols-5'} bg-slate-800/50`}>
             <TabsTrigger value="batch-import" className="data-[state=active]:bg-blue-950">
               批量变动
             </TabsTrigger>
@@ -198,6 +197,11 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
             {isSuperAdmin && (
               <TabsTrigger value="loot" className="data-[state=active]:bg-purple-950">
                 装备库
+              </TabsTrigger>
+            )}
+            {isSuperAdmin && (
+              <TabsTrigger value="mail" className="data-[state=active]:bg-purple-950">
+                邮件模板
               </TabsTrigger>
             )}
           </TabsList>
@@ -233,9 +237,16 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
               <AdminManagement teams={teams} currentAdminRole={adminRole} />
             </TabsContent>
           )}
+
           {isSuperAdmin && (
             <TabsContent value="loot" className="space-y-4">
               <LootLibrary />
+            </TabsContent>
+          )}
+
+          {isSuperAdmin && (
+            <TabsContent value="mail" className="space-y-4">
+              <EmailTemplateManagement />
             </TabsContent>
           )}
         </Tabs>

@@ -239,3 +239,41 @@ Add a second app in `ecosystem.config.js` (single instance recommended):
   watch: false,
 }
 ```
+
+## 13. Admin Password Reset + Mail Templates
+
+### 13.1 Prisma sync
+
+```bash
+npx prisma generate
+npx prisma db push
+```
+
+### 13.2 Required env
+
+```bash
+APP_BASE_URL="https://your-domain.com"
+ADMIN_PASSWORD_RESET_TOKEN_TTL_MINUTES=30
+```
+
+### 13.3 Admin email
+
+Super admin can now set email for each admin in the admin management UI.
+Password reset mails are sent to that email.
+
+### 13.4 Mail templates (super admin only)
+
+Open Admin Panel -> "邮件模板" tab.
+Supported templates:
+- `admin_password_reset`
+- `sensitive_alert_summary`
+
+Placeholders are shown in the UI.
+
+### 13.5 Restart
+
+```bash
+npm run build
+pm2 restart dkp-manager --update-env
+pm2 restart dkp-sensitive-alert-worker --update-env
+```

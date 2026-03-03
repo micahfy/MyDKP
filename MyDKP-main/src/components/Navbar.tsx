@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -42,6 +42,8 @@ export function Navbar({
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [forgotIdentifier, setForgotIdentifier] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<{
     username: string;
     role: string;
@@ -84,11 +86,12 @@ export function Navbar({
       const data = await res.json();
 
       if (res.ok) {
-        toast.success('登录成功！');
+        toast.success('登录成功');
         onAuthChange(true);
         setIsLoginOpen(false);
         setUsername('');
         setPassword('');
+        setForgotIdentifier('');
         fetchCurrentUser();
       } else {
         toast.error(data.error || '登录失败');
@@ -97,6 +100,33 @@ export function Navbar({
       toast.error('登录失败，请重试');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    const identifier = forgotIdentifier.trim();
+    if (!identifier) {
+      toast.error('请输入用户名或邮箱');
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.message || '如账号存在，我们已发送重置邮件。');
+      } else {
+        toast.error(data.error || '发送重置邮件失败');
+      }
+    } catch (error) {
+      toast.error('发送重置邮件失败');
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -135,7 +165,6 @@ export function Navbar({
                       value={team.id}
                       className="hover:bg-blue-950 text-gray-200"
                     >
-                      {/* 访客模式不显示玩家数量 */}
                       {team.name} {isAdmin && team._count ? `(${team._count.players}人)` : ''}
                     </SelectItem>
                   ))}
@@ -175,7 +204,7 @@ export function Navbar({
             ) : (
               <Dialog open={isLoginOpen} onOpenChange={setIsLoginOpen}>
                 <DialogTrigger asChild>
-                  <Button 
+                  <Button
                     size="sm"
                     className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 btn-glow"
                   >
@@ -214,9 +243,28 @@ export function Navbar({
                         className="bg-slate-900/50 border-blue-900 text-gray-200"
                       />
                     </div>
-                    <Button 
-                      type="submit" 
-                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700" 
+                    <div className="space-y-2 rounded border border-slate-700 bg-slate-900/40 p-3">
+                      <Label htmlFor="forgotIdentifier" className="text-gray-300">忘记密码</Label>
+                      <Input
+                        id="forgotIdentifier"
+                        value={forgotIdentifier}
+                        onChange={(e) => setForgotIdentifier(e.target.value)}
+                        placeholder="输入用户名或邮箱"
+                        className="bg-slate-900/50 border-blue-900 text-gray-200"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full border-blue-700 text-blue-300 hover:bg-blue-950"
+                        onClick={handleForgotPassword}
+                        disabled={forgotLoading}
+                      >
+                        {forgotLoading ? '发送中...' : '发送重置邮件'}
+                      </Button>
+                    </div>
+                    <Button
+                      type="submit"
+                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                       disabled={loading}
                     >
                       {loading ? '登录中...' : '登录'}

@@ -1,9 +1,9 @@
 import { prisma } from '@/lib/prisma';
 import { isSensitiveAlertEnabled, matchSensitiveKeywords } from '@/lib/sensitiveKeywords';
-import nodemailer, { type Transporter } from 'nodemailer';
+import { sendMail } from '@/lib/mailer';
+import { renderEmailTemplate } from '@/lib/emailTemplates';
 
 type SensitiveSourceType = 'player_name' | 'log_reason';
-type MailProvider = 'office365' | 'smtp';
 
 export type SensitiveAlertInput = {
   sourceType: SensitiveSourceType;
@@ -39,23 +39,9 @@ type EnrichedParsedAlert = ParsedAlert & {
   operatorName: string | null;
 };
 
-type SmtpConfig = {
-  host: string;
-  port: number;
-  secure: boolean;
-  user: string;
-  pass: string;
-  from: string;
-  requireTls: boolean;
-  allowSelfSignedCerts: boolean;
-};
-
 const MAX_ATTEMPTS_DEFAULT = 5;
 const DISPATCH_BATCH_SIZE_DEFAULT = 50;
 const RETRY_INTERVAL_SECONDS_DEFAULT = 300;
-
-let tokenCache: { token: string; expiresAtMs: number } | null = null;
-let smtpTransporterCache: { cacheKey: string; transporter: Transporter } | null = null;
 
 function toBool(value: string | undefined, defaultValue = false) {
   if (value === undefined) return defaultValue;
@@ -89,17 +75,6 @@ function getRecipients() {
 
 function shouldSendMail() {
   return toBool(process.env.SENSITIVE_ALERT_MAIL_ENABLED, false);
-}
-
-function getMailProvider(): MailProvider {
-  const explicit = (process.env.SENSITIVE_ALERT_MAIL_PROVIDER || '').trim().toLowerCase();
-  if (explicit === 'smtp' || explicit === 'office365') {
-    return explicit;
-  }
-  if ((process.env.SMTP_HOST || '').trim()) {
-    return 'smtp';
-  }
-  return 'office365';
 }
 
 function serializeMatchedKeywords(keywords: string[]) {
@@ -156,34 +131,12 @@ async function enrichAlertsForMail(alerts: ParsedAlert[]): Promise<EnrichedParse
   }));
 }
 
-function buildMailSubject(alerts: EnrichedParsedAlert[]) {
-  if (alerts.length === 1) {
-    const alert = alerts[0];
-    const teamText = alert.teamName || alert.teamId || 'unknown';
-    return `[MyDKP Sensitive Alert] ${alert.sourceType} ${teamText}`;
-  }
-
-  const teamCount = new Set(alerts.map((item) => item.teamName || item.teamId || 'unknown')).size;
-  return `[MyDKP Sensitive Alert] ${alerts.length} records (teams:${teamCount})`;
-}
-
-function buildMailBody(alerts: EnrichedParsedAlert[]) {
+function buildAlertRecordsText(alerts: EnrichedParsedAlert[]) {
   const sortedAlerts = [...alerts].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-  const first = sortedAlerts[0];
-  const last = sortedAlerts[sortedAlerts.length - 1];
-  const sourceTypes = [...new Set(sortedAlerts.map((item) => item.sourceType))];
-
-  const lines = [
-    'Sensitive content detected in MyDKP.',
-    '',
-    `Batch Count: ${sortedAlerts.length}`,
-    `Time Range: ${first.createdAt.toISOString()} ~ ${last.createdAt.toISOString()}`,
-    `Source Types: ${sourceTypes.join(', ')}`,
-  ];
+  const lines: string[] = [];
 
   for (let index = 0; index < sortedAlerts.length; index++) {
     const alert = sortedAlerts[index];
-    lines.push('');
     lines.push(`----- #${index + 1} -----`);
     lines.push(`Alert ID: ${alert.id}`);
     lines.push(`Created At: ${alert.createdAt.toISOString()}`);
@@ -194,214 +147,56 @@ function buildMailBody(alerts: EnrichedParsedAlert[]) {
     lines.push(`Matched Keywords: ${alert.matchedKeywords.join(', ') || 'N/A'}`);
     lines.push('Content:');
     lines.push(alert.content || '(empty)');
+    lines.push('');
   }
 
-  return lines.join('\n');
-}
-
-async function getOffice365AccessToken() {
-  const tenantId = (process.env.O365_TENANT_ID || '').trim();
-  const clientId = (process.env.O365_CLIENT_ID || '').trim();
-  const clientSecret = (process.env.O365_CLIENT_SECRET || '').trim();
-
-  if (!tenantId || !clientId || !clientSecret) {
-    throw new Error('Missing Office365 credentials (O365_TENANT_ID/O365_CLIENT_ID/O365_CLIENT_SECRET).');
-  }
-
-  const now = Date.now();
-  if (tokenCache && tokenCache.expiresAtMs > now + 60_000) {
-    return tokenCache.token;
-  }
-
-  const body = new URLSearchParams({
-    grant_type: 'client_credentials',
-    client_id: clientId,
-    client_secret: clientSecret,
-    scope: 'https://graph.microsoft.com/.default',
-  });
-
-  const tokenUrl = `https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/token`;
-  const tokenRes = await fetch(tokenUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  });
-
-  if (!tokenRes.ok) {
-    const text = await tokenRes.text();
-    throw new Error(`Office365 token request failed: ${tokenRes.status} ${text}`);
-  }
-
-  const tokenData = await tokenRes.json();
-  const accessToken = String(tokenData.access_token || '');
-  const expiresIn = Number(tokenData.expires_in || 3600);
-
-  if (!accessToken) {
-    throw new Error('Office365 token missing access_token.');
-  }
-
-  tokenCache = {
-    token: accessToken,
-    expiresAtMs: now + Math.max(300, expiresIn - 120) * 1000,
-  };
-  return accessToken;
-}
-
-function getSmtpConfig(): SmtpConfig {
-  const host = (process.env.SMTP_HOST || '').trim();
-  if (!host) {
-    throw new Error('Missing SMTP_HOST.');
-  }
-
-  const secure = toBool(process.env.SMTP_SECURE, false);
-  const defaultPort = secure ? 465 : 587;
-  const portValue = Number(process.env.SMTP_PORT || defaultPort);
-  if (!Number.isFinite(portValue) || portValue <= 0) {
-    throw new Error('Invalid SMTP_PORT.');
-  }
-
-  const user = (process.env.SMTP_USER || '').trim();
-  const pass = (process.env.SMTP_PASS || '').trim();
-  if (!user || !pass) {
-    throw new Error('Missing SMTP credentials (SMTP_USER/SMTP_PASS).');
-  }
-
-  const from = (process.env.SMTP_FROM || user).trim();
-  if (!from) {
-    throw new Error('Missing SMTP_FROM.');
-  }
-
-  return {
-    host,
-    port: Math.floor(portValue),
-    secure,
-    user,
-    pass,
-    from,
-    requireTls: toBool(process.env.SMTP_REQUIRE_TLS, false),
-    allowSelfSignedCerts: toBool(process.env.SMTP_ALLOW_SELF_SIGNED_CERTS, false),
-  };
-}
-
-function getSmtpTransporter(config: SmtpConfig) {
-  const cacheKey = [
-    config.host,
-    String(config.port),
-    config.secure ? '1' : '0',
-    config.user,
-    config.pass,
-    config.from,
-    config.requireTls ? '1' : '0',
-    config.allowSelfSignedCerts ? '1' : '0',
-  ].join('|');
-
-  if (smtpTransporterCache && smtpTransporterCache.cacheKey === cacheKey) {
-    return smtpTransporterCache.transporter;
-  }
-
-  const transporter = nodemailer.createTransport({
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    auth: {
-      user: config.user,
-      pass: config.pass,
-    },
-    requireTLS: config.requireTls,
-    tls: {
-      rejectUnauthorized: !config.allowSelfSignedCerts,
-    },
-  });
-
-  smtpTransporterCache = { cacheKey, transporter };
-  return transporter;
-}
-
-async function sendSmtpMail(alerts: EnrichedParsedAlert[]) {
-  const recipients = getRecipients();
-  if (recipients.length === 0) {
-    throw new Error('Missing SENSITIVE_ALERT_RECIPIENTS.');
-  }
-
-  const config = getSmtpConfig();
-  const transporter = getSmtpTransporter(config);
-
-  await transporter.sendMail({
-    from: config.from,
-    to: recipients.join(','),
-    subject: buildMailSubject(alerts),
-    text: buildMailBody(alerts),
-  });
-}
-
-async function sendOffice365Mail(alerts: EnrichedParsedAlert[]) {
-  const sender = (process.env.O365_SENDER || '').trim();
-  const fromAddress = (process.env.O365_FROM_ADDRESS || '').trim();
-  const fromName = (process.env.O365_FROM_NAME || '').trim();
-  const recipients = getRecipients();
-
-  if (!sender) {
-    throw new Error('Missing O365_SENDER.');
-  }
-  if (recipients.length === 0) {
-    throw new Error('Missing SENSITIVE_ALERT_RECIPIENTS.');
-  }
-
-  const token = await getOffice365AccessToken();
-  const subject = buildMailSubject(alerts);
-  const bodyText = buildMailBody(alerts);
-
-  const payload = {
-    message: {
-      subject,
-      body: {
-        contentType: 'Text',
-        content: bodyText,
-      },
-      ...(fromAddress
-        ? {
-            from: {
-              emailAddress: {
-                address: fromAddress,
-                ...(fromName ? { name: fromName } : {}),
-              },
-            },
-          }
-        : {}),
-      toRecipients: recipients.map((address) => ({
-        emailAddress: { address },
-      })),
-    },
-    saveToSentItems: 'false',
-  };
-
-  const res = await fetch(
-    `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(sender)}/sendMail`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    },
-  );
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Office365 sendMail failed: ${res.status} ${text}`);
-  }
+  return lines.join('\n').trim();
 }
 
 async function sendAlertMail(alerts: EnrichedParsedAlert[]) {
   if (alerts.length === 0) return;
-
-  const provider = getMailProvider();
-  if (provider === 'smtp') {
-    await sendSmtpMail(alerts);
-    return;
+  const recipients = getRecipients();
+  if (recipients.length === 0) {
+    throw new Error('Missing SENSITIVE_ALERT_RECIPIENTS.');
   }
-  await sendOffice365Mail(alerts);
+
+  const sortedAlerts = [...alerts].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  const first = sortedAlerts[0];
+  const last = sortedAlerts[sortedAlerts.length - 1];
+  const sourceTypes = [...new Set(sortedAlerts.map((item) => item.sourceType))];
+  const teamCount = new Set(sortedAlerts.map((item) => item.teamName || item.teamId || 'unknown')).size;
+  const records = buildAlertRecordsText(sortedAlerts);
+
+  const fallback = {
+    subject: `[MyDKP Sensitive Alert] ${sortedAlerts.length} records (teams:${teamCount})`,
+    bodyText: [
+      'Sensitive content detected in MyDKP.',
+      '',
+      `Batch Count: ${sortedAlerts.length}`,
+      `Time Range: ${first.createdAt.toISOString()} ~ ${last.createdAt.toISOString()}`,
+      `Source Types: ${sourceTypes.join(', ')}`,
+      '',
+      records,
+    ].join('\n'),
+  };
+
+  const rendered = await renderEmailTemplate(
+    'sensitive_alert_summary',
+    {
+      batchCount: sortedAlerts.length,
+      teamCount,
+      timeRange: `${first.createdAt.toISOString()} ~ ${last.createdAt.toISOString()}`,
+      sourceTypes: sourceTypes.join(', '),
+      records,
+    },
+    fallback,
+  );
+
+  await sendMail({
+    to: recipients,
+    subject: rendered.subject,
+    text: rendered.bodyText,
+  });
 }
 
 function normalizeAlertInput(input: SensitiveAlertInput) {
