@@ -1,6 +1,10 @@
-﻿import { prisma } from '@/lib/prisma';
+import { randomInt } from 'crypto';
+import { prisma } from '@/lib/prisma';
 
 const TEAM_SLUG_MAX_LENGTH = 48;
+const RANDOM_TEAM_SLUG_LENGTH = 3;
+const RANDOM_TEAM_SLUG_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+const RANDOM_TEAM_SLUG_MAX_ATTEMPTS = 10000;
 
 function sanitizeSlug(raw: string) {
   const value = raw
@@ -51,5 +55,32 @@ export async function generateUniqueSlugFromBase(baseInput: string, excludeTeamI
 }
 
 export async function generateUniqueTeamSlug(teamName: string, excludeTeamId?: string) {
-  return generateUniqueSlugFromBase(teamName, excludeTeamId);
+  void teamName;
+
+  for (let index = 0; index < RANDOM_TEAM_SLUG_MAX_ATTEMPTS; index++) {
+    let candidate = '';
+    for (let i = 0; i < RANDOM_TEAM_SLUG_LENGTH; i++) {
+      candidate += RANDOM_TEAM_SLUG_CHARS[randomInt(0, RANDOM_TEAM_SLUG_CHARS.length)];
+    }
+
+    const conflict = await prisma.team.findFirst({
+      where: {
+        slug: candidate,
+        ...(excludeTeamId
+          ? {
+              NOT: {
+                id: excludeTeamId,
+              },
+            }
+          : {}),
+      },
+      select: { id: true },
+    });
+
+    if (!conflict) {
+      return candidate;
+    }
+  }
+
+  throw new Error('Failed to generate a unique team slug');
 }
