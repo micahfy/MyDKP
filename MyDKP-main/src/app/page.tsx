@@ -12,6 +12,8 @@ const AdminPanel = dynamic(() => import('@/components/AdminPanel').then((mod) =>
   ssr: false,
 });
 
+const TEAM_STORAGE_KEY = 'mydkp:selectedTeamId';
+
 function HomeContent() {
   const [selectedTeam, setSelectedTeam] = useState<string>('');
   const [isAdmin, setIsAdmin] = useState(false);
@@ -37,6 +39,15 @@ function HomeContent() {
   useEffect(() => {
     checkAuth();
   }, []);
+
+  useEffect(() => {
+    if (!selectedTeam) return;
+    try {
+      localStorage.setItem(TEAM_STORAGE_KEY, selectedTeam);
+    } catch (error) {
+      console.error('Persist selected team failed:', error);
+    }
+  }, [selectedTeam]);
 
   // 只在管理员登录后才加载完整团队信息
   useEffect(() => {
@@ -77,15 +88,39 @@ function HomeContent() {
   };
 
   // 访客用户：只加载基本团队信息（不含玩家数量等统计数据）
+  const resolvePreferredTeamId = (teamList: any[]): string => {
+    if (!Array.isArray(teamList) || teamList.length === 0) return '';
+
+    const slugMatched = slugParam ? teamList.find((t: any) => t.slug === slugParam)?.id : '';
+    if (slugMatched) return slugMatched;
+
+    if (selectedTeam && teamList.some((t: any) => t.id === selectedTeam)) {
+      return selectedTeam;
+    }
+
+    try {
+      const storedTeamId = localStorage.getItem(TEAM_STORAGE_KEY) || '';
+      if (storedTeamId && teamList.some((t: any) => t.id === storedTeamId)) {
+        return storedTeamId;
+      }
+    } catch (error) {
+      console.error('Read selected team from storage failed:', error);
+    }
+
+    return teamList[0].id;
+  };
+
   const fetchBasicTeams = async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/teams/basic');
       const data = await res.json();
       setTeams(data);
-      if (data.length > 0 && !selectedTeam) {
-        const matched = slugParam ? data.find((t: any) => t.slug === slugParam) : null;
-        setSelectedTeam((matched || data[0]).id);
+      if (data.length > 0) {
+        const nextTeamId = resolvePreferredTeamId(data);
+        if (nextTeamId && nextTeamId !== selectedTeam) {
+          setSelectedTeam(nextTeamId);
+        }
       }
     } catch (error) {
       console.error('Fetch basic teams failed:', error);
@@ -101,9 +136,11 @@ function HomeContent() {
       const res = await fetch('/api/teams');
       const data = await res.json();
       setTeams(data);
-      if (data.length > 0 && !selectedTeam) {
-        const matched = slugParam ? data.find((t: any) => t.slug === slugParam) : null;
-        setSelectedTeam((matched || data[0]).id);
+      if (data.length > 0) {
+        const nextTeamId = resolvePreferredTeamId(data);
+        if (nextTeamId && nextTeamId !== selectedTeam) {
+          setSelectedTeam(nextTeamId);
+        }
       }
     } catch (error) {
       console.error('Fetch teams failed:', error);
