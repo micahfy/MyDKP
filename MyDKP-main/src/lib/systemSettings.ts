@@ -1,6 +1,7 @@
-﻿import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 
 export const JOIN_REQUEST_NOTIFY_EMAIL_KEY = 'join_request_notify_email';
+export const DEFAULT_LOGIN_TEAM_ID_KEY = 'default_login_team_id';
 
 export async function getSystemSetting(key: string) {
   const record = await prisma.systemSetting.findUnique({
@@ -21,4 +22,9 @@ export async function setSystemSetting(key: string, value: string) {
 export async function getJoinRequestNotifyEmail() {
   const value = await getSystemSetting(JOIN_REQUEST_NOTIFY_EMAIL_KEY);
   return (value || '').trim().toLowerCase();
+}
+
+export async function getDefaultLoginTeamId() {
+  const value = await getSystemSetting(DEFAULT_LOGIN_TEAM_ID_KEY);
+  return (value || '').trim();
 }

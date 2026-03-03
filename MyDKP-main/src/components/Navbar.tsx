@@ -169,7 +169,7 @@ export function Navbar({
               </h1>
             </Link>
 
-            {teams.length > 0 && (
+            {isAdmin && teams.length > 0 && (
               <Select value={selectedTeam} onValueChange={onTeamChange}>
                 <SelectTrigger className="w-[200px] bg-slate-800/50 border-blue-900 text-gray-200">
                   <SelectValue placeholder="选择团队" />

@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Edit2, Trash2, Search } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { Team } from '@/types';
 import { TeamEditDialog } from './TeamEditDialog';
@@ -82,6 +82,8 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
   const [batchGuildName, setBatchGuildName] = useState('');
   const [batchSlugPrefix, setBatchSlugPrefix] = useState('');
   const [batchLoading, setBatchLoading] = useState(false);
+  const [defaultLoginTeamId, setDefaultLoginTeamId] = useState('');
+  const [savingDefaultTeamId, setSavingDefaultTeamId] = useState('');
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const currentPageAllSelected = teams.length > 0 && teams.every((team) => selectedSet.has(team.id));
@@ -89,6 +91,10 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
   useEffect(() => {
     fetchTeams();
   }, [page, filterServer, filterGuildKey]);
+
+  useEffect(() => {
+    fetchDefaultLoginTeamId();
+  }, []);
 
   useEffect(() => {
     setPage(1);
@@ -161,6 +167,40 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
       setTotalPages(1);
     } finally {
       setFetchLoading(false);
+    }
+  };
+
+  const fetchDefaultLoginTeamId = async () => {
+    try {
+      const res = await fetch('/api/system-settings');
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || '获取默认团队设置失败');
+      }
+      setDefaultLoginTeamId(String(data.defaultLoginTeamId || ''));
+    } catch (error: any) {
+      console.error('Fetch default login team failed:', error);
+    }
+  };
+
+  const handleSetDefaultLoginTeam = async (teamId: string) => {
+    setSavingDefaultTeamId(teamId);
+    try {
+      const res = await fetch('/api/system-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultLoginTeamId: teamId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || '设置默认团队失败');
+      }
+      setDefaultLoginTeamId(String(data.defaultLoginTeamId || ''));
+      toast.success('已设置为登录默认团队');
+    } catch (error: any) {
+      toast.error(error?.message || '设置默认团队失败');
+    } finally {
+      setSavingDefaultTeamId('');
     }
   };
 
@@ -335,6 +375,7 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
             <h3 className="text-lg font-semibold text-gray-100">团队管理（自动按名称排序）</h3>
             <div className="text-sm text-gray-400">每页 {PAGE_SIZE} 条 · 共 {total} 条</div>
           </div>
+          <div className="text-xs text-gray-400">点击团队行中的星标，可设置登录页面默认团队</div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
             <div className="md:col-span-2 relative">
@@ -442,6 +483,15 @@ export function TeamManagement({ onUpdate }: TeamManagementProps) {
                     <div className="col-span-2 text-gray-300 truncate">{team.slug || '(无)'}</div>
                     <div className="col-span-1 text-gray-300">{team._count?.players || 0}</div>
                     <div className="col-span-2 flex justify-end gap-1">
+                      <Button
+                        variant={defaultLoginTeamId === team.id ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => handleSetDefaultLoginTeam(team.id)}
+                        disabled={savingDefaultTeamId === team.id}
+                        title={defaultLoginTeamId === team.id ? '当前登录默认团队' : '设为登录默认团队'}
+                      >
+                        <Star className="h-3.5 w-3.5" />
+                      </Button>
                       <Button variant="outline" size="sm" onClick={() => setEditingTeam(team)}>
                         <Edit2 className="h-3.5 w-3.5" />
                       </Button>

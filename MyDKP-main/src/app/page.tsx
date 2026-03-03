@@ -106,11 +106,16 @@ export default function Home() {
   const fetchBasicTeams = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/teams/basic');
+      const [res, defaultRes] = await Promise.all([
+        fetch('/api/teams/basic'),
+        fetch('/api/entry/default-team'),
+      ]);
       const data = await res.json();
+      const defaultData = defaultRes.ok ? await defaultRes.json() : { team: null };
       const teamList = Array.isArray(data) ? data : [];
       setTeams(teamList);
 
+      let hasStoredSelection = false;
       try {
         const raw = localStorage.getItem(ENTRY_STORAGE_KEY);
         if (raw) {
@@ -118,9 +123,19 @@ export default function Home() {
           if (stored.serverName) setSelectedServer(stored.serverName);
           if (stored.guildName) setSelectedGuild(stored.guildName);
           if (stored.teamId) setSelectedTeamId(stored.teamId);
+          hasStoredSelection = true;
         }
       } catch (error) {
         console.error('read entry selection failed:', error);
+      }
+
+      if (!hasStoredSelection && defaultData?.team?.id) {
+        const defaultTeam = teamList.find((item) => item.id === defaultData.team.id);
+        if (defaultTeam) {
+          setSelectedServer(defaultTeam.serverName || '');
+          setSelectedGuild(defaultTeam.guildName || '');
+          setSelectedTeamId(defaultTeam.id);
+        }
       }
     } catch (error) {
       console.error('Fetch basic teams failed:', error);
@@ -131,14 +146,12 @@ export default function Home() {
   };
 
   const redirectToFirstAdminTeam = async () => {
-    const res = await fetch('/api/teams');
+    const res = await fetch('/api/auth/default-team');
     if (!res.ok) return;
 
-    const adminTeams = await res.json();
-    if (!Array.isArray(adminTeams) || adminTeams.length === 0) return;
-
-    const firstTeam = adminTeams[0] as TeamItem;
-    const slug = resolveTeamSlug(firstTeam);
+    const data = await res.json();
+    const slug = String(data?.teamSlug || '').trim();
+    if (!slug) return;
     router.replace(`/${encodeURIComponent(slug)}`);
   };
 
