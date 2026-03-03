@@ -54,6 +54,7 @@ interface ShameRankEntry {
   totalCount: number;
   totalScore: number;
   lastMonthCount: number;
+  lastMonthScore: number;
   weeks: {
     current: { count: number; score: number };
     last: { count: number; score: number };
@@ -882,7 +883,10 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                         {formatWeekStat(entry.weeks.prev)}
                       </TableCell>
                       <TableCell className="text-center text-red-200">
-                        {entry.lastMonthCount}
+                        {formatWeekStat({
+                          count: entry.lastMonthCount,
+                          score: entry.lastMonthScore,
+                        })}
                       </TableCell>
                     </TableRow>
                   ))}

@@ -78,6 +78,7 @@ export async function GET(request: NextRequest) {
         totalCount: number;
         totalScore: number;
         lastMonthCount: number;
+        lastMonthScore: number;
         weeks: Record<WeekBucket, { count: number; score: number }>;
       }
     >();
@@ -118,6 +119,7 @@ export async function GET(request: NextRequest) {
           totalCount: 0,
           totalScore: 0,
           lastMonthCount: 0,
+          lastMonthScore: 0,
           weeks: {
             current: { count: 0, score: 0 },
             last: { count: 0, score: 0 },
@@ -135,6 +137,7 @@ export async function GET(request: NextRequest) {
       }
       if (isInLastMonth(logTime)) {
         entry.lastMonthCount += 1;
+        entry.lastMonthScore += effectiveChange;
       }
     }
 
