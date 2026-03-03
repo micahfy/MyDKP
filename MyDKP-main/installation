@@ -206,6 +206,8 @@ O365_TENANT_ID="..."
 O365_CLIENT_ID="..."
 O365_CLIENT_SECRET="..."
 O365_SENDER="sender@yourtenant.onmicrosoft.com"
+O365_FROM_ADDRESS="alias@yourtenant.com"
+O365_FROM_NAME="MyDKP Alert Bot"
 ```
 
 ### 12.3 Keyword file

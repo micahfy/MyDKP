@@ -336,6 +336,8 @@ async function sendSmtpMail(alerts: EnrichedParsedAlert[]) {
 
 async function sendOffice365Mail(alerts: EnrichedParsedAlert[]) {
   const sender = (process.env.O365_SENDER || '').trim();
+  const fromAddress = (process.env.O365_FROM_ADDRESS || '').trim();
+  const fromName = (process.env.O365_FROM_NAME || '').trim();
   const recipients = getRecipients();
 
   if (!sender) {
@@ -356,6 +358,16 @@ async function sendOffice365Mail(alerts: EnrichedParsedAlert[]) {
         contentType: 'Text',
         content: bodyText,
       },
+      ...(fromAddress
+        ? {
+            from: {
+              emailAddress: {
+                address: fromAddress,
+                ...(fromName ? { name: fromName } : {}),
+              },
+            },
+          }
+        : {}),
       toRecipients: recipients.map((address) => ({
         emailAddress: { address },
       })),
