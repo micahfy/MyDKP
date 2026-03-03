@@ -744,7 +744,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
               <span>帅榜</span>
             </DialogTitle>
           </DialogHeader>
-          <p className="text-xs text-gray-400">玩家累计衰减的总分数/p>
+          <p className="text-xs text-gray-400">玩家衰减的分数汇总记录</p>
           <div className="border border-orange-900/50 rounded-lg overflow-hidden max-h-[70vh] overflow-y-auto">
             <Table>
               <TableHeader>
