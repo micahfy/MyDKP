@@ -29,6 +29,7 @@
     "iron-session": "^8.0.1",
     "lucide-react": "^0.379.0",
     "next": "^14.2.0",
+    "nodemailer": "^6.10.1",
     "papaparse": "^5.4.1",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
@@ -40,6 +41,7 @@
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.12.12",
+    "@types/nodemailer": "^7.0.11",
     "@types/papaparse": "^5.3.14",
     "@types/react": "^18.3.2",
     "@types/react-dom": "^18.3.0",

@@ -1,7 +1,9 @@
 import { prisma } from '@/lib/prisma';
 import { isSensitiveAlertEnabled, matchSensitiveKeywords } from '@/lib/sensitiveKeywords';
+import nodemailer, { type Transporter } from 'nodemailer';
 
 type SensitiveSourceType = 'player_name' | 'log_reason';
+type MailProvider = 'office365' | 'smtp';
 
 export type SensitiveAlertInput = {
   sourceType: SensitiveSourceType;
@@ -32,11 +34,23 @@ type ParsedAlert = {
   createdAt: Date;
 };
 
+type SmtpConfig = {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  pass: string;
+  from: string;
+  requireTls: boolean;
+  allowSelfSignedCerts: boolean;
+};
+
 const MAX_ATTEMPTS_DEFAULT = 5;
 const DISPATCH_BATCH_SIZE_DEFAULT = 50;
 const RETRY_INTERVAL_SECONDS_DEFAULT = 300;
 
 let tokenCache: { token: string; expiresAtMs: number } | null = null;
+let smtpTransporterCache: { cacheKey: string; transporter: Transporter } | null = null;
 
 function toBool(value: string | undefined, defaultValue = false) {
   if (value === undefined) return defaultValue;
@@ -70,6 +84,17 @@ function getRecipients() {
 
 function shouldSendMail() {
   return toBool(process.env.SENSITIVE_ALERT_MAIL_ENABLED, false);
+}
+
+function getMailProvider(): MailProvider {
+  const explicit = (process.env.SENSITIVE_ALERT_MAIL_PROVIDER || '').trim().toLowerCase();
+  if (explicit === 'smtp' || explicit === 'office365') {
+    return explicit;
+  }
+  if ((process.env.SMTP_HOST || '').trim()) {
+    return 'smtp';
+  }
+  return 'office365';
 }
 
 function serializeMatchedKeywords(keywords: string[]) {
@@ -158,6 +183,93 @@ async function getOffice365AccessToken() {
   return accessToken;
 }
 
+function getSmtpConfig(): SmtpConfig {
+  const host = (process.env.SMTP_HOST || '').trim();
+  if (!host) {
+    throw new Error('Missing SMTP_HOST.');
+  }
+
+  const secure = toBool(process.env.SMTP_SECURE, false);
+  const defaultPort = secure ? 465 : 587;
+  const portValue = Number(process.env.SMTP_PORT || defaultPort);
+  if (!Number.isFinite(portValue) || portValue <= 0) {
+    throw new Error('Invalid SMTP_PORT.');
+  }
+
+  const user = (process.env.SMTP_USER || '').trim();
+  const pass = (process.env.SMTP_PASS || '').trim();
+  if (!user || !pass) {
+    throw new Error('Missing SMTP credentials (SMTP_USER/SMTP_PASS).');
+  }
+
+  const from = (process.env.SMTP_FROM || user).trim();
+  if (!from) {
+    throw new Error('Missing SMTP_FROM.');
+  }
+
+  return {
+    host,
+    port: Math.floor(portValue),
+    secure,
+    user,
+    pass,
+    from,
+    requireTls: toBool(process.env.SMTP_REQUIRE_TLS, false),
+    allowSelfSignedCerts: toBool(process.env.SMTP_ALLOW_SELF_SIGNED_CERTS, false),
+  };
+}
+
+function getSmtpTransporter(config: SmtpConfig) {
+  const cacheKey = [
+    config.host,
+    String(config.port),
+    config.secure ? '1' : '0',
+    config.user,
+    config.pass,
+    config.from,
+    config.requireTls ? '1' : '0',
+    config.allowSelfSignedCerts ? '1' : '0',
+  ].join('|');
+
+  if (smtpTransporterCache && smtpTransporterCache.cacheKey === cacheKey) {
+    return smtpTransporterCache.transporter;
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: {
+      user: config.user,
+      pass: config.pass,
+    },
+    requireTLS: config.requireTls,
+    tls: {
+      rejectUnauthorized: !config.allowSelfSignedCerts,
+    },
+  });
+
+  smtpTransporterCache = { cacheKey, transporter };
+  return transporter;
+}
+
+async function sendSmtpMail(alert: ParsedAlert) {
+  const recipients = getRecipients();
+  if (recipients.length === 0) {
+    throw new Error('Missing SENSITIVE_ALERT_RECIPIENTS.');
+  }
+
+  const config = getSmtpConfig();
+  const transporter = getSmtpTransporter(config);
+
+  await transporter.sendMail({
+    from: config.from,
+    to: recipients.join(','),
+    subject: buildMailSubject(alert),
+    text: buildMailBody(alert),
+  });
+}
+
 async function sendOffice365Mail(alert: ParsedAlert) {
   const sender = (process.env.O365_SENDER || '').trim();
   const recipients = getRecipients();
@@ -203,6 +315,15 @@ async function sendOffice365Mail(alert: ParsedAlert) {
     const text = await res.text();
     throw new Error(`Office365 sendMail failed: ${res.status} ${text}`);
   }
+}
+
+async function sendAlertMail(alert: ParsedAlert) {
+  const provider = getMailProvider();
+  if (provider === 'smtp') {
+    await sendSmtpMail(alert);
+    return;
+  }
+  await sendOffice365Mail(alert);
 }
 
 function normalizeAlertInput(input: SensitiveAlertInput) {
@@ -357,7 +478,7 @@ export async function dispatchSensitiveAlertsBatch(): Promise<DispatchResult> {
     };
 
     try {
-      await sendOffice365Mail(parsedAlert);
+      await sendAlertMail(parsedAlert);
       await prisma.sensitiveAlert.update({
         where: { id: candidate.id },
         data: {
