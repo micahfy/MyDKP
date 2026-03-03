@@ -1,6 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, isAdmin, isSuperAdmin } from '@/lib/auth';
+import { getAdminTeams, isAdmin, isSuperAdmin } from '@/lib/auth';
 import { generateUniqueTeamSlug } from '@/lib/teamSlug';
 
 export const dynamic = 'force-dynamic';
@@ -24,19 +24,14 @@ export async function GET() {
       return NextResponse.json({ error: '权限不足' }, { status: 403 });
     }
 
-    const session = await getSession();
-    const isSuper = session.role === 'super_admin';
+    const adminTeamIds = await getAdminTeams();
 
     const teams = await prisma.team.findMany({
-      where: isSuper
-        ? undefined
-        : {
-            teamPermissions: {
-              some: {
-                adminId: session.adminId,
-              },
-            },
-          },
+      where: {
+        id: {
+          in: adminTeamIds,
+        },
+      },
       select: {
         id: true,
         name: true,

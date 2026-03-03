@@ -1,10 +1,11 @@
-'use client';
+﻿'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -30,27 +31,46 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { UserPlus, Edit2, Trash2, Shield } from 'lucide-react';
+import { UserPlus, Shield, Trash2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface Admin {
+type AdminItem = {
   id: string;
   username: string;
   email?: string | null;
-  role: string;
+  role: 'super_admin' | 'admin';
   isActive: boolean;
-  isProtected: boolean; // 添加保护标记
+  isProtected: boolean;
   createdAt: string;
   lastLoginAt: string | null;
-  teamPermissions: Array<{
-    team: {
-      id: string;
-      name: string;
-      serverName?: string;
-      guildName?: string;
-    };
+};
+
+type PermissionTreeResponse = {
+  admin: {
+    id: string;
+    username: string;
+    role: 'super_admin' | 'admin';
+  };
+  selections: {
+    rootAccess: boolean;
+    serverAccesses: string[];
+    guildAccesses: Array<{ serverName: string; guildName: string }>;
+    teamIds: string[];
+  };
+  catalog: Array<{
+    serverName: string;
+    guilds: Array<{
+      guildName: string;
+      teams: Array<{
+        id: string;
+        name: string;
+        slug: string | null;
+      }>;
+    }>;
   }>;
-}
+};
+
+type PermissionState = PermissionTreeResponse['selections'];
 
 interface Team {
   id: string;
@@ -64,69 +84,159 @@ interface AdminManagementProps {
   currentAdminRole: string;
 }
 
-export function AdminManagement({ teams: propTeams = [], currentAdminRole }: AdminManagementProps) {
-  const [admins, setAdmins] = useState<Admin[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingAdmin, setEditingAdmin] = useState<Admin | null>(null);
-  const [editTeamIds, setEditTeamIds] = useState<string[]>([]);
+function guildKey(serverName: string, guildName: string) {
+  return `${serverName}::${guildName}`;
+}
 
-  // 创建管理员表单
+export function AdminManagement({ currentAdminRole }: AdminManagementProps) {
+  const [admins, setAdmins] = useState<AdminItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
   const [selectedRole, setSelectedRole] = useState<'admin' | 'super_admin'>('admin');
-  const [editEmail, setEditEmail] = useState('');
 
-  // 确保 teams 是数组
-  const teams = Array.isArray(propTeams) ? propTeams : [];
+  const [selectedAdminId, setSelectedAdminId] = useState('');
+  const [permissionTree, setPermissionTree] = useState<PermissionTreeResponse | null>(null);
+  const [permissionState, setPermissionState] = useState<PermissionState>({
+    rootAccess: false,
+    serverAccesses: [],
+    guildAccesses: [],
+    teamIds: [],
+  });
+  const [permissionLoading, setPermissionLoading] = useState(false);
+  const [permissionSaving, setPermissionSaving] = useState(false);
 
-  const formatTeamLabel = (team: { serverName?: string; guildName?: string; name: string }) => {
-    const serverName = String(team.serverName || '').trim();
-    const guildName = String(team.guildName || '').trim();
-    if (serverName && guildName) {
-      return `${serverName} / ${guildName} / ${team.name}`;
-    }
-    return team.name;
-  };
+  const selectedAdmin = useMemo(
+    () => admins.find((admin) => admin.id === selectedAdminId) || null,
+    [admins, selectedAdminId],
+  );
+
+  const serverSet = useMemo(() => new Set(permissionState.serverAccesses), [permissionState.serverAccesses]);
+  const guildSet = useMemo(
+    () => new Set(permissionState.guildAccesses.map((item) => guildKey(item.serverName, item.guildName))),
+    [permissionState.guildAccesses],
+  );
+  const teamSet = useMemo(() => new Set(permissionState.teamIds), [permissionState.teamIds]);
 
   useEffect(() => {
     if (currentAdminRole === 'super_admin') {
-      fetchAdmins();
+      loadAdmins();
     }
   }, [currentAdminRole]);
 
   useEffect(() => {
-    if (editingAdmin) {
-      setEditTeamIds(editingAdmin.teamPermissions.map(p => p.team.id));
-      setEditEmail(editingAdmin.email || '');
-    }
-  }, [editingAdmin]);
+    const handleTeamsUpdated = () => {
+      loadAdmins();
+      if (selectedAdminId) {
+        loadPermissionTree(selectedAdminId);
+      }
+    };
 
-  const fetchAdmins = async () => {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('mydkp:teams-updated', handleTeamsUpdated);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('mydkp:teams-updated', handleTeamsUpdated);
+      }
+    };
+  }, [selectedAdminId]);
+
+  useEffect(() => {
+    if (!selectedAdminId) {
+      setPermissionTree(null);
+      return;
+    }
+
+    const selected = admins.find((item) => item.id === selectedAdminId);
+    if (!selected || selected.role === 'super_admin') {
+      setPermissionTree(null);
+      return;
+    }
+
+    loadPermissionTree(selectedAdminId);
+  }, [selectedAdminId, admins]);
+
+  const loadAdmins = async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/admins');
-      if (res.ok) {
-        const data = await res.json();
-        setAdmins(Array.isArray(data) ? data : []);
-      } else {
-        console.error('Failed to fetch admins');
-        setAdmins([]);
-        toast.error('获取管理员列表失败');
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || '获取管理员列表失败');
       }
-    } catch (error) {
-      console.error('Fetch admins error:', error);
+
+      const list = Array.isArray(data) ? data : [];
+      setAdmins(list);
+
+      if (list.length > 0) {
+        setSelectedAdminId((prev) => (prev && list.some((item: AdminItem) => item.id === prev) ? prev : list[0].id));
+      } else {
+        setSelectedAdminId('');
+      }
+    } catch (error: any) {
+      toast.error(error?.message || '获取管理员列表失败');
       setAdmins([]);
-      toast.error('获取管理员列表失败');
+      setSelectedAdminId('');
     } finally {
       setLoading(false);
     }
   };
 
+  const loadPermissionTree = async (adminId: string) => {
+    setPermissionLoading(true);
+    try {
+      const res = await fetch(`/api/admins/${adminId}/permissions-tree`);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || '获取授权目录失败');
+      }
+
+      setPermissionTree(data);
+      setPermissionState({
+        rootAccess: data.selections.rootAccess === true,
+        serverAccesses: Array.isArray(data.selections.serverAccesses) ? data.selections.serverAccesses : [],
+        guildAccesses: Array.isArray(data.selections.guildAccesses) ? data.selections.guildAccesses : [],
+        teamIds: Array.isArray(data.selections.teamIds) ? data.selections.teamIds : [],
+      });
+    } catch (error: any) {
+      toast.error(error?.message || '获取授权目录失败');
+      setPermissionTree(null);
+    } finally {
+      setPermissionLoading(false);
+    }
+  };
+
+  const savePermissions = async () => {
+    if (!selectedAdmin) return;
+
+    setPermissionSaving(true);
+    try {
+      const res = await fetch(`/api/admins/${selectedAdmin.id}/permissions`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(permissionState),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || '保存授权失败');
+      }
+
+      toast.success('授权已保存');
+      await Promise.all([loadAdmins(), loadPermissionTree(selectedAdmin.id)]);
+    } catch (error: any) {
+      toast.error(error?.message || '保存授权失败');
+    } finally {
+      setPermissionSaving(false);
+    }
+  };
+
   const handleCreateAdmin = async () => {
-    if (!username || !password) {
+    if (!username.trim() || !password) {
       toast.error('请填写完整信息');
       return;
     }
@@ -136,145 +246,165 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username,
+          username: username.trim(),
           email: email.trim() || null,
           password,
           role: selectedRole,
-          teamIds: selectedRole === 'super_admin' ? [] : selectedTeams,
         }),
       });
 
       const data = await res.json();
-
-      if (res.ok) {
-        toast.success('管理员创建成功！');
-        setIsCreateOpen(false);
-        setUsername('');
-        setEmail('');
-        setPassword('');
-        setSelectedTeams([]);
-        setSelectedRole('admin');
-        fetchAdmins();
-      } else {
+      if (!res.ok) {
         toast.error(data.error || '创建失败');
-        if (data.details) {
-          data.details.forEach((msg: string) => toast.warning(msg));
+        if (Array.isArray(data.details)) {
+          data.details.forEach((item: string) => toast.warning(item));
         }
+        return;
+      }
+
+      toast.success('管理员创建成功');
+      setIsCreateOpen(false);
+      setUsername('');
+      setEmail('');
+      setPassword('');
+      setSelectedRole('admin');
+      await loadAdmins();
+      if (data?.admin?.id) {
+        setSelectedAdminId(data.admin.id);
       }
     } catch (error) {
       toast.error('创建失败，请重试');
     }
   };
 
-  const handleUpdatePermissions = async () => {
-    if (!editingAdmin) return;
-
+  const handlePromote = async (admin: AdminItem) => {
     try {
-      const res = await fetch(`/api/admins/${editingAdmin.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          teamIds: editTeamIds,
-          email: editEmail.trim() || null,
-          role: editingAdmin.role,
-        }),
-      });
-
-      if (res.ok) {
-        toast.success('权限更新成功！');
-        setEditingAdmin(null);
-        fetchAdmins();
-      } else {
-        toast.error('权限更新失败');
-      }
-    } catch (error) {
-      toast.error('权限更新失败');
-    }
-  };
-
-  const handlePromoteToSuperAdmin = async (adminId: string, username: string) => {
-    try {
-      const res = await fetch(`/api/admins/${adminId}`, {
+      const res = await fetch(`/api/admins/${admin.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: 'super_admin' }),
       });
-
-      if (res.ok) {
-        toast.success(`${username} 已提升为超级管理员，正在刷新页面...`);
-        fetchAdmins();
-        
-        // 延迟刷新页面，让被提升的管理员看到新权限
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
-      } else {
-        toast.error('提升失败');
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || '提升失败');
       }
-    } catch (error) {
-      toast.error('提升失败');
+      toast.success(`${admin.username} 已提升为超级管理员`);
+      await loadAdmins();
+    } catch (error: any) {
+      toast.error(error?.message || '提升失败');
     }
   };
 
-  const handleDemoteToAdmin = async (adminId: string, username: string) => {
+  const handleDemote = async (admin: AdminItem) => {
     try {
-      const res = await fetch(`/api/admins/${adminId}`, {
+      const res = await fetch(`/api/admins/${admin.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: 'admin' }),
       });
-
-      if (res.ok) {
-        toast.success(`${username} 已降级为普通管理员，正在刷新页面...`);
-        fetchAdmins();
-        
-        // 延迟刷新页面
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
-      } else {
-        toast.error('降级失败');
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || '降级失败');
       }
-    } catch (error) {
-      toast.error('降级失败');
+      toast.success(`${admin.username} 已降级为普通管理员`);
+      await loadAdmins();
+    } catch (error: any) {
+      toast.error(error?.message || '降级失败');
     }
   };
 
-  const handleToggleActive = async (adminId: string, isActive: boolean) => {
+  const handleToggleActive = async (admin: AdminItem) => {
     try {
-      const res = await fetch(`/api/admins/${adminId}`, {
+      const res = await fetch(`/api/admins/${admin.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: !isActive }),
+        body: JSON.stringify({ isActive: !admin.isActive }),
       });
-
-      if (res.ok) {
-        toast.success(isActive ? '已禁用管理员' : '已启用管理员');
-        fetchAdmins();
-      } else {
-        toast.error('操作失败');
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || '操作失败');
       }
-    } catch (error) {
-      toast.error('操作失败');
+      toast.success(admin.isActive ? '已禁用管理员' : '已启用管理员');
+      await loadAdmins();
+    } catch (error: any) {
+      toast.error(error?.message || '操作失败');
     }
   };
 
-  const handleDeleteAdmin = async (adminId: string) => {
+  const handleDelete = async (admin: AdminItem) => {
     try {
-      const res = await fetch(`/api/admins/${adminId}`, {
+      const res = await fetch(`/api/admins/${admin.id}`, {
         method: 'DELETE',
       });
-
-      if (res.ok) {
-        toast.success('管理员已删除');
-        fetchAdmins();
-      } else {
-        const data = await res.json();
-        toast.error(data.error || '删除失败');
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || '删除失败');
       }
-    } catch (error) {
-      toast.error('删除失败');
+      toast.success('管理员已删除');
+      await loadAdmins();
+    } catch (error: any) {
+      toast.error(error?.message || '删除失败');
     }
+  };
+
+  const hasTeamAccess = (serverName: string, guildName: string, teamId: string) => {
+    if (permissionState.rootAccess) return true;
+    if (serverSet.has(serverName)) return true;
+    if (guildSet.has(guildKey(serverName, guildName))) return true;
+    return teamSet.has(teamId);
+  };
+
+  const toggleRoot = (checked: boolean) => {
+    setPermissionState((prev) => ({
+      ...prev,
+      rootAccess: checked,
+    }));
+  };
+
+  const toggleServer = (serverName: string, checked: boolean) => {
+    setPermissionState((prev) => {
+      const next = new Set(prev.serverAccesses);
+      if (checked) {
+        next.add(serverName);
+      } else {
+        next.delete(serverName);
+      }
+      return {
+        ...prev,
+        serverAccesses: Array.from(next),
+      };
+    });
+  };
+
+  const toggleGuild = (serverName: string, guildName: string, checked: boolean) => {
+    setPermissionState((prev) => {
+      const key = guildKey(serverName, guildName);
+      const next = new Map(prev.guildAccesses.map((item) => [guildKey(item.serverName, item.guildName), item]));
+      if (checked) {
+        next.set(key, { serverName, guildName });
+      } else {
+        next.delete(key);
+      }
+      return {
+        ...prev,
+        guildAccesses: Array.from(next.values()),
+      };
+    });
+  };
+
+  const toggleTeam = (teamId: string, checked: boolean) => {
+    setPermissionState((prev) => {
+      const next = new Set(prev.teamIds);
+      if (checked) {
+        next.add(teamId);
+      } else {
+        next.delete(teamId);
+      }
+      return {
+        ...prev,
+        teamIds: Array.from(next),
+      };
+    });
   };
 
   if (currentAdminRole !== 'super_admin') {
@@ -296,195 +426,236 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
             <Shield className="h-5 w-5 text-purple-400" />
             <h3 className="text-lg font-semibold text-gray-100">管理员列表</h3>
           </div>
-          <Button
-            onClick={() => setIsCreateOpen(true)}
-            className="bg-gradient-to-r from-purple-600 to-blue-600"
-          >
+          <Button onClick={() => setIsCreateOpen(true)} className="bg-gradient-to-r from-purple-600 to-blue-600">
             <UserPlus className="h-4 w-4 mr-2" />
             创建管理员
           </Button>
         </div>
 
         {loading ? (
-          <div className="text-center py-8 text-gray-400">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-purple-500 border-t-transparent"></div>
-            <p className="mt-4">加载中...</p>
-          </div>
+          <div className="text-center py-8 text-gray-400">加载中...</div>
         ) : admins.length === 0 ? (
           <div className="text-center py-8 text-gray-400">暂无管理员</div>
         ) : (
-          <div className="space-y-3">
-            {admins.map((admin) => (
-              <div
-                key={admin.id}
-                className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg border border-slate-600"
-              >
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3">
-                    <span className="text-lg font-semibold text-gray-100">
-                      {admin.username}
-                    </span>
-                    {admin.role === 'super_admin' && (
-                      <span className="px-2 py-1 text-xs rounded bg-yellow-900/50 text-yellow-400 border border-yellow-600">
-                        超级管理员
-                      </span>
-                    )}
-                    {!admin.isActive && (
-                      <span className="px-2 py-1 text-xs rounded bg-red-900/50 text-red-400 border border-red-600">
-                        已禁用
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-2 text-sm text-gray-400">
-                    {admin.role === 'super_admin' ? (
-                      <span>拥有所有权限</span>
-                    ) : admin.teamPermissions.length > 0 ? (
-                      <span>
-                        权限团队：
-                        {admin.teamPermissions.map((p) => formatTeamLabel(p.team)).join('、')}
-                      </span>
-                    ) : (
-                      <span>无团队权限</span>
-                    )}
-                  </div>
-                  <div className="mt-1 text-xs text-gray-500">
-                    邮箱：{admin.email || '未设置'}
-                  </div>
-                  {admin.lastLoginAt && (
-                    <div className="mt-1 text-xs text-gray-500">
-                      最后登录：{new Date(admin.lastLoginAt).toLocaleString('zh-CN')}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
+              {admins.map((admin) => (
+                <button
+                  key={admin.id}
+                  type="button"
+                  onClick={() => setSelectedAdminId(admin.id)}
+                  className={`w-full text-left rounded border p-3 transition-colors ${
+                    selectedAdminId === admin.id
+                      ? 'border-blue-500 bg-blue-950/40'
+                      : 'border-slate-700 bg-slate-900/40 hover:bg-slate-800/60'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <div className="text-gray-100 font-semibold">{admin.username}</div>
+                      <div className="text-xs text-gray-400">{admin.email || '未设置邮箱'}</div>
                     </div>
-                  )}
-                </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`px-2 py-0.5 text-xs rounded border ${
+                          admin.role === 'super_admin'
+                            ? 'bg-yellow-900/40 border-yellow-700 text-yellow-300'
+                            : 'bg-slate-800 border-slate-600 text-gray-300'
+                        }`}
+                      >
+                        {admin.role}
+                      </span>
+                      {!admin.isActive && (
+                        <span className="px-2 py-0.5 text-xs rounded border bg-red-900/40 border-red-700 text-red-300">
+                          已禁用
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500">
+                    最后登录：{admin.lastLoginAt ? new Date(admin.lastLoginAt).toLocaleString('zh-CN') : '暂无'}
+                  </div>
+                </button>
+              ))}
+            </div>
 
-                <div className="flex items-center space-x-2">
-                  {admin.role === 'super_admin' ? (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-orange-400 hover:bg-orange-950"
-                          title="降级为普通管理员"
-                        >
-                          降级
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent className="bg-slate-800 border-orange-900">
-                        <AlertDialogHeader>
-                          <AlertDialogTitle className="text-gray-100">
-                            确认降级管理员？
-                          </AlertDialogTitle>
-                          <AlertDialogDescription className="text-gray-400">
-                            此操作将把超级管理员 <strong className="text-orange-400">{admin.username}</strong> 降级为普通管理员。
-                            降级后需要重新分配团队权限。
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel className="bg-slate-700">取消</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDemoteToAdmin(admin.id, admin.username)}
-                            className="bg-orange-600 hover:bg-orange-700"
-                          >
-                            确认降级
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  ) : (
-                    <>
+            <div className="rounded border border-slate-700 bg-slate-900/40 p-4 min-h-[520px]">
+              {!selectedAdmin ? (
+                <div className="text-gray-400">请选择管理员</div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <div className="text-gray-100 font-semibold">{selectedAdmin.username}</div>
+                      <div className="text-xs text-gray-400">{selectedAdmin.email || '未设置邮箱'}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {selectedAdmin.role === 'super_admin' ? (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="outline">降级</Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent className="bg-slate-800 border-orange-900">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="text-gray-100">确认降级为普通管理员？</AlertDialogTitle>
+                              <AlertDialogDescription className="text-gray-400">
+                                该操作会移除超级管理员身份。
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>取消</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDemote(selectedAdmin)}>确认降级</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      ) : (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="outline">提升</Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent className="bg-slate-800 border-yellow-900">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="text-gray-100">确认提升为超级管理员？</AlertDialogTitle>
+                              <AlertDialogDescription className="text-gray-400">
+                                提升后将拥有全部权限。
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>取消</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handlePromote(selectedAdmin)}>确认提升</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+
+                      <Button size="sm" variant="outline" onClick={() => handleToggleActive(selectedAdmin)}>
+                        {selectedAdmin.isActive ? '禁用' : '启用'}
+                      </Button>
+
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-yellow-400 hover:bg-yellow-950"
-                            title="提升为超级管理员"
-                          >
-                            <Shield className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent className="bg-slate-800 border-yellow-900">
-                          <AlertDialogHeader>
-                            <AlertDialogTitle className="text-gray-100">
-                              确认提升为超级管理员？
-                            </AlertDialogTitle>
-                            <AlertDialogDescription className="text-gray-400">
-                              此操作将把普通管理员 <strong className="text-yellow-400">{admin.username}</strong> 提升为超级管理员。
-                              提升后将拥有所有权限，包括管理其他管理员、创建/删除团队等。
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel className="bg-slate-700">取消</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handlePromoteToSuperAdmin(admin.id, admin.username)}
-                              className="bg-yellow-600 hover:bg-yellow-700"
-                            >
-                              确认提升
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditingAdmin(admin)}
-                        className="text-blue-400 hover:bg-blue-950"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleToggleActive(admin.id, admin.isActive)}
-                        className={
-                          admin.isActive
-                            ? 'text-orange-400 hover:bg-orange-950'
-                            : 'text-green-400 hover:bg-green-950'
-                        }
-                      >
-                        {admin.isActive ? '禁用' : '启用'}
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-400 hover:bg-red-950"
-                          >
-                            <Trash2 className="h-4 w-4" />
+                          <Button size="sm" variant="destructive" disabled={selectedAdmin.isProtected}>
+                            <Trash2 className="h-4 w-4 mr-1" /> 删除
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent className="bg-slate-800 border-red-900">
                           <AlertDialogHeader>
-                            <AlertDialogTitle className="text-gray-100">
-                              确认删除管理员？
-                            </AlertDialogTitle>
+                            <AlertDialogTitle className="text-gray-100">确认删除管理员？</AlertDialogTitle>
                             <AlertDialogDescription className="text-gray-400">
-                              此操作将删除管理员 <strong>{admin.username}</strong> 及其所有权限，无法撤销！
+                              删除后将移除该管理员所有权限，且无法撤销。
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel className="bg-slate-700">取消</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDeleteAdmin(admin.id)}
-                              className="bg-red-600 hover:bg-red-700"
-                            >
-                              确认删除
-                            </AlertDialogAction>
+                            <AlertDialogCancel>取消</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDelete(selectedAdmin)}>确认删除</AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
-                    </>
+                    </div>
+                  </div>
+
+                  {selectedAdmin.role === 'super_admin' ? (
+                    <div className="rounded border border-yellow-700 bg-yellow-900/20 p-3 text-yellow-200 text-sm">
+                      超级管理员默认拥有全部团队权限（根权限继承）。
+                    </div>
+                  ) : permissionLoading ? (
+                    <div className="text-gray-400">加载授权目录中...</div>
+                  ) : !permissionTree ? (
+                    <div className="text-gray-400">授权目录加载失败</div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-2 text-gray-200">
+                          <Checkbox checked={permissionState.rootAccess} onCheckedChange={(v) => toggleRoot(v === true)} />
+                          根权限（继承全部服务器/工会/团队）
+                        </label>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => loadPermissionTree(selectedAdmin.id)}
+                          disabled={permissionLoading}
+                        >
+                          <RefreshCw className="h-4 w-4 mr-1" /> 刷新目录
+                        </Button>
+                      </div>
+
+                      <div className="max-h-[330px] overflow-y-auto rounded border border-slate-700 p-3 space-y-3 bg-slate-950/30">
+                        {permissionTree.catalog.map((server) => {
+                          const serverChecked = permissionState.rootAccess || serverSet.has(server.serverName);
+                          const serverInherited = permissionState.rootAccess;
+
+                          return (
+                            <div key={server.serverName} className="space-y-2">
+                              <label className="flex items-center gap-2 text-blue-200">
+                                <Checkbox
+                                  checked={serverChecked}
+                                  disabled={serverInherited}
+                                  onCheckedChange={(v) => toggleServer(server.serverName, v === true)}
+                                />
+                                服务器：{server.serverName}
+                              </label>
+
+                              <div className="pl-6 space-y-2">
+                                {server.guilds.map((guild) => {
+                                  const key = guildKey(server.serverName, guild.guildName);
+                                  const guildChecked = permissionState.rootAccess || serverSet.has(server.serverName) || guildSet.has(key);
+                                  const guildInherited = permissionState.rootAccess || serverSet.has(server.serverName);
+
+                                  return (
+                                    <div key={key} className="space-y-1">
+                                      <label className="flex items-center gap-2 text-purple-200">
+                                        <Checkbox
+                                          checked={guildChecked}
+                                          disabled={guildInherited}
+                                          onCheckedChange={(v) => toggleGuild(server.serverName, guild.guildName, v === true)}
+                                        />
+                                        工会：{guild.guildName}
+                                      </label>
+
+                                      <div className="pl-6 grid grid-cols-1 gap-1">
+                                        {guild.teams.map((team) => {
+                                          const inherited =
+                                            permissionState.rootAccess ||
+                                            serverSet.has(server.serverName) ||
+                                            guildSet.has(key);
+
+                                          const checked = hasTeamAccess(server.serverName, guild.guildName, team.id);
+
+                                          return (
+                                            <label key={team.id} className="flex items-center gap-2 text-gray-300 text-sm">
+                                              <Checkbox
+                                                checked={checked}
+                                                disabled={inherited}
+                                                onCheckedChange={(v) => toggleTeam(team.id, v === true)}
+                                              />
+                                              {team.name} {team.slug ? `(${team.slug})` : '(无短链)'}
+                                            </label>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="flex justify-end">
+                        <Button onClick={savePermissions} disabled={permissionSaving}>
+                          {permissionSaving ? '保存中...' : '保存授权'}
+                        </Button>
+                      </div>
+                    </div>
                   )}
                 </div>
-              </div>
-            ))}
+              )}
+            </div>
           </div>
         )}
       </Card>
 
-      {/* 创建管理员对话框 */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="bg-slate-800 border-purple-900">
           <DialogHeader>
@@ -498,168 +669,31 @@ export function AdminManagement({ teams: propTeams = [], currentAdminRole }: Adm
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-600">
-                  <SelectItem value="admin" className="hover:bg-blue-950 text-gray-200">
-                    普通管理员
-                  </SelectItem>
-                  <SelectItem value="super_admin" className="hover:bg-blue-950 text-gray-200">
-                    超级管理员
-                  </SelectItem>
+                  <SelectItem value="admin" className="text-gray-200">普通管理员</SelectItem>
+                  <SelectItem value="super_admin" className="text-gray-200">超级管理员</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-gray-500 mt-1">
-                {selectedRole === 'super_admin' ? '超级管理员拥有所有权限' : '普通管理员需要授权团队'}
-              </p>
             </div>
             <div>
               <Label className="text-gray-200">用户名</Label>
-              <Input
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="请输入用户名"
-                className="bg-slate-900/50 border-slate-600 text-gray-200"
-              />
+              <Input value={username} onChange={(e) => setUsername(e.target.value)} className="bg-slate-900/50 border-slate-600 text-gray-200" />
             </div>
             <div>
-              <Label className="text-gray-200">邮箱（用于找回密码）</Label>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@example.com"
-                className="bg-slate-900/50 border-slate-600 text-gray-200"
-              />
+              <Label className="text-gray-200">邮箱</Label>
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="bg-slate-900/50 border-slate-600 text-gray-200" />
             </div>
             <div>
               <Label className="text-gray-200">密码</Label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="至少8位，包含大小写字母、数字和特殊字符"
-                className="bg-slate-900/50 border-slate-600 text-gray-200"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                密码要求：至少8位，包含大小写字母、数字和特殊字符
-              </p>
-            </div>
-            <div>
-              <Label className="text-gray-200">授权团队</Label>
-              {selectedRole === 'super_admin' ? (
-                <div className="text-center py-4 text-gray-400 bg-slate-900/50 rounded-lg border border-yellow-700/50">
-                  超级管理员自动拥有所有团队权限
-                </div>
-              ) : teams.length === 0 ? (
-                <div className="text-center py-4 text-gray-500 bg-slate-900/50 rounded-lg">
-                  暂无可用团队，请先创建团队
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-2 mt-2 max-h-48 overflow-y-auto">
-                  {teams.map((team) => (
-                    <label
-                      key={team.id}
-                      className="flex items-center space-x-2 p-2 rounded bg-slate-900/50 cursor-pointer hover:bg-slate-700/50"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedTeams.includes(team.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedTeams([...selectedTeams, team.id]);
-                          } else {
-                            setSelectedTeams(selectedTeams.filter((id) => id !== team.id));
-                          }
-                        }}
-                        className="rounded"
-                      />
-                      <span className="text-sm text-gray-200">{formatTeamLabel(team)}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
+              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="bg-slate-900/50 border-slate-600 text-gray-200" />
+              <p className="text-xs text-gray-500 mt-1">至少8位，包含大小写字母、数字和特殊字符</p>
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsCreateOpen(false)}
-              className="bg-slate-700"
-            >
-              取消
-            </Button>
-            <Button onClick={handleCreateAdmin} className="bg-gradient-to-r from-purple-600 to-blue-600">
-              创建
-            </Button>
+            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>取消</Button>
+            <Button onClick={handleCreateAdmin}>创建</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* 编辑权限对话框 */}
-      {editingAdmin && (
-        <Dialog open={!!editingAdmin} onOpenChange={() => setEditingAdmin(null)}>
-          <DialogContent className="bg-slate-800 border-blue-900">
-            <DialogHeader>
-              <DialogTitle className="text-gray-100">
-                编辑 {editingAdmin.username} 的权限
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label className="text-gray-200">邮箱（用于找回密码）</Label>
-                <Input
-                  type="email"
-                  value={editEmail}
-                  onChange={(e) => setEditEmail(e.target.value)}
-                  placeholder="admin@example.com"
-                  className="bg-slate-900/50 border-slate-600 text-gray-200"
-                />
-              </div>
-              <div>
-                <Label className="text-gray-200">授权团队</Label>
-                {teams.length === 0 ? (
-                  <div className="text-center py-4 text-gray-500 bg-slate-900/50 rounded-lg">
-                    暂无可用团队
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2 mt-2 max-h-64 overflow-y-auto">
-                    {teams.map((team) => (
-                      <label
-                        key={team.id}
-                        className="flex items-center space-x-2 p-2 rounded bg-slate-900/50 cursor-pointer hover:bg-slate-700/50"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={editTeamIds.includes(team.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setEditTeamIds([...editTeamIds, team.id]);
-                            } else {
-                              setEditTeamIds(editTeamIds.filter((id) => id !== team.id));
-                            }
-                          }}
-                          className="rounded"
-                        />
-                        <span className="text-sm text-gray-200">{formatTeamLabel(team)}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setEditingAdmin(null)}
-                className="bg-slate-700"
-              >
-                取消
-              </Button>
-              <Button onClick={handleUpdatePermissions} className="bg-gradient-to-r from-blue-600 to-purple-600">
-                保存
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }

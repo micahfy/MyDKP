@@ -115,6 +115,9 @@ export function JoinRequestManagement() {
         throw new Error(data.error || '审批失败');
       }
       toast.success(action === 'approve' ? '申请已通过' : '申请已拒绝');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('mydkp:teams-updated'));
+      }
       await loadData();
     } catch (error: any) {
       toast.error(error?.message || '审批失败');

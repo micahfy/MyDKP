@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { isSuperAdmin, getSession } from '@/lib/auth';
+import { getSession, isSuperAdmin } from '@/lib/auth';
+import { saveAdminPermissions } from '@/lib/adminPermissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +35,8 @@ export async function PATCH(
     }
 
     const session = await getSession();
-    const { teamIds, isActive, role, email } = await request.json();
+    const payload = await request.json();
+    const { isActive, role, email, teamIds, rootAccess, serverAccesses, guildAccesses } = payload;
 
     const targetAdmin = await prisma.admin.findUnique({ where: { id: params.id } });
     if (!targetAdmin) {
@@ -101,22 +103,31 @@ export async function PATCH(
       });
     }
 
-    if (teamIds !== undefined) {
-      if (!Array.isArray(teamIds)) {
-        return NextResponse.json({ error: 'teamIds 必须是数组' }, { status: 400 });
-      }
+    const shouldUpdatePermissions =
+      teamIds !== undefined ||
+      rootAccess !== undefined ||
+      serverAccesses !== undefined ||
+      guildAccesses !== undefined;
 
-      await prisma.teamPermission.deleteMany({ where: { adminId: params.id } });
-
-      if (teamIds.length > 0) {
-        await prisma.teamPermission.createMany({
-          data: teamIds.map((teamId: string) => ({ adminId: params.id, teamId })),
-        });
-      }
-
-      await prisma.admin.update({
+    if (shouldUpdatePermissions) {
+      const latestAdmin = await prisma.admin.findUnique({
         where: { id: params.id },
-        data: { permissionVersion: { increment: 1 } },
+        select: { role: true },
+      });
+
+      if (!latestAdmin) {
+        return NextResponse.json({ error: '管理员不存在' }, { status: 404 });
+      }
+
+      if (latestAdmin.role === 'super_admin') {
+        return NextResponse.json({ error: '超级管理员默认拥有全部权限，无需单独授权' }, { status: 400 });
+      }
+
+      await saveAdminPermissions(params.id, {
+        rootAccess: rootAccess === true,
+        serverAccesses: Array.isArray(serverAccesses) ? serverAccesses : [],
+        guildAccesses: Array.isArray(guildAccesses) ? guildAccesses : [],
+        teamIds: Array.isArray(teamIds) ? teamIds : [],
       });
     }
 

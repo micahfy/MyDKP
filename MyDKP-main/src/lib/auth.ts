@@ -1,4 +1,4 @@
-import { getIronSession, IronSession } from 'iron-session';
+﻿import { getIronSession, IronSession } from 'iron-session';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 
@@ -8,8 +8,14 @@ export interface SessionData {
   role?: 'super_admin' | 'admin';
   isAdmin: boolean;
   needPasswordChange?: boolean;
-  permissionVersion?: number; // 添加权限版本号
+  permissionVersion?: number;
 }
+
+type AdminScope = {
+  all: boolean;
+  servers: Set<string>;
+  guilds: Set<string>; // `${serverName}::${guildName}`
+};
 
 const sessionOptions = {
   password: process.env.SESSION_SECRET!,
@@ -18,7 +24,7 @@ const sessionOptions = {
     secure: process.env.COOKIE_SECURE === 'true',
     httpOnly: true,
     sameSite: 'lax' as const,
-    maxAge: 60 * 60 * 24 * 7, // 7 days
+    maxAge: 60 * 60 * 24 * 7,
   },
 };
 
@@ -47,30 +53,83 @@ export async function isSuperAdmin(): Promise<boolean> {
   }
 }
 
+function toGuildKey(serverName: string, guildName: string) {
+  return `${serverName}::${guildName}`;
+}
+
+async function getAdminScope(adminId: string): Promise<AdminScope> {
+  const scopeRecords = await prisma.adminPermissionScope.findMany({
+    where: { adminId },
+    select: {
+      scopeType: true,
+      serverName: true,
+      guildName: true,
+    },
+  });
+
+  const scope: AdminScope = {
+    all: false,
+    servers: new Set<string>(),
+    guilds: new Set<string>(),
+  };
+
+  for (const item of scopeRecords) {
+    if (item.scopeType === 'all') {
+      scope.all = true;
+      continue;
+    }
+    if (item.scopeType === 'server' && item.serverName) {
+      scope.servers.add(item.serverName);
+      continue;
+    }
+    if (item.scopeType === 'guild' && item.serverName && item.guildName) {
+      scope.guilds.add(toGuildKey(item.serverName, item.guildName));
+    }
+  }
+
+  return scope;
+}
+
 export async function hasTeamPermission(teamId: string): Promise<boolean> {
   try {
     const session = await getSession();
-    
+
     if (!session.isAdmin || !session.adminId) {
       return false;
     }
 
-    // 超级管理员有所有权限
     if (session.role === 'super_admin') {
       return true;
     }
 
-    // 检查是否有该团队的权限
-    const permission = await prisma.teamPermission.findUnique({
-      where: {
-        adminId_teamId: {
-          adminId: session.adminId,
-          teamId: teamId,
+    const [team, directPermission, scope] = await Promise.all([
+      prisma.team.findUnique({
+        where: { id: teamId },
+        select: {
+          id: true,
+          serverName: true,
+          guildName: true,
         },
-      },
-    });
+      }),
+      prisma.teamPermission.findUnique({
+        where: {
+          adminId_teamId: {
+            adminId: session.adminId,
+            teamId,
+          },
+        },
+        select: { id: true },
+      }),
+      getAdminScope(session.adminId),
+    ]);
 
-    return !!permission;
+    if (!team) return false;
+    if (directPermission) return true;
+    if (scope.all) return true;
+    if (scope.servers.has(team.serverName)) return true;
+    if (scope.guilds.has(toGuildKey(team.serverName, team.guildName))) return true;
+
+    return false;
   } catch (error) {
     console.error('Permission check error:', error);
     return false;
@@ -80,26 +139,65 @@ export async function hasTeamPermission(teamId: string): Promise<boolean> {
 export async function getAdminTeams(): Promise<string[]> {
   try {
     const session = await getSession();
-    
+
     if (!session.isAdmin || !session.adminId) {
       return [];
     }
 
-    // 超级管理员返回所有团队
     if (session.role === 'super_admin') {
-      const teams = await prisma.team.findMany({
-        select: { id: true },
-      });
-      return teams.map(t => t.id);
+      const teams = await prisma.team.findMany({ select: { id: true } });
+      return teams.map((team) => team.id);
     }
 
-    // 普通管理员返回有权限的团队
-    const permissions = await prisma.teamPermission.findMany({
-      where: { adminId: session.adminId },
-      select: { teamId: true },
+    const [directPermissions, scope] = await Promise.all([
+      prisma.teamPermission.findMany({
+        where: { adminId: session.adminId },
+        select: { teamId: true },
+      }),
+      getAdminScope(session.adminId),
+    ]);
+
+    if (scope.all) {
+      const teams = await prisma.team.findMany({ select: { id: true } });
+      return teams.map((team) => team.id);
+    }
+
+    const directTeamIds = directPermissions.map((item) => item.teamId);
+
+    const scopeMatchedTeams = await prisma.team.findMany({
+      where: {
+        OR: [
+          ...(scope.servers.size > 0
+            ? [
+                {
+                  serverName: {
+                    in: Array.from(scope.servers),
+                  },
+                },
+              ]
+            : []),
+          ...(scope.guilds.size > 0
+            ? Array.from(scope.guilds).map((item) => {
+                const [serverName, guildName] = item.split('::');
+                return {
+                  serverName,
+                  guildName,
+                };
+              })
+            : []),
+          ...(directTeamIds.length > 0
+            ? [
+                {
+                  id: { in: directTeamIds },
+                },
+              ]
+            : []),
+        ],
+      },
+      select: { id: true },
     });
 
-    return permissions.map(p => p.teamId);
+    return Array.from(new Set(scopeMatchedTeams.map((team) => team.id)));
   } catch (error) {
     console.error('Get admin teams error:', error);
     return [];

@@ -27,6 +27,7 @@ export async function GET() {
         email: true,
         role: true,
         isActive: true,
+        isProtected: true,
         createdAt: true,
         lastLoginAt: true,
         teamPermissions: {
@@ -39,6 +40,13 @@ export async function GET() {
                 guildName: true,
               },
             },
+          },
+        },
+        permissionScopes: {
+          select: {
+            scopeType: true,
+            serverName: true,
+            guildName: true,
           },
         },
       },
@@ -58,7 +66,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '权限不足' }, { status: 403 });
     }
 
-    const { username, password, role, teamIds, email } = await request.json();
+    const { username, password, role, teamIds, email, permissionScopes } = await request.json();
 
     if (!username || !password) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
@@ -93,13 +101,30 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (teamIds && teamIds.length > 0) {
-      await prisma.teamPermission.createMany({
-        data: teamIds.map((teamId: string) => ({
-          adminId: admin.id,
-          teamId,
-        })),
-      });
+    if ((role || 'admin') !== 'super_admin') {
+      if (Array.isArray(teamIds) && teamIds.length > 0) {
+        await prisma.teamPermission.createMany({
+          data: teamIds.map((teamId: string) => ({
+            adminId: admin.id,
+            teamId,
+          })),
+        });
+      }
+
+      if (Array.isArray(permissionScopes) && permissionScopes.length > 0) {
+        const scopeRows = permissionScopes
+          .map((item: any) => ({
+            adminId: admin.id,
+            scopeType: String(item?.scopeType || '').trim(),
+            serverName: item?.serverName ? String(item.serverName).trim() : null,
+            guildName: item?.guildName ? String(item.guildName).trim() : null,
+          }))
+          .filter((item) => item.scopeType === 'all' || item.scopeType === 'server' || item.scopeType === 'guild');
+
+        if (scopeRows.length > 0) {
+          await prisma.adminPermissionScope.createMany({ data: scopeRows });
+        }
+      }
     }
 
     return NextResponse.json({
