@@ -741,9 +741,10 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
           <DialogHeader>
             <DialogTitle className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-amber-300 to-yellow-400 flex items-center space-x-2">
               <Crown className="h-5 w-5 text-amber-300 drop-shadow" />
-              <span>帅神榜</span>
+              <span>帅榜</span>
             </DialogTitle>
           </DialogHeader>
+          <p className="text-xs text-gray-400">玩家累计衰减的总分数/p>
           <div className="border border-orange-900/50 rounded-lg overflow-hidden max-h-[70vh] overflow-y-auto">
             <Table>
               <TableHeader>
@@ -837,7 +838,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
               <span>耻辱榜</span>
             </DialogTitle>
           </DialogHeader>
-          <p className="text-xs text-gray-500">最近三周的犯错扣分记录排行榜</p>
+          <p className="text-xs text-gray-500">犯错扣分记录排行榜，上月统计为上个自然月的总计。</p>
           <div className="border border-red-900/40 rounded-lg overflow-hidden">
             {shameLoading ? (
               <div className="py-10 text-center text-gray-400">
