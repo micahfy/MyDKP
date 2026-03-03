@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/prisma';
 import { getSession, isSuperAdmin } from '@/lib/auth';
 import { saveAdminPermissions } from '@/lib/adminPermissions';
+import { hashPassword, validatePassword } from '@/lib/password';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,7 +37,8 @@ export async function PATCH(
 
     const session = await getSession();
     const payload = await request.json();
-    const { isActive, role, email, teamIds, rootAccess, serverAccesses, guildAccesses } = payload;
+    const { isActive, role, email, password, needPasswordChange, teamIds, rootAccess, serverAccesses, guildAccesses } =
+      payload;
 
     const targetAdmin = await prisma.admin.findUnique({ where: { id: params.id } });
     if (!targetAdmin) {
@@ -89,6 +91,35 @@ export async function PATCH(
       }
       if (normalizedEmail !== targetAdmin.email) {
         updateData.email = normalizedEmail;
+      }
+    }
+
+    if (password !== undefined) {
+      const nextPassword = String(password || '');
+      if (!nextPassword) {
+        return NextResponse.json({ error: '密码不能为空' }, { status: 400 });
+      }
+
+      const passwordValidation = validatePassword(nextPassword);
+      if (!passwordValidation.isValid) {
+        return NextResponse.json(
+          { error: '密码不符合要求', details: passwordValidation.errors },
+          { status: 400 },
+        );
+      }
+
+      updateData.password = await hashPassword(nextPassword);
+      if (needPasswordChange === undefined) {
+        updateData.needPasswordChange = true;
+      }
+    }
+
+    if (needPasswordChange !== undefined) {
+      if (typeof needPasswordChange !== 'boolean') {
+        return NextResponse.json({ error: 'needPasswordChange 必须为布尔值' }, { status: 400 });
+      }
+      if (needPasswordChange !== targetAdmin.needPasswordChange) {
+        updateData.needPasswordChange = needPasswordChange;
       }
     }
 

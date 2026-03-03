@@ -96,6 +96,10 @@ export function AdminManagement({ currentAdminRole }: AdminManagementProps) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [tempPassword, setTempPassword] = useState('');
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState<'admin' | 'super_admin'>('admin');
 
   const [selectedAdminId, setSelectedAdminId] = useState('');
@@ -113,6 +117,11 @@ export function AdminManagement({ currentAdminRole }: AdminManagementProps) {
     () => admins.find((admin) => admin.id === selectedAdminId) || null,
     [admins, selectedAdminId],
   );
+
+  useEffect(() => {
+    setEditEmail(selectedAdmin?.email || '');
+    setTempPassword('');
+  }, [selectedAdmin?.id, selectedAdmin?.email]);
 
   const serverSet = useMemo(() => new Set(permissionState.serverAccesses), [permissionState.serverAccesses]);
   const guildSet = useMemo(
@@ -274,6 +283,65 @@ export function AdminManagement({ currentAdminRole }: AdminManagementProps) {
       }
     } catch (error) {
       toast.error('创建失败，请重试');
+    }
+  };
+
+  const handleUpdateEmail = async () => {
+    if (!selectedAdmin) return;
+
+    setSavingEmail(true);
+    try {
+      const res = await fetch(`/api/admins/${selectedAdmin.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: editEmail.trim() || null }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || '更新邮箱失败');
+      }
+
+      toast.success('邮箱已更新');
+      await loadAdmins();
+    } catch (error: any) {
+      toast.error(error?.message || '更新邮箱失败');
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
+  const handleForceResetPassword = async () => {
+    if (!selectedAdmin) return;
+    if (!tempPassword) {
+      toast.error('请输入临时密码');
+      return;
+    }
+
+    setResettingPassword(true);
+    try {
+      const res = await fetch(`/api/admins/${selectedAdmin.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          password: tempPassword,
+          needPasswordChange: true,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || '重置密码失败');
+        if (Array.isArray(data.details)) {
+          data.details.forEach((item: string) => toast.warning(item));
+        }
+        return;
+      }
+
+      toast.success('密码已重置，并要求下次登录修改');
+      setTempPassword('');
+    } catch (error: any) {
+      toast.error(error?.message || '重置密码失败');
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -552,6 +620,44 @@ export function AdminManagement({ currentAdminRole }: AdminManagementProps) {
                         </AlertDialogContent>
                       </AlertDialog>
                     </div>
+                  </div>
+
+                  <div className="rounded border border-slate-700 bg-slate-950/30 p-3 space-y-3">
+                    <div className="space-y-2">
+                      <Label className="text-gray-200">邮箱</Label>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Input
+                          type="email"
+                          value={editEmail}
+                          onChange={(e) => setEditEmail(e.target.value)}
+                          placeholder="未设置邮箱可留空"
+                          className="bg-slate-900/50 border-slate-600 text-gray-200"
+                        />
+                        <Button size="sm" onClick={handleUpdateEmail} disabled={savingEmail}>
+                          {savingEmail ? '保存中...' : '保存邮箱'}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {selectedAdmin.role === 'admin' && (
+                      <div className="space-y-2">
+                        <Label className="text-gray-200">重置密码（临时密码）</Label>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <Input
+                            type="password"
+                            autoComplete="new-password"
+                            value={tempPassword}
+                            onChange={(e) => setTempPassword(e.target.value)}
+                            placeholder="输入临时密码"
+                            className="bg-slate-900/50 border-slate-600 text-gray-200"
+                          />
+                          <Button size="sm" onClick={handleForceResetPassword} disabled={resettingPassword}>
+                            {resettingPassword ? '重置中...' : '重置并强制改密'}
+                          </Button>
+                        </div>
+                        <p className="text-xs text-gray-500">重置后将要求该管理员下次登录时必须修改密码。</p>
+                      </div>
+                    )}
                   </div>
 
                   {selectedAdmin.role === 'super_admin' ? (
