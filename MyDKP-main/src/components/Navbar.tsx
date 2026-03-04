@@ -224,11 +224,15 @@ export function Navbar({
 
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const loginUrl = captchaVerifyParam
+        ? `/api/auth/login?captcha_verify_param=${encodeURIComponent(captchaVerifyParam)}`
+        : '/api/auth/login';
       if (captchaVerifyParam) {
+        headers['captcha-verify-param'] = captchaVerifyParam;
         headers.captcha_verify_param = captchaVerifyParam;
       }
 
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch(loginUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -242,16 +246,13 @@ export function Navbar({
       const serverCaptchaRequired = res.headers.get('x-admin-login-captcha-required') === '1';
       const data = await res.json();
 
-      if (loginCaptchaConfig.required || serverCaptchaRequired) {
-        const host = typeof window !== 'undefined' ? window.location.hostname : '';
-        const isLocalDirectHost = host === 'localhost' || host === '127.0.0.1';
-        const verifyPassed = verifyCode === 'T001' || (isLocalDirectHost && !verifyCode);
-
-        if (!verifyPassed) {
-          toast.error(`拼图验证码校验失败${verifyCode ? `（${verifyCode}）` : ''}`);
-          captchaInstanceRef.current?.refresh?.();
-          return;
-        }
+      if ((loginCaptchaConfig.required || serverCaptchaRequired) && verifyCode && verifyCode !== 'T001') {
+        toast.error(`拼图验证码校验失败（${verifyCode}）`);
+        captchaInstanceRef.current?.refresh?.();
+        return;
+      }
+      if ((loginCaptchaConfig.required || serverCaptchaRequired) && !verifyCode) {
+        console.warn('Captcha verify code missing in response headers');
       }
 
       if (res.ok) {
