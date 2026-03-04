@@ -397,7 +397,13 @@ export function DkpLogManager({ teams, currentTeamId, onChange }: DkpLogManagerP
             <TableHead>类型</TableHead>
             <TableHead>分数</TableHead>
             <TableHead>玩家数</TableHead>
-            <TableHead>全选</TableHead>
+            <TableHead className="w-16">
+              <Checkbox
+                checked={selectableCount > 0 && selectedIds.size === selectableCount}
+                onCheckedChange={toggleSelectAll}
+                aria-label="全选事件日志"
+              />
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
