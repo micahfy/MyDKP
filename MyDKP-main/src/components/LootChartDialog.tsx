@@ -33,7 +33,8 @@ interface LootChartDialogProps {
 }
 
 export function LootChartDialog({ item, open, onClose }: LootChartDialogProps) {
-  // 准备图表数据
+  const displayItemName = item.displayItemName || item.itemName;
+
   const chartData = item.priceHistory.map((point, index) => ({
     index: index + 1,
     time: new Date(point.timestamp).toLocaleString('zh-CN', {
@@ -44,18 +45,16 @@ export function LootChartDialog({ item, open, onClose }: LootChartDialogProps) {
     }),
     price: point.price,
     player: point.player,
+    displayPlayer: point.displayPlayer || point.player,
   }));
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto bg-slate-900 border-purple-800/60">
         <DialogHeader>
-          <DialogTitle className="text-2xl text-purple-400">
-            {item.itemName}
-          </DialogTitle>
+          <DialogTitle className="text-2xl text-purple-400">{displayItemName}</DialogTitle>
         </DialogHeader>
 
-        {/* 统计信息 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="text-center p-4 bg-slate-800/60 rounded-lg border border-slate-700">
             <div className="text-sm text-gray-400 mb-1">掉落次数</div>
@@ -63,9 +62,7 @@ export function LootChartDialog({ item, open, onClose }: LootChartDialogProps) {
           </div>
           <div className="text-center p-4 bg-slate-800/60 rounded-lg border border-slate-700">
             <div className="text-sm text-gray-400 mb-1">平均价格</div>
-            <div className="text-3xl font-bold text-purple-400">
-              {item.avgPrice.toFixed(1)}
-            </div>
+            <div className="text-3xl font-bold text-purple-400">{item.avgPrice.toFixed(1)}</div>
           </div>
           <div className="text-center p-4 bg-slate-800/60 rounded-lg border border-slate-700">
             <div className="text-sm text-gray-400 mb-1">最低价格</div>
@@ -77,7 +74,6 @@ export function LootChartDialog({ item, open, onClose }: LootChartDialogProps) {
           </div>
         </div>
 
-        {/* 折线图 */}
         <div className="h-96 w-full mb-6">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData}>
@@ -104,7 +100,7 @@ export function LootChartDialog({ item, open, onClose }: LootChartDialogProps) {
                 ]}
                 labelFormatter={(label) => {
                   const dataPoint = chartData.find((d) => d.time === label);
-                  return dataPoint ? `玩家: ${dataPoint.player}` : label;
+                  return dataPoint ? `玩家: ${dataPoint.displayPlayer}` : label;
                 }}
               />
               <Legend />
@@ -121,7 +117,6 @@ export function LootChartDialog({ item, open, onClose }: LootChartDialogProps) {
           </ResponsiveContainer>
         </div>
 
-        {/* 详细记录表格 */}
         <div>
           <h3 className="text-lg font-semibold text-gray-200 mb-3">详细记录</h3>
           <div className="max-h-60 overflow-auto border border-slate-700 rounded-lg">
@@ -147,7 +142,7 @@ export function LootChartDialog({ item, open, onClose }: LootChartDialogProps) {
                         minute: '2-digit',
                       })}
                     </TableCell>
-                    <TableCell className="text-gray-300">{point.player}</TableCell>
+                    <TableCell className="text-gray-300">{point.displayPlayer || point.player}</TableCell>
                     <TableCell className="text-right font-semibold text-purple-400">
                       {point.price}
                     </TableCell>

@@ -50,6 +50,7 @@ interface PlayerTableProps {
 interface ShameRankEntry {
   playerId: string;
   playerName: string;
+  playerDisplayName?: string;
   playerClass: string;
   totalCount: number;
   totalScore: number;
@@ -72,6 +73,7 @@ const formatDkp = (value: number) => Number(value.toFixed(2)).toString();
 const formatDkpFixed = (value: number) => value.toFixed(2);
 const formatPenalty = (value: number) =>
   value === 0 ? '0' : `-${formatDkp(Math.abs(value))}`;
+const getDisplayName = (name: string, displayName?: string | null) => displayName || name;
 
 const CHAMPION_SLOGANS = [
   '帅冠全服',
@@ -644,7 +646,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                             className={getClassColor(player.class)}
                             size={16}
                           />
-                          {player.name}
+                          {getDisplayName(player.name, player.displayName)}
                           {player.isArchived && (
                             <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-700 text-gray-100 border border-gray-400/60 shadow-inner">
                               已封存
@@ -708,7 +710,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                                     确认删除玩家？
                                   </AlertDialogTitle>
                                   <AlertDialogDescription className="text-gray-400">
-                                    此操作将删除 <strong className={getClassColor(player.class)}>{player.name}</strong> 的所有数据和DKP记录。此操作无法撤销！
+                                    此操作将删除 <strong className={getClassColor(player.class)}>{getDisplayName(player.name, player.displayName)}</strong> 的所有数据和DKP记录。此操作无法撤销！
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
@@ -716,7 +718,12 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                                     取消
                                   </AlertDialogCancel>
                                   <AlertDialogAction
-                                    onClick={() => handleDeletePlayer(player.id, player.name)}
+                                    onClick={() =>
+                                      handleDeletePlayer(
+                                        player.id,
+                                        getDisplayName(player.name, player.displayName),
+                                      )
+                                    }
                                     className="bg-red-600 hover:bg-red-700"
                                   >
                                     确认删除
@@ -794,7 +801,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                                 className={getClassColor(p.class)}
                                 size={16}
                               />
-                              {p.name}
+                              {getDisplayName(p.name, p.displayName)}
                             </div>
                             <span className="text-xs px-2 py-1 rounded-full bg-gradient-to-r from-amber-400 to-yellow-300 text-amber-900 font-bold shadow-md shadow-amber-400/50 animate-pulse whitespace-nowrap">
                               {championSlogan || '最帅的那一个'}
@@ -807,7 +814,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                               className={getClassColor(p.class)}
                               size={16}
                             />
-                            {p.name}
+                            {getDisplayName(p.name, p.displayName)}
                           </div>
                         )}
                       </TableCell>
@@ -867,7 +874,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                       <TableCell className="text-gray-400">{idx + 1}</TableCell>
                       <TableCell>
                         <div className={`font-semibold ${getClassColor(entry.playerClass)}`}>
-                          {entry.playerName || entry.playerId}
+                          {entry.playerDisplayName || entry.playerName || entry.playerId}
                         </div>
                       </TableCell>
                       <TableCell className="text-center text-gray-200">{entry.totalCount}</TableCell>

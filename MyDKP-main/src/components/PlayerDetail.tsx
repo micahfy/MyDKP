@@ -87,6 +87,7 @@ function renderReasonText(reason: string): ReactNode[] {
 }
 
 export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
+  const displayPlayerName = player.displayName || player.name;
   const [logs, setLogs] = useState<DkpLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -190,7 +191,7 @@ export function PlayerDetail({ player, open, onClose }: PlayerDetailProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3 text-2xl">
             <TalentIcon talent={player.talent} className={getClassColor(player.class)} size={20} />
-            <span>{player.name}</span>
+            <span>{displayPlayerName}</span>
             <span className="text-base text-gray-400">· {player.class}</span>
             <span className="text-base text-gray-400">
               · 天赋：{player.talent?.trim() ? player.talent : '待指派'}

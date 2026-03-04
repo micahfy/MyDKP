@@ -51,8 +51,10 @@ export function LootHistory({ teamSlug, teamId, teamName }: LootHistoryProps) {
     }
   };
 
+  const getDisplayItemName = (item: LootHistoryItem) => item.displayItemName || item.itemName;
+
   const filteredItems = items.filter(item =>
-    item.itemName.toLowerCase().includes(searchQuery.toLowerCase())
+    getDisplayItemName(item).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -133,7 +135,9 @@ export function LootHistory({ teamSlug, teamId, teamName }: LootHistoryProps) {
                     onClick={() => setSelectedItem(item)}
                   >
                     <TableCell className="text-gray-400 font-medium">#{index + 1}</TableCell>
-                    <TableCell className="text-purple-300 font-medium">{item.itemName}</TableCell>
+                    <TableCell className="text-purple-300 font-medium">
+                      {getDisplayItemName(item)}
+                    </TableCell>
                     <TableCell className="text-right">
                       <span className="text-purple-400 font-bold text-lg">
                         {item.avgPrice.toFixed(1)}

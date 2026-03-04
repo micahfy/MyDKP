@@ -13,6 +13,7 @@ export interface Team {
 export interface Player {
   id: string;
   name: string;
+  displayName?: string;
   class: string;
   talent?: string | null;
   currentDkp: number;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { LootHistoryResponse } from '@/types/loot';
+import { maskSensitiveTextForDisplay } from '@/lib/sensitiveKeywords';
 
 export const dynamic = 'force-dynamic';
 
@@ -125,6 +126,7 @@ export async function GET(request: NextRequest) {
         timestamp: log.createdAt.toISOString(),
         price: Math.abs(log.change || 0),
         player: log.player.name,
+        displayPlayer: maskSensitiveTextForDisplay(log.player.name),
         date: log.createdAt.toISOString().split('T')[0]
       }));
 
@@ -135,6 +137,7 @@ export async function GET(request: NextRequest) {
 
       return {
         itemName,
+        displayItemName: maskSensitiveTextForDisplay(itemName),
         dropCount: logs.length,
         priceHistory,
         avgPrice: Math.round(avgPrice * 100) / 100,

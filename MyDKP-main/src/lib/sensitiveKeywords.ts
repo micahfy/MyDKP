@@ -196,8 +196,8 @@ export function reloadSensitiveKeywordMatcher() {
   return getSensitiveKeywordStats();
 }
 
-export function matchSensitiveKeywords(rawText: string): string[] {
-  if (!isSensitiveAlertEnabled()) {
+function matchSensitiveKeywordsInternal(rawText: string, ignoreEnabledFlag: boolean): string[] {
+  if (!ignoreEnabledFlag && !isSensitiveAlertEnabled()) {
     return [];
   }
 
@@ -215,4 +215,25 @@ export function matchSensitiveKeywords(rawText: string): string[] {
   const matched = matcher.match(normalizedText);
   setCachedMatch(normalizedText, matched);
   return matched;
+}
+
+export function matchSensitiveKeywords(rawText: string): string[] {
+  return matchSensitiveKeywordsInternal(rawText, false);
+}
+
+export function matchSensitiveKeywordsForDisplay(rawText: string): string[] {
+  return matchSensitiveKeywordsInternal(rawText, true);
+}
+
+export function maskSensitiveTextForDisplay(rawText: string, placeholder = '*') {
+  const text = String(rawText || '');
+  if (!text) return text;
+
+  if (matchSensitiveKeywordsForDisplay(text).length === 0) {
+    return text;
+  }
+
+  const maskChar = placeholder || '*';
+  const length = Array.from(text).length;
+  return maskChar.repeat(Math.max(length, 1));
 }

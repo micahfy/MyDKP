@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hasTeamPermission, getSession } from '@/lib/auth';
+import { maskSensitiveTextForDisplay } from '@/lib/sensitiveKeywords';
 export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
@@ -70,12 +71,24 @@ export async function GET(request: NextRequest) {
 
       return {
         ...rest,
+        player: rest.player
+          ? {
+              ...rest.player,
+              name: maskSensitiveTextForDisplay(rest.player.name),
+            }
+          : rest.player,
+        deletedByAdmin: rest.deletedByAdmin
+          ? {
+              ...rest.deletedByAdmin,
+              username: maskSensitiveTextForDisplay(rest.deletedByAdmin.username),
+            }
+          : rest.deletedByAdmin,
         change: effectiveChange,
-        reason: effectiveReason,
-        item: effectiveItem,
-        boss: effectiveBoss,
+        reason: effectiveReason ? maskSensitiveTextForDisplay(effectiveReason) : effectiveReason,
+        item: effectiveItem ? maskSensitiveTextForDisplay(effectiveItem) : effectiveItem,
+        boss: effectiveBoss ? maskSensitiveTextForDisplay(effectiveBoss) : effectiveBoss,
         createdAt: effectiveCreatedAt,
-        operator: effectiveOperator,
+        operator: maskSensitiveTextForDisplay(effectiveOperator),
       };
     });
 
