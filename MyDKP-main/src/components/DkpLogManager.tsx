@@ -96,6 +96,9 @@ export function DkpLogManager({ teams, currentTeamId, onChange }: DkpLogManagerP
   const [pageInput, setPageInput] = useState('');
   const [exporting, setExporting] = useState(false);
 
+  const getLogPlayerColorClass = (playerClass?: string | null, isSensitiveName?: boolean) =>
+    isSensitiveName ? 'text-gray-100' : getClassColor(playerClass || '');
+
   const selectableIds = useMemo(() => {
     if (viewMode === 'events') {
       return events.flatMap((event) =>
@@ -431,7 +434,10 @@ export function DkpLogManager({ teams, currentTeamId, onChange }: DkpLogManagerP
                         {inlinePlayers.map((player) => (
                           <span
                             key={player.id}
-                            className={`font-semibold ${getClassColor(player.playerClass || '')}`}
+                            className={`font-semibold ${getLogPlayerColorClass(
+                              player.playerClass,
+                              player.isSensitiveName,
+                            )}`}
                           >
                             {player.playerName || '-'}
                           </span>
@@ -487,7 +493,14 @@ export function DkpLogManager({ teams, currentTeamId, onChange }: DkpLogManagerP
                                       />
                                     )}
                                   </TableCell>
-                                  <TableCell>{player.playerName || '-'}</TableCell>
+                                  <TableCell
+                                    className={`font-semibold ${getLogPlayerColorClass(
+                                      player.playerClass,
+                                      player.isSensitiveName,
+                                    )}`}
+                                  >
+                                    {player.playerName || '-'}
+                                  </TableCell>
                                   <TableCell className={player.change >= 0 ? 'text-green-500' : 'text-red-400'}>
                                     {player.change >= 0 ? '+' : ''}
                                     {player.change.toFixed(2)}
