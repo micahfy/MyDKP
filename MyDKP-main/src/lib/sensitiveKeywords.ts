@@ -9,13 +9,21 @@ type TrieNode = {
 
 const DEFAULT_KEYWORD_FILE_PATH = path.join(process.cwd(), 'config', 'sensitive_keywords.txt');
 const DEFAULT_CACHE_SIZE = 5000;
+const DEFAULT_MIN_KEYWORD_LENGTH = 2;
 
 let matcher: AhoCorasickMatcher | null = null;
 let keywordFileMtimeMs = -1;
 let loadedKeywordCount = 0;
 let loadedAtIso = '';
+let loadedMinKeywordLength = -1;
 
 const matchCache = new Map<string, string[]>();
+
+type MatchRange = {
+  start: number;
+  end: number;
+  keyword: string;
+};
 
 class AhoCorasickMatcher {
   private readonly nodes: TrieNode[] = [{ next: new Map(), fail: 0, outputs: [] }];
@@ -102,6 +110,40 @@ class AhoCorasickMatcher {
 
     return [...hits];
   }
+
+  matchRanges(text: string): MatchRange[] {
+    if (!text) return [];
+
+    let state = 0;
+    let index = -1;
+    const ranges: MatchRange[] = [];
+
+    for (const ch of text) {
+      index += 1;
+
+      while (state !== 0 && !this.nodes[state].next.has(ch)) {
+        state = this.nodes[state].fail;
+      }
+
+      if (this.nodes[state].next.has(ch)) {
+        state = this.nodes[state].next.get(ch)!;
+      } else {
+        state = 0;
+      }
+
+      if (this.nodes[state].outputs.length > 0) {
+        for (const keyword of this.nodes[state].outputs) {
+          const keywordLength = Array.from(keyword).length;
+          const start = index - keywordLength + 1;
+          if (start >= 0) {
+            ranges.push({ start, end: index + 1, keyword });
+          }
+        }
+      }
+    }
+
+    return ranges;
+  }
 }
 
 function getKeywordFilePath() {
@@ -116,6 +158,13 @@ function toBool(value: string | undefined, defaultValue = false) {
 function getCacheSizeLimit() {
   const configured = Number(process.env.SENSITIVE_TEXT_CACHE_SIZE || DEFAULT_CACHE_SIZE);
   return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : DEFAULT_CACHE_SIZE;
+}
+
+function getMinKeywordLength() {
+  const configured = Number(process.env.SENSITIVE_MIN_KEYWORD_LENGTH || DEFAULT_MIN_KEYWORD_LENGTH);
+  return Number.isFinite(configured) && configured >= 1
+    ? Math.floor(configured)
+    : DEFAULT_MIN_KEYWORD_LENGTH;
 }
 
 function setCachedMatch(normalizedText: string, matched: string[]) {
@@ -134,7 +183,7 @@ function setCachedMatch(normalizedText: string, matched: string[]) {
   }
 }
 
-function parseKeywordFile(filePath: string): { mtimeMs: number; keywords: string[] } {
+function parseKeywordFile(filePath: string, minKeywordLength: number): { mtimeMs: number; keywords: string[] } {
   if (!fs.existsSync(filePath)) {
     return { mtimeMs: -1, keywords: [] };
   }
@@ -147,7 +196,7 @@ function parseKeywordFile(filePath: string): { mtimeMs: number; keywords: string
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
     const normalized = normalizeSensitiveText(trimmed);
-    if (normalized) {
+    if (normalized && Array.from(normalized).length >= minKeywordLength) {
       keywordSet.add(normalized);
     }
   }
@@ -157,8 +206,13 @@ function parseKeywordFile(filePath: string): { mtimeMs: number; keywords: string
 
 function loadMatcherIfNeeded(force = false) {
   const filePath = getKeywordFilePath();
-  const parsed = parseKeywordFile(filePath);
-  const shouldReload = force || parsed.mtimeMs !== keywordFileMtimeMs || matcher === null;
+  const minKeywordLength = getMinKeywordLength();
+  const parsed = parseKeywordFile(filePath, minKeywordLength);
+  const shouldReload =
+    force ||
+    parsed.mtimeMs !== keywordFileMtimeMs ||
+    matcher === null ||
+    loadedMinKeywordLength !== minKeywordLength;
 
   if (!shouldReload) return;
 
@@ -166,6 +220,7 @@ function loadMatcherIfNeeded(force = false) {
   keywordFileMtimeMs = parsed.mtimeMs;
   loadedKeywordCount = parsed.keywords.length;
   loadedAtIso = new Date().toISOString();
+  loadedMinKeywordLength = minKeywordLength;
   matchCache.clear();
 }
 
@@ -186,6 +241,7 @@ export function getSensitiveKeywordStats() {
     enabled: isSensitiveAlertEnabled(),
     filePath: getKeywordFilePath(),
     keywordCount: loadedKeywordCount,
+    minKeywordLength: loadedMinKeywordLength > 0 ? loadedMinKeywordLength : getMinKeywordLength(),
     loadedAt: loadedAtIso,
     cacheSize: matchCache.size,
   };
@@ -229,11 +285,43 @@ export function maskSensitiveTextForDisplay(rawText: string, placeholder = '*') 
   const text = String(rawText || '');
   if (!text) return text;
 
-  if (matchSensitiveKeywordsForDisplay(text).length === 0) {
+  loadMatcherIfNeeded(false);
+  if (!matcher) return text;
+
+  const rawChars = Array.from(text);
+  const normalizedChars: string[] = [];
+  const normalizedIndexToRawIndex: number[] = [];
+
+  for (let rawIndex = 0; rawIndex < rawChars.length; rawIndex += 1) {
+    const normalizedChunk = normalizeSensitiveText(rawChars[rawIndex]);
+    if (!normalizedChunk) continue;
+    for (const normalizedChar of normalizedChunk) {
+      normalizedChars.push(normalizedChar);
+      normalizedIndexToRawIndex.push(rawIndex);
+    }
+  }
+
+  if (normalizedChars.length === 0) {
     return text;
   }
 
+  const ranges = matcher.matchRanges(normalizedChars.join(''));
+  if (ranges.length === 0) return text;
+
+  const maskedRawIndexes = new Set<number>();
+  for (const range of ranges) {
+    for (let i = range.start; i < range.end; i += 1) {
+      const rawIndex = normalizedIndexToRawIndex[i];
+      if (rawIndex !== undefined) {
+        maskedRawIndexes.add(rawIndex);
+      }
+    }
+  }
+
+  if (maskedRawIndexes.size === 0) return text;
+
   const maskChar = placeholder || '*';
-  const length = Array.from(text).length;
-  return maskChar.repeat(Math.max(length, 1));
+  return rawChars
+    .map((char, index) => (maskedRawIndexes.has(index) ? maskChar : char))
+    .join('');
 }
