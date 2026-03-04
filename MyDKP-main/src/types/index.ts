@@ -13,6 +13,7 @@ export interface Team {
 export interface Player {
   id: string;
   name: string;
+  isSensitiveName?: boolean;
   class: string;
   talent?: string | null;
   currentDkp: number;
@@ -47,6 +48,7 @@ export interface DkpLog {
   decayHistoryId?: string | null;
   player?: {
     name: string;
+    isSensitiveName?: boolean;
   };
 }
 
@@ -66,6 +68,7 @@ export interface DkpEventLog {
     playerId: string;
     playerName: string;
     playerClass?: string | null;
+    isSensitiveName?: boolean;
     isDeleted: boolean;
     change: number;
     reason?: string | null;

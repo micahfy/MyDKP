@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdmin, getSession, getAdminTeams } from '@/lib/auth';
+import { matchSensitiveKeywords } from '@/lib/sensitiveKeywords';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,6 +10,17 @@ const MAX_PAGE_SIZE = 100;
 type TimeRangeFilter = 'latest_activity' | 'one_week' | 'two_weeks' | 'one_month' | 'half_year' | 'all';
 const ACTIVITY_SOURCE_TYPES = ['earn', 'makeup'] as const;
 const MASS_ACTIVITY_MIN_PLAYERS = 5;
+const sensitiveNameCache = new Map<string, boolean>();
+
+function isSensitivePlayerName(name: string | null | undefined) {
+  const normalized = String(name || '').trim();
+  if (!normalized) return false;
+  const cached = sensitiveNameCache.get(normalized);
+  if (cached !== undefined) return cached;
+  const matched = matchSensitiveKeywords(normalized).length > 0;
+  sensitiveNameCache.set(normalized, matched);
+  return matched;
+}
 
 function truncateToTwoDecimals(value: number): number {
   const factor = 100;
@@ -416,6 +428,12 @@ async function handleEntryView(options: {
 
     return {
       ...rest,
+      player: log.player
+        ? {
+            ...log.player,
+            isSensitiveName: isSensitivePlayerName(log.player.name),
+          }
+        : undefined,
       change: effectiveChange,
       reason: effectiveReason,
       item: effectiveItem,
@@ -539,6 +557,7 @@ async function handleEventView(options: {
         playerId: log.playerId,
         playerName: log.player?.name || '',
         playerClass: log.player?.class || null,
+        isSensitiveName: isSensitivePlayerName(log.player?.name),
         isDeleted: log.isDeleted,
         change: log.change ?? event.change,
         reason: log.reason ?? event.reason,

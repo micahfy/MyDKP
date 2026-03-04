@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { fetchFaultKeywordNames } from '@/lib/faultKeywords';
+import { matchSensitiveKeywords } from '@/lib/sensitiveKeywords';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,6 +75,7 @@ export async function GET(request: NextRequest) {
       {
         playerId: string;
         playerName: string;
+        isSensitiveName: boolean;
         playerClass: string;
         totalCount: number;
         totalScore: number;
@@ -115,6 +117,7 @@ export async function GET(request: NextRequest) {
         stats.set(player.id, {
           playerId: player.id,
           playerName: player.name,
+          isSensitiveName: matchSensitiveKeywords(player.name).length > 0,
           playerClass: player.class,
           totalCount: 0,
           totalScore: 0,

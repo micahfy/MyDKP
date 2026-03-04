@@ -4,6 +4,7 @@ import { isAdmin, hasTeamPermission } from '@/lib/auth';
 import { isTalentValidForClass, normalizeTalentName } from '@/lib/talents';
 import { normalizeWowClassName } from '@/lib/utils';
 import { queueSensitiveAlertIfNeeded } from '@/lib/sensitiveAlerts';
+import { matchSensitiveKeywords } from '@/lib/sensitiveKeywords';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +32,12 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const response = NextResponse.json(players);
+    const playersWithSensitiveFlag = players.map((player) => ({
+      ...player,
+      isSensitiveName: matchSensitiveKeywords(player.name).length > 0,
+    }));
+
+    const response = NextResponse.json(playersWithSensitiveFlag);
     
     // 添加缓存头
     response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');

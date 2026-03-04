@@ -50,6 +50,7 @@ interface PlayerTableProps {
 interface ShameRankEntry {
   playerId: string;
   playerName: string;
+  isSensitiveName?: boolean;
   playerClass: string;
   totalCount: number;
   totalScore: number;
@@ -420,6 +421,12 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
     setFilteredPlayers(filtered);
   };
 
+  const getPlayerNameColorClass = (className: string, isSensitiveName?: boolean) =>
+    isSensitiveName ? 'text-gray-100' : getClassColor(className);
+
+  const getPlayerIconColorClass = (className: string, isSensitiveName?: boolean) =>
+    isSensitiveName ? 'text-gray-300' : getClassColor(className);
+
   const formatWeekStat = (week: { count: number; score: number }) =>
     `${week.count}次/${formatPenalty(week.score)}分`;
 
@@ -637,11 +644,11 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                         {index === 0 && <Crown className="inline h-4 w-4 text-yellow-400 mr-1" />}
                         {index + 1}
                       </TableCell>
-                      <TableCell className={`font-bold ${getClassColor(player.class)}`}>
+                      <TableCell className={`font-bold ${getPlayerNameColorClass(player.class, player.isSensitiveName)}`}>
                         <div className="flex items-center gap-2">
                           <TalentIcon
                             talent={player.talent}
-                            className={getClassColor(player.class)}
+                            className={getPlayerIconColorClass(player.class, player.isSensitiveName)}
                             size={16}
                           />
                           {player.name}
@@ -708,7 +715,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                                     确认删除玩家？
                                   </AlertDialogTitle>
                                   <AlertDialogDescription className="text-gray-400">
-                                    此操作将删除 <strong className={getClassColor(player.class)}>{player.name}</strong> 的所有数据和DKP记录。此操作无法撤销！
+                                    此操作将删除 <strong className={getPlayerNameColorClass(player.class, player.isSensitiveName)}>{player.name}</strong> 的所有数据和DKP记录。此操作无法撤销！
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
@@ -785,13 +792,13 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                         {idx === 0 && <Crown className="h-4 w-4 text-yellow-300 drop-shadow mb-1 block" />}
                         {idx + 1}
                       </TableCell>
-                      <TableCell className={`font-semibold ${getClassColor(p.class)} flex flex-col gap-1`}>
+                      <TableCell className={`font-semibold ${getPlayerNameColorClass(p.class, p.isSensitiveName)} flex flex-col gap-1`}>
                         {isChampion ? (
                           <div className="flex flex-col items-start gap-1">
                             <div className="flex items-center gap-2">
                               <TalentIcon
                                 talent={p.talent}
-                                className={getClassColor(p.class)}
+                                className={getPlayerIconColorClass(p.class, p.isSensitiveName)}
                                 size={16}
                               />
                               {p.name}
@@ -804,7 +811,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                           <div className="flex items-center gap-2">
                             <TalentIcon
                               talent={p.talent}
-                              className={getClassColor(p.class)}
+                              className={getPlayerIconColorClass(p.class, p.isSensitiveName)}
                               size={16}
                             />
                             {p.name}
@@ -866,7 +873,7 @@ export function PlayerTable({ teamId, isAdmin = false, refreshKey = 0 }: PlayerT
                     <TableRow key={entry.playerId} className="hover:bg-red-950/20">
                       <TableCell className="text-gray-400">{idx + 1}</TableCell>
                       <TableCell>
-                        <div className={`font-semibold ${getClassColor(entry.playerClass)}`}>
+                        <div className={`font-semibold ${getPlayerNameColorClass(entry.playerClass, entry.isSensitiveName)}`}>
                           {entry.playerName || entry.playerId}
                         </div>
                       </TableCell>
