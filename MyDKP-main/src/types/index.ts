@@ -66,6 +66,7 @@ export interface DkpEventLog {
     id: string;
     playerId: string;
     playerName: string;
+    isSensitiveName?: boolean;
     playerClass?: string | null;
     isDeleted: boolean;
     change: number;
