@@ -183,12 +183,19 @@ function setCachedMatch(normalizedText: string, matched: string[]) {
   }
 }
 
-function parseKeywordFile(filePath: string, minKeywordLength: number): { mtimeMs: number; keywords: string[] } {
+function getKeywordFileMtimeMs(filePath: string) {
+  try {
+    return fs.statSync(filePath).mtimeMs;
+  } catch {
+    return -1;
+  }
+}
+
+function parseKeywordFile(filePath: string, minKeywordLength: number): string[] {
   if (!fs.existsSync(filePath)) {
-    return { mtimeMs: -1, keywords: [] };
+    return [];
   }
 
-  const stat = fs.statSync(filePath);
   const content = fs.readFileSync(filePath, 'utf8');
   const keywordSet = new Set<string>();
 
@@ -201,24 +208,25 @@ function parseKeywordFile(filePath: string, minKeywordLength: number): { mtimeMs
     }
   }
 
-  return { mtimeMs: stat.mtimeMs, keywords: [...keywordSet] };
+  return [...keywordSet];
 }
 
 function loadMatcherIfNeeded(force = false) {
   const filePath = getKeywordFilePath();
   const minKeywordLength = getMinKeywordLength();
-  const parsed = parseKeywordFile(filePath, minKeywordLength);
+  const currentMtimeMs = getKeywordFileMtimeMs(filePath);
   const shouldReload =
     force ||
-    parsed.mtimeMs !== keywordFileMtimeMs ||
+    currentMtimeMs !== keywordFileMtimeMs ||
     matcher === null ||
     loadedMinKeywordLength !== minKeywordLength;
 
   if (!shouldReload) return;
 
-  matcher = parsed.keywords.length > 0 ? new AhoCorasickMatcher(parsed.keywords) : null;
-  keywordFileMtimeMs = parsed.mtimeMs;
-  loadedKeywordCount = parsed.keywords.length;
+  const keywords = currentMtimeMs === -1 ? [] : parseKeywordFile(filePath, minKeywordLength);
+  matcher = keywords.length > 0 ? new AhoCorasickMatcher(keywords) : null;
+  keywordFileMtimeMs = currentMtimeMs;
+  loadedKeywordCount = keywords.length;
   loadedAtIso = new Date().toISOString();
   loadedMinKeywordLength = minKeywordLength;
   matchCache.clear();
