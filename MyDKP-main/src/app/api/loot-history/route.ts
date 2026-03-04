@@ -8,10 +8,11 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const teamSlug = searchParams.get('teamSlug');
+    const teamId = searchParams.get('teamId');
     const weeks = parseInt(searchParams.get('weeks') || '8');
 
     // 验证参数
-    if (!teamSlug) {
+    if (!teamSlug && !teamId) {
       return NextResponse.json(
         { error: '缺少 teamSlug 参数' },
         { status: 400 }
@@ -26,10 +27,15 @@ export async function GET(request: NextRequest) {
     }
 
     // 根据 teamSlug 查询团队
-    const team = await prisma.team.findUnique({
-      where: { slug: teamSlug },
-      select: { id: true, name: true }
-    });
+    const team = teamId
+      ? await prisma.team.findUnique({
+          where: { id: teamId },
+          select: { id: true, name: true }
+        })
+      : await prisma.team.findUnique({
+          where: { slug: teamSlug! },
+          select: { id: true, name: true }
+        });
 
     if (!team) {
       return NextResponse.json(

@@ -33,42 +33,21 @@ export function LootHistoryDialog({
   onOpenChange,
 }: LootHistoryDialogProps) {
   const [items, setItems] = useState<LootHistoryItem[]>([]);
-  const [teamSlug, setTeamSlug] = useState<string>('');
   const [teamName, setTeamName] = useState<string>('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedItem, setSelectedItem] = useState<LootHistoryItem | null>(null);
 
   useEffect(() => {
-    if (open) {
-      fetchTeamInfo();
-    }
-  }, [open, teamId]);
-
-  const fetchTeamInfo = async () => {
-    try {
-      const res = await fetch(`/api/teams`);
-      const teams = await res.json();
-      const currentTeam = teams.find((t: any) => t.id === teamId);
-      if (currentTeam) {
-        setTeamSlug(currentTeam.slug || '');
-        setTeamName(currentTeam.name);
-      }
-    } catch (error) {
-      console.error('Failed to fetch team info:', error);
-    }
-  };
-
-  useEffect(() => {
-    if (open && teamSlug) {
+    if (open && teamId) {
       fetchItems();
     }
-  }, [open, teamSlug]);
+  }, [open, teamId]);
 
   const fetchItems = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/loot-history?teamSlug=${encodeURIComponent(teamSlug)}&weeks=8`);
+      const res = await fetch(`/api/loot-history?teamId=${encodeURIComponent(teamId)}&weeks=8`);
       const data = await res.json();
 
       if (!res.ok) {
@@ -76,10 +55,12 @@ export function LootHistoryDialog({
       }
 
       setItems(data.items || []);
+      setTeamName(data.teamName || '');
     } catch (error: any) {
       console.error('Fetch loot history error:', error);
       toast.error(error?.message || '获取装备历史失败');
       setItems([]);
+      setTeamName('');
     } finally {
       setLoading(false);
     }
