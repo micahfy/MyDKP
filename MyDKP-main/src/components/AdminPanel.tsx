@@ -14,6 +14,7 @@ import { LootLibrary } from './LootLibrary';
 import { WebdkpImportTab } from './WebdkpImportTab';
 import { EmailTemplateManagement } from './EmailTemplateManagement';
 import { JoinRequestManagement } from './JoinRequestManagement';
+import { WebsiteSettings } from './WebsiteSettings';
 
 interface AdminPanelProps {
   teamId: string;
@@ -32,7 +33,19 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
   const availableTabs = useMemo(
     () =>
       isSuperAdmin
-        ? ['batch-import', 'import', 'decay', 'logs', 'webdkp', 'team', 'admins', 'loot', 'join', 'mail']
+        ? [
+            'batch-import',
+            'import',
+            'decay',
+            'logs',
+            'webdkp',
+            'team',
+            'admins',
+            'loot',
+            'join',
+            'mail',
+            'site',
+          ]
         : ['batch-import', 'import', 'decay', 'logs', 'webdkp'],
     [isSuperAdmin],
   );
@@ -169,7 +182,7 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
       </CardHeader>
       <CardContent className="pt-6">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className={`grid w-full ${isSuperAdmin ? 'grid-cols-10' : 'grid-cols-5'} bg-slate-800/50`}>
+          <TabsList className={`grid w-full ${isSuperAdmin ? 'grid-cols-11' : 'grid-cols-5'} bg-slate-800/50`}>
             <TabsTrigger value="batch-import" className="data-[state=active]:bg-blue-950">
               批量变动
             </TabsTrigger>
@@ -208,6 +221,11 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
             {isSuperAdmin && (
               <TabsTrigger value="mail" className="data-[state=active]:bg-purple-950">
                 邮件模板
+              </TabsTrigger>
+            )}
+            {isSuperAdmin && (
+              <TabsTrigger value="site" className="data-[state=active]:bg-purple-950">
+                网站设置
               </TabsTrigger>
             )}
           </TabsList>
@@ -259,6 +277,12 @@ export function AdminPanel({ teamId, teams, adminRole, onUpdate }: AdminPanelPro
           {isSuperAdmin && (
             <TabsContent value="mail" className="space-y-4">
               <EmailTemplateManagement />
+            </TabsContent>
+          )}
+
+          {isSuperAdmin && (
+            <TabsContent value="site" className="space-y-4">
+              <WebsiteSettings />
             </TabsContent>
           )}
         </Tabs>

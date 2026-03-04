@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,6 +33,103 @@ interface NavbarProps {
   onLoginSuccess?: () => void | Promise<void>;
 }
 
+type LoginCaptchaConfig = {
+  required: boolean;
+  enabled: boolean;
+  emergencyBypass: boolean;
+  configured: boolean;
+  identity: string;
+  sceneId: string;
+  region: string;
+};
+
+type AliyunCaptchaInstance = {
+  refresh?: () => void;
+};
+
+type AliyunCaptchaInitOptions = {
+  SceneId: string;
+  mode: 'popup';
+  element: string;
+  button: string;
+  server: string[];
+  success?: (captchaVerifyParam: string) => void;
+  fail?: (errorInfo: unknown) => void;
+  onClose?: () => void;
+  onError?: (errorInfo: unknown) => void;
+  getInstance?: (instance: AliyunCaptchaInstance) => void;
+};
+
+declare global {
+  interface Window {
+    AliyunCaptchaConfig?: {
+      region: string;
+      prefix: string;
+    };
+    initAliyunCaptcha?: (options: AliyunCaptchaInitOptions) => void;
+  }
+}
+
+const CAPTCHA_SCRIPT_ID = 'aliyun-esa-captcha-script';
+const CAPTCHA_TRIGGER_ID = 'admin-login-captcha-trigger';
+const CAPTCHA_ELEMENT_ID = 'admin-login-captcha-element';
+const DEFAULT_LOGIN_CAPTCHA_CONFIG: LoginCaptchaConfig = {
+  required: false,
+  enabled: false,
+  emergencyBypass: false,
+  configured: false,
+  identity: '',
+  sceneId: '',
+  region: 'cn',
+};
+
+let captchaScriptLoadingPromise: Promise<void> | null = null;
+
+function loadAliyunCaptchaScript(region: string, prefix: string) {
+  if (typeof window === 'undefined') {
+    return Promise.resolve();
+  }
+
+  window.AliyunCaptchaConfig = { region, prefix };
+
+  if (typeof window.initAliyunCaptcha === 'function') {
+    return Promise.resolve();
+  }
+
+  if (captchaScriptLoadingPromise) {
+    return captchaScriptLoadingPromise;
+  }
+
+  captchaScriptLoadingPromise = new Promise<void>((resolve, reject) => {
+    const existingScript = document.getElementById(CAPTCHA_SCRIPT_ID) as HTMLScriptElement | null;
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve(), { once: true });
+      existingScript.addEventListener(
+        'error',
+        () => {
+          captchaScriptLoadingPromise = null;
+          reject(new Error('加载阿里云验证码脚本失败'));
+        },
+        { once: true },
+      );
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.id = CAPTCHA_SCRIPT_ID;
+    script.src = 'https://o.alicdn.com/captcha-frontend/aliyunCaptcha/AliyunCaptcha.js';
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => {
+      captchaScriptLoadingPromise = null;
+      reject(new Error('加载阿里云验证码脚本失败'));
+    };
+    document.head.appendChild(script);
+  });
+
+  return captchaScriptLoadingPromise;
+}
+
 export function Navbar({
   teams,
   selectedTeam,
@@ -48,10 +145,20 @@ export function Navbar({
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotIdentifier, setForgotIdentifier] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
+  const [captchaConfigLoading, setCaptchaConfigLoading] = useState(false);
+  const [captchaOpening, setCaptchaOpening] = useState(false);
+  const [captchaLayerOpen, setCaptchaLayerOpen] = useState(false);
+  const [loginCaptchaConfig, setLoginCaptchaConfig] = useState<LoginCaptchaConfig>(
+    DEFAULT_LOGIN_CAPTCHA_CONFIG,
+  );
   const [currentUser, setCurrentUser] = useState<{
     username: string;
     role: string;
   } | null>(null);
+
+  const captchaInstanceRef = useRef<AliyunCaptchaInstance | null>(null);
+  const captchaInitSignatureRef = useRef('');
+  const pendingCredentialsRef = useRef<{ username: string; password: string } | null>(null);
 
   useEffect(() => {
     if (isAdmin) {
@@ -60,6 +167,13 @@ export function Navbar({
       setCurrentUser(null);
     }
   }, [isAdmin]);
+
+  useEffect(() => {
+    if (!isLoginOpen || isAdmin) {
+      return;
+    }
+    void fetchLoginCaptchaConfig();
+  }, [isLoginOpen, isAdmin]);
 
   const fetchCurrentUser = async () => {
     try {
@@ -76,18 +190,69 @@ export function Navbar({
     }
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const fetchLoginCaptchaConfig = async () => {
+    setCaptchaConfigLoading(true);
+    try {
+      const res = await fetch('/api/auth/login-captcha-config', { cache: 'no-store' });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || '获取验证码配置失败');
+      }
+      setLoginCaptchaConfig({
+        required: Boolean(data.required),
+        enabled: Boolean(data.enabled),
+        emergencyBypass: Boolean(data.emergencyBypass),
+        configured: Boolean(data.configured),
+        identity: String(data.identity || '').trim(),
+        sceneId: String(data.sceneId || '').trim(),
+        region: String(data.region || 'cn').trim() || 'cn',
+      });
+    } catch (error: any) {
+      console.error('Fetch login captcha config failed:', error);
+      toast.error(error?.message || '获取验证码配置失败');
+      setLoginCaptchaConfig(DEFAULT_LOGIN_CAPTCHA_CONFIG);
+    } finally {
+      setCaptchaConfigLoading(false);
+    }
+  };
+
+  const submitLogin = async (
+    credentials: { username: string; password: string },
+    captchaVerifyParam?: string,
+  ) => {
     setLoading(true);
 
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (captchaVerifyParam) {
+        headers.captcha_verify_param = captchaVerifyParam;
+      }
+
       const res = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        headers,
+        body: JSON.stringify({
+          username: credentials.username,
+          password: credentials.password,
+          captchaVerifyParam: captchaVerifyParam || '',
+        }),
       });
 
+      const verifyCode = (res.headers.get('x-captcha-verify-code') || '').trim().toUpperCase();
+      const serverCaptchaRequired = res.headers.get('x-admin-login-captcha-required') === '1';
       const data = await res.json();
+
+      if (loginCaptchaConfig.required || serverCaptchaRequired) {
+        const host = typeof window !== 'undefined' ? window.location.hostname : '';
+        const isLocalDirectHost = host === 'localhost' || host === '127.0.0.1';
+        const verifyPassed = verifyCode === 'T001' || (isLocalDirectHost && !verifyCode);
+
+        if (!verifyPassed) {
+          toast.error(`拼图验证码校验失败${verifyCode ? `（${verifyCode}）` : ''}`);
+          captchaInstanceRef.current?.refresh?.();
+          return;
+        }
+      }
 
       if (res.ok) {
         toast.success('登录成功');
@@ -108,7 +273,128 @@ export function Navbar({
       toast.error('登录失败，请重试');
     } finally {
       setLoading(false);
+      setCaptchaOpening(false);
+      setCaptchaLayerOpen(false);
+      pendingCredentialsRef.current = null;
     }
+  };
+
+  const ensureCaptchaReady = async () => {
+    if (!loginCaptchaConfig.configured) {
+      toast.error('管理员登录验证码已开启，但 ESA 参数未配置完整');
+      return false;
+    }
+
+    const signature = `${loginCaptchaConfig.region}|${loginCaptchaConfig.identity}|${loginCaptchaConfig.sceneId}`;
+    if (captchaInstanceRef.current && captchaInitSignatureRef.current === signature) {
+      return true;
+    }
+
+    setCaptchaOpening(true);
+    try {
+      await loadAliyunCaptchaScript(loginCaptchaConfig.region, loginCaptchaConfig.identity);
+      if (typeof window.initAliyunCaptcha !== 'function') {
+        throw new Error('验证码 SDK 未加载');
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        let settled = false;
+        const done = (error?: Error) => {
+          if (settled) return;
+          settled = true;
+          if (error) {
+            reject(error);
+          } else {
+            resolve();
+          }
+        };
+
+        window.initAliyunCaptcha?.({
+          SceneId: loginCaptchaConfig.sceneId,
+          mode: 'popup',
+          element: `#${CAPTCHA_ELEMENT_ID}`,
+          button: `#${CAPTCHA_TRIGGER_ID}`,
+          server: ['captcha-esa-open.aliyuncs.com', 'captcha-esa-open-b.aliyuncs.com'],
+          success: (captchaVerifyParam: string) => {
+            const pending = pendingCredentialsRef.current;
+            if (!pending) {
+              toast.error('登录信息已失效，请重新点击登录');
+              setCaptchaLayerOpen(false);
+              return;
+            }
+            void submitLogin(pending, captchaVerifyParam);
+          },
+          fail: (errorInfo: unknown) => {
+            console.error('captcha verify fail:', errorInfo);
+            toast.error('验证码未通过，请重试');
+            setCaptchaLayerOpen(false);
+          },
+          onClose: () => {
+            setCaptchaLayerOpen(false);
+          },
+          onError: (errorInfo: unknown) => {
+            console.error('captcha init error:', errorInfo);
+            done(new Error('验证码初始化失败'));
+          },
+          getInstance: (instance: AliyunCaptchaInstance) => {
+            captchaInstanceRef.current = instance;
+            captchaInitSignatureRef.current = signature;
+            done();
+          },
+        });
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Ensure captcha ready failed:', error);
+      toast.error('验证码初始化失败，请稍后再试');
+      return false;
+    } finally {
+      setCaptchaOpening(false);
+    }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loading || captchaOpening) {
+      return;
+    }
+
+    const trimmedUsername = username.trim();
+    if (!trimmedUsername || !password) {
+      toast.error('请输入用户名和密码');
+      return;
+    }
+
+    const credentials = {
+      username: trimmedUsername,
+      password,
+    };
+    pendingCredentialsRef.current = credentials;
+
+    if (!loginCaptchaConfig.required) {
+      await submitLogin(credentials);
+      return;
+    }
+
+    if (captchaConfigLoading) {
+      toast.warning('验证码配置加载中，请稍后重试');
+      return;
+    }
+
+    const ready = await ensureCaptchaReady();
+    if (!ready) {
+      return;
+    }
+
+    const trigger = document.getElementById(CAPTCHA_TRIGGER_ID);
+    if (!trigger) {
+      toast.error('验证码触发器未找到，请刷新页面重试');
+      return;
+    }
+
+    setCaptchaLayerOpen(true);
+    (trigger as HTMLButtonElement).click();
   };
 
   const handleForgotPassword = async () => {
@@ -154,6 +440,8 @@ export function Navbar({
     if (!open) {
       setShowForgotPassword(false);
       setForgotIdentifier('');
+      setCaptchaLayerOpen(false);
+      pendingCredentialsRef.current = null;
     }
   };
 
@@ -231,7 +519,15 @@ export function Navbar({
                     管理员登录
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="bg-slate-800 border-blue-900">
+                <DialogContent
+                  className="bg-slate-800 border-blue-900"
+                  onInteractOutside={(event) => event.preventDefault()}
+                  onEscapeKeyDown={(event) => {
+                    if (loading || captchaLayerOpen || captchaOpening) {
+                      event.preventDefault();
+                    }
+                  }}
+                >
                   <DialogHeader>
                     <DialogTitle className="text-gray-100 flex items-center space-x-2">
                       <Shield className="h-5 w-5 text-blue-400" />
@@ -262,6 +558,24 @@ export function Navbar({
                         className="bg-slate-900/50 border-blue-900 text-gray-200"
                       />
                     </div>
+
+                    {loginCaptchaConfig.required && (
+                      <div className="rounded border border-blue-800/60 bg-blue-950/30 px-3 py-2 text-xs text-blue-200">
+                        已启用 ESA 拼图验证码，点击登录后会先完成验证。
+                      </div>
+                    )}
+                    {loginCaptchaConfig.required && !loginCaptchaConfig.configured && (
+                      <div className="rounded border border-red-800/60 bg-red-950/30 px-3 py-2 text-xs text-red-200">
+                        当前已启用验证码，但环境变量未完整配置（需 ESA_AI_CAPTCHA_IDENTITY / SCENE_ID /
+                        REGION）。
+                      </div>
+                    )}
+                    {loginCaptchaConfig.emergencyBypass && (
+                      <div className="rounded border border-amber-800/60 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
+                        紧急恢复开关已启用，当前管理员登录不要求验证码。
+                      </div>
+                    )}
+
                     <div className="space-y-2">
                       <Button
                         type="button"
@@ -294,12 +608,30 @@ export function Navbar({
                         </div>
                       )}
                     </div>
+
+                    <div id={CAPTCHA_ELEMENT_ID} className="hidden" aria-hidden="true" />
+                    <button
+                      id={CAPTCHA_TRIGGER_ID}
+                      type="button"
+                      tabIndex={-1}
+                      className="absolute -left-[9999px] top-0 h-0 w-0 overflow-hidden"
+                      aria-hidden="true"
+                    >
+                      captcha trigger
+                    </button>
+
                     <Button
                       type="submit"
                       className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                      disabled={loading}
+                      disabled={loading || captchaOpening || captchaConfigLoading}
                     >
-                      {loading ? '登录中...' : '登录'}
+                      {loading
+                        ? '登录中...'
+                        : captchaOpening
+                          ? '拉起验证码中...'
+                          : loginCaptchaConfig.required
+                            ? '验证并登录'
+                            : '登录'}
                     </Button>
                   </form>
                 </DialogContent>
