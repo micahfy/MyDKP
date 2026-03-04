@@ -577,7 +577,16 @@ export function WebdkpImportTab({ teams }: WebdkpImportTabProps) {
                       <th className="px-3 py-2 text-left">分数</th>
                       <th className="px-3 py-2 text-left">人数</th>
                       <th className="px-3 py-2 text-left">玩家列表</th>
-                      <th className="px-3 py-2 text-left">操作</th>
+                      <th className="px-3 py-2 text-left">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={allFilteredSelected}
+                            onChange={(e) => selectAllFiltered(e.target.checked)}
+                          />
+                          <span>??</span>
+                        </div>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
