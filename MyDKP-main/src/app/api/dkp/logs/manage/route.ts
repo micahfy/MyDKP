@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdmin, getSession, getAdminTeams } from '@/lib/auth';
 import { matchSensitiveKeywords } from '@/lib/sensitiveKeywords';
+import { recalculateTeamAttendance } from '@/lib/attendance';
 
 export const dynamic = 'force-dynamic';
 
@@ -676,6 +677,7 @@ export async function DELETE(request: NextRequest) {
     const now = new Date();
     const logIdsToDelete = logsToDelete.map((log) => log.id);
     const affectedPlayerIds = [...new Set(logsToDelete.map((log) => log.playerId))];
+    const affectedTeamIds = [...new Set(logsToDelete.map((log) => log.teamId))];
 
     await prisma.$transaction(async (tx) => {
       await tx.dkpLog.updateMany({
@@ -722,6 +724,8 @@ export async function DELETE(request: NextRequest) {
         });
       }
     });
+
+    await Promise.all(affectedTeamIds.map((teamId) => recalculateTeamAttendance(teamId)));
 
     return NextResponse.json({ success: true, deleted: logsToDelete.length });
   } catch (error) {

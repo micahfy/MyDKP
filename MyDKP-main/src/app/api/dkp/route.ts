@@ -113,9 +113,7 @@ export async function POST(request: NextRequest) {
       },
     ]);
 
-    if (type === 'attendance') {
-      await recalculateTeamAttendance(teamId);
-    }
+    await recalculateTeamAttendance(teamId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

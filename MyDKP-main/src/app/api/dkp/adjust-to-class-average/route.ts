@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdmin, hasTeamPermission, getSession } from '@/lib/auth';
 import { queueSensitiveAlertsIfNeeded } from '@/lib/sensitiveAlerts';
+import { recalculateTeamAttendance } from '@/lib/attendance';
 
 export const dynamic = 'force-dynamic';
 
@@ -122,6 +123,8 @@ export async function POST(request: NextRequest) {
         },
       ]);
 
+      await recalculateTeamAttendance(teamId);
+
       return NextResponse.json({
         success: true,
         player: player.name,
@@ -192,6 +195,8 @@ export async function POST(request: NextRequest) {
         sourceId: createdLogId,
       },
     ]);
+
+    await recalculateTeamAttendance(teamId);
 
     return NextResponse.json({
       success: true,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdmin, hasTeamPermission, getSession } from '@/lib/auth';
 import { queueSensitiveAlertsIfNeeded, type SensitiveAlertInput } from '@/lib/sensitiveAlerts';
+import { recalculateTeamAttendance } from '@/lib/attendance';
 export const dynamic = 'force-dynamic';
 
 function truncateToTwoDecimals(value: number): number {
@@ -121,6 +122,7 @@ export async function POST(request: NextRequest) {
     });
 
     await queueSensitiveAlertsIfNeeded(pendingSensitiveInputs);
+    await recalculateTeamAttendance(teamId);
 
     return NextResponse.json({ success: true, affected: players.length });
   } catch (error) {
